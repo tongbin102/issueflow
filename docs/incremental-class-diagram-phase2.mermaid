@@ -1,0 +1,256 @@
+classDiagram
+    %% ===== 基类 =====
+    class BaseEntity {
+        +Long id
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+        +Integer deleted
+    }
+    class Menu {
+        +String name
+        +String path
+        +Long parentId
+        +Integer sort
+        +String permission
+        +String icon
+        +Integer type
+    }
+    class Issue {
+        +String issueNo
+        +String title
+        +Integer severity
+        +Integer status
+        +Long reporterId
+        +Long assigneeId
+        +Long projectId
+    }
+    class Role {
+        +String code
+        +String name
+        +String description
+    }
+
+    %% ===== Phase2 新增实体 =====
+    class IssueRelation {
+        +Long issueId
+        +Long relatedId
+        +Integer relType
+    }
+    class Permission {
+        +String code
+        +String name
+        +String module
+        +String action
+        +Integer type
+        +Integer sort
+    }
+    class RolePermission {
+        +Long roleId
+        +Long permissionId
+    }
+
+    %% ===== 复用既有实体（仅展示关联） =====
+    class User {
+        +String username
+        +Long roleId
+    }
+
+    %% ===== req DTO =====
+    class MenuReq {
+        +String name
+        +String path
+        +Long parentId
+        +Integer sort
+        +String permission
+        +String icon
+        +Integer type
+    }
+    class IssueRelationReq {
+        +List~Long~ predecessorIds
+        +List~Long~ successorIds
+    }
+    class RoleReq {
+        +String code
+        +String name
+        +String description
+    }
+    class RolePermissionReq {
+        +List~String~ permissionCodes
+    }
+
+    %% ===== resp DTO =====
+    class MenuVO {
+        +Long id
+        +String name
+        +String path
+        +Long parentId
+        +Integer sort
+        +String permission
+        +String icon
+        +Integer type
+    }
+    class MenuNodeVO {
+        +Long id
+        +String name
+        +String path
+        +Long parentId
+        +Integer sort
+        +String permission
+        +String icon
+        +Integer type
+        +List~MenuNodeVO~ children
+    }
+    class IssueRefVO {
+        +Long id
+        +String issueNo
+        +String title
+        +Integer status
+    }
+    class IssueRelationVO {
+        +List~IssueRefVO~ predecessors
+        +List~IssueRefVO~ successors
+    }
+    class RoleVO {
+        +Long id
+        +String code
+        +String name
+        +String description
+        +Integer permissionCount
+        +Boolean builtin
+    }
+    class PermissionVO {
+        +Long id
+        +String code
+        +String name
+        +String module
+        +String action
+        +Integer type
+        +Integer sort
+    }
+
+    %% ===== Service =====
+    class PermissionService {
+        +requirePermission(String... perms)
+        +Set~String~ getPermissions(Long roleId)
+        +void invalidate(Long roleId)
+        +void refreshAll()
+        -Map~String,Long~ roleCodeToId
+    }
+    class RoleService {
+        +List~RoleVO~ list()
+        +RoleVO create(RoleReq)
+        +RoleVO update(Long, RoleReq)
+        +void delete(Long)
+        +List~String~ getPermissions(Long)
+        +void assignPermissions(Long, List~String~)
+    }
+    class IssueRelationService {
+        +IssueRelationVO getRelations(Long)
+        +void saveRelations(Long, List~Long~, List~Long~, Long, String)
+        +List~IssueRefVO~ listOptions(Long)
+        -boolean wouldCreateCycle(Long, Long)
+    }
+    class MenuService {
+        +List~MenuVO~ listAll()
+        +List~MenuVO~ listByType(Integer)
+        +List~MenuNodeVO~ listSidebarTree(Integer)
+        +MenuVO create(MenuReq)
+        +MenuVO update(Long, MenuReq)
+        +void delete(Long)
+    }
+    class IssueService {
+        +IssueVO createIssue(...)
+        +IssueVO update(...)
+        +void delete(...)
+        +PageResult~IssueVO~ pageQuery(...)
+        +IssueDetailVO detail(...)
+    }
+    class ProjectService
+    class UserService
+    class OrganizationService
+    class SysConfigService
+
+    %% ===== Controller =====
+    class RoleController {
+        +GET /api/roles
+        +POST /api/roles
+        +PUT /api/roles/{id}
+        +DELETE /api/roles/{id}
+        +GET /api/roles/{id}/permissions
+        +PUT /api/roles/{id}/permissions
+        +POST /api/roles/permissions/refresh
+    }
+    class PermissionController {
+        +GET /api/permissions
+    }
+    class IssueController {
+        +GET /api/issues/{id}/relations
+        +PUT /api/issues/{id}/relations
+        +GET /api/issues/options
+    }
+    class MenuController {
+        +GET /api/menus
+        +GET /api/menus/sidebar
+        +POST /api/menus
+        +PUT /api/menus/{id}
+        +DELETE /api/menus/{id}
+    }
+    class UserController {
+        -GET /api/roles (已移除)
+    }
+
+    %% ===== Mapper =====
+    class IssueRelationMapper {
+        +List~Long~ selectIssueIdsByRelatedId(Long)
+        +void deleteByIssueId(Long)
+    }
+    class PermissionMapper
+    class RolePermissionMapper {
+        +List~String~ selectPermissionCodesByRoleId(Long)
+        +void deleteByRoleId(Long)
+    }
+
+    %% ===== 继承关系 =====
+    BaseEntity <|-- Menu
+    BaseEntity <|-- Issue
+    BaseEntity <|-- IssueRelation
+    MenuReq ..> Menu : 映射
+    IssueRelationReq ..> IssueRelation : 映射
+    RoleReq ..> Role : 映射
+
+    %% ===== 实体关联 =====
+    User "1" --> "1" Role : roleId
+    Role "1" --> "0..*" RolePermission : roleId
+    Permission "1" --> "0..*" RolePermission : permissionId
+    Issue "1" --> "0..*" IssueRelation : issueId(前置边)
+    IssueRelation ..> Issue : relatedId(前置)
+
+    %% ===== 服务依赖 =====
+    PermissionService ..> RoleMapper : 解析 code→id
+    PermissionService ..> PermissionMapper
+    PermissionService ..> RolePermissionMapper
+    RoleService --> PermissionService : invalidate
+    RoleService --> RoleMapper
+    RoleService --> RolePermissionMapper
+    RoleService --> PermissionMapper
+    IssueRelationService --> IssueRelationMapper
+    IssueRelationService --> IssueMapper
+    MenuService --> PermissionService : requirePermission
+    MenuService --> MenuMapper
+    IssueService --> PermissionService : requirePermission(过渡)
+    ProjectService --> PermissionService
+    UserService --> PermissionService
+    OrganizationService --> PermissionService
+    SysConfigService --> PermissionService
+
+    %% ===== 控制器依赖 =====
+    RoleController --> RoleService
+    PermissionController --> PermissionService
+    IssueController --> IssueRelationService
+    MenuController --> MenuService
+    RoleController ..> PermissionService : 鉴权
+
+    %% ===== Mapper 继承 =====
+    IssueRelationMapper ..|> BaseMapper : extends
+    PermissionMapper ..|> BaseMapper : extends
+    RolePermissionMapper ..|> BaseMapper : extends

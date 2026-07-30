@@ -32,4 +32,7 @@ public class Menu extends BaseEntity {
 
     /** 图标名（Element Plus icon 名） */
     private String icon;
+
+    /** 端维度：1=前台端 / 2=后台端（默认 2） */
+    private Integer type;
 }

@@ -12,57 +12,7 @@
         <span v-if="!collapsed">issueFlow 后台</span>
         <span v-else>IF</span>
       </div>
-      <el-menu
-        class="if-menu"
-        :default-active="activeMenu"
-        :collapse="collapsed"
-        :collapse-transition="false"
-        router
-        background-color="transparent"
-      >
-        <el-menu-item index="/admin/index">
-          <el-icon><DataLine /></el-icon>
-          <template #title>概览</template>
-        </el-menu-item>
-        <el-menu-item index="/admin/issues">
-          <el-icon><Tickets /></el-icon>
-          <template #title>问题管理</template>
-        </el-menu-item>
-        <el-menu-item index="/admin/projects">
-          <el-icon><Folder /></el-icon>
-          <template #title>项目管理</template>
-        </el-menu-item>
-        <el-menu-item index="/admin/flow-monitor">
-          <el-icon><Switch /></el-icon>
-          <template #title>流程监控</template>
-        </el-menu-item>
-        <el-sub-menu index="/admin/system">
-          <template #title>
-            <el-icon><Setting /></el-icon>
-            <span>系统管理</span>
-          </template>
-          <el-menu-item index="/admin/system/users">
-            <el-icon><User /></el-icon>
-            <template #title>用户管理</template>
-          </el-menu-item>
-          <el-menu-item index="/admin/system/organizations">
-            <el-icon><OfficeBuilding /></el-icon>
-            <template #title>组织管理</template>
-          </el-menu-item>
-          <el-menu-item index="/admin/system/menus">
-            <el-icon><Grid /></el-icon>
-            <template #title>菜单管理</template>
-          </el-menu-item>
-        </el-sub-menu>
-        <el-menu-item index="/admin/flow-config">
-          <el-icon><Tools /></el-icon>
-          <template #title>流程配置</template>
-        </el-menu-item>
-        <el-menu-item index="/admin/settings">
-          <el-icon><Brush /></el-icon>
-          <template #title>系统设置</template>
-        </el-menu-item>
-      </el-menu>
+      <SideMenu :type="2" />
       <!-- 侧栏底部「切换区域」次级入口（折叠态降级为纯图标） -->
       <LayoutSwitchEntry variant="sidebar" />
     </aside>
@@ -81,8 +31,6 @@
           <span class="topbar-title">{{ pageTitle }}</span>
         </div>
         <div class="topbar-right">
-          <!-- 顶栏「切换区域」入口（所有已登录用户可见），作为第一个子元素 -->
-          <LayoutSwitchEntry variant="topbar" />
           <el-dropdown @command="onCommand">
             <span class="user-dropdown">
               <el-avatar :size="28">{{ avatarText }}</el-avatar>
@@ -130,26 +78,12 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import {
-  DataLine,
-  Menu,
-  ArrowDown,
-  Tickets,
-  Switch,
-  User,
-  Setting,
-  Brush,
-  Tools,
-  Folder,
-  OfficeBuilding,
-  Grid,
-  Refresh,
-  SwitchButton
-} from '@element-plus/icons-vue'
+import { Menu, ArrowDown, User, Refresh, SwitchButton } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
 import { roleLabel } from '@/utils/format'
 import LayoutSwitchEntry from '@/components/LayoutSwitchEntry.vue'
+import SideMenu from '@/components/SideMenu.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -159,8 +93,6 @@ const appStore = useAppStore()
 const drawerOpen = ref(false)
 const profileVisible = ref(false)
 
-const collapsed = computed(() => appStore.sidebarCollapsed && !appStore.isMobile)
-const activeMenu = computed(() => route.path)
 const pageTitle = computed(() => route.meta.title || '管理后台')
 const realName = computed(() => userStore.realName)
 const avatarText = computed(() => (realName.value || 'A').charAt(0).toUpperCase())

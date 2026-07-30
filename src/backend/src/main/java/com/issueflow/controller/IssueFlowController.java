@@ -1,9 +1,6 @@
 package com.issueflow.controller;
 
-import com.issueflow.common.BizException;
-import com.issueflow.common.Constants;
 import com.issueflow.common.Result;
-import com.issueflow.common.ResultCode;
 import com.issueflow.dto.req.FlowConfigReq;
 import com.issueflow.dto.req.StatusChangeReq;
 import com.issueflow.dto.resp.IssueVO;
@@ -57,23 +54,15 @@ public class IssueFlowController {
      */
     @GetMapping("/flow/config")
     public Result<Map<String, Boolean>> getFlowConfig() {
-        requireAdmin();
         return Result.success(flowService.getFlowConfig());
     }
 
     /**
-     * 写入流程开关配置（ADMIN）
+     * 写入流程开关配置（flow:config）
      */
     @PutMapping("/flow/config")
     public Result<Void> putFlowConfig(@Valid @RequestBody FlowConfigReq req) {
-        requireAdmin();
         flowService.updateFlowConfig(req);
         return Result.success();
-    }
-
-    private void requireAdmin() {
-        if (!Constants.ROLE_ADMIN.equals(SecurityUtils.getCurrentRoleCode())) {
-            throw new BizException(ResultCode.PERMISSION_DENIED);
-        }
     }
 }

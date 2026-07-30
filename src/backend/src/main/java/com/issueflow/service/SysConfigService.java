@@ -7,6 +7,7 @@ import com.issueflow.common.ResultCode;
 import com.issueflow.dto.req.SysConfigReq;
 import com.issueflow.entity.SysConfig;
 import com.issueflow.mapper.SysConfigMapper;
+import com.issueflow.service.PermissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +24,7 @@ import java.util.Objects;
 public class SysConfigService {
 
     private final SysConfigMapper sysConfigMapper;
+    private final PermissionService permissionService;
 
     /**
      * 读取配置值（不存在返回 null）
@@ -71,6 +73,7 @@ public class SysConfigService {
      * 写入流程开关
      */
     public void setFlowConfig(Boolean rejectEnabled, Boolean reopenEnabled) {
+        permissionService.requirePermission("flow:config");
         setConfig(Constants.CFG_FLOW_REJECT_ENABLED,
                 String.valueOf(rejectEnabled != null && rejectEnabled));
         setConfig(Constants.CFG_FLOW_REOPEN_ENABLED,
@@ -93,6 +96,7 @@ public class SysConfigService {
      * 按 configKey 写入配置（管理员）
      */
     public void putConfig(SysConfigReq req) {
+        permissionService.requirePermission("settings:update");
         if (req.getConfigKey() == null || req.getConfigKey().isBlank()) {
             throw new BizException(ResultCode.VALID_ERROR, "配置键不能为空");
         }

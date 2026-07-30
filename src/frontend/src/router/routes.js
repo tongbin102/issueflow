@@ -118,6 +118,12 @@ const routes = [
             name: 'user-manage',
             component: () => import('@/views/admin/UserManage.vue'),
             meta: { title: '用户管理', roles: ['ADMIN'] }
+          },
+          {
+            path: 'roles',
+            name: 'role-manage',
+            component: () => import('@/views/admin/RoleManage.vue'),
+            meta: { title: '角色管理', roles: ['ADMIN'] }
           }
         ]
       },

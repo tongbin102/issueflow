@@ -1,5 +1,7 @@
 package com.issueflow.common;
 
+import java.util.Set;
+
 /**
  * 全局常量
  */
@@ -13,6 +15,17 @@ public final class Constants {
     public static final String ROLE_DEVELOPER = "DEVELOPER";
     public static final String ROLE_TESTER = "TESTER";
     public static final String ROLE_ADMIN = "ADMIN";
+
+    /** 内置角色码集合（禁止删除 / 禁止改角色码） */
+    public static final Set<String> BUILTIN_ROLE_CODES = Set.of("ADMIN", "SUBMITTER", "DEVELOPER", "TESTER");
+
+    /** Redis Key：角色权限码前缀，完整 key = perm:role:{roleId}，value 为逗号分隔权限码字符串 */
+    public static final String REDIS_PERM_ROLE_PREFIX = "perm:role:";
+
+    /** 菜单端维度：前台端 */
+    public static final int MENU_TYPE_FRONT = 1;
+    /** 菜单端维度：后台端 */
+    public static final int MENU_TYPE_ADMIN = 2;
 
     /** Redis Key 前缀 */
     public static final String REDIS_JWT_BLACKLIST_PREFIX = "jwt:blacklist:";

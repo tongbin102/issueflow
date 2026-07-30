@@ -1,15 +1,11 @@
 package com.issueflow.controller;
 
-import com.issueflow.common.BizException;
-import com.issueflow.common.Constants;
 import com.issueflow.common.PageResult;
 import com.issueflow.common.Result;
-import com.issueflow.common.ResultCode;
 import com.issueflow.dto.req.ProjectReq;
 import com.issueflow.dto.resp.ProjectOptionVO;
 import com.issueflow.dto.resp.ProjectVO;
 import com.issueflow.service.ProjectService;
-import com.issueflow.util.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -40,7 +36,6 @@ public class ProjectController {
     @GetMapping
     public Result<PageResult<ProjectVO>> page(@RequestParam(defaultValue = "1") int page,
                                               @RequestParam(defaultValue = "10") int size) {
-        requireAdmin();
         return Result.success(projectService.pageProjects(page, size));
     }
 
@@ -75,11 +70,5 @@ public class ProjectController {
     public Result<Void> delete(@PathVariable Long id) {
         projectService.deleteProject(id);
         return Result.success();
-    }
-
-    private void requireAdmin() {
-        if (!Constants.ROLE_ADMIN.equals(SecurityUtils.getCurrentRoleCode())) {
-            throw new BizException(ResultCode.PERMISSION_DENIED);
-        }
     }
 }

@@ -11,6 +11,7 @@ import com.issueflow.entity.Role;
 import com.issueflow.entity.User;
 import com.issueflow.mapper.RoleMapper;
 import com.issueflow.mapper.UserMapper;
+import com.issueflow.service.PermissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
     private final PasswordEncoder passwordEncoder;
+    private final PermissionService permissionService;
 
     /**
      * 根据用户名查询用户（不存在返回 null）
@@ -80,6 +82,7 @@ public class UserService {
      * 分页查询用户（ADMIN）
      */
     public PageResult<UserVO> pageUsers(int pageNum, int size) {
+        permissionService.requirePermission("user:list");
         Page<User> page = new Page<>(pageNum, size);
         userMapper.selectPage(page, new LambdaQueryWrapper<User>().orderByDesc(User::getCreatedAt));
         List<UserVO> list = page.getRecords().stream().map(this::getUserVO).collect(Collectors.toList());
@@ -91,6 +94,7 @@ public class UserService {
      */
     @Transactional
     public UserVO createUser(UserReq req) {
+        permissionService.requirePermission("user:create");
         if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getUsername, req.getUsername())) > 0) {
             throw new BizException(ResultCode.VALID_ERROR, "用户名已存在");
         }
@@ -114,6 +118,7 @@ public class UserService {
      */
     @Transactional
     public UserVO updateUser(Long id, UserReq req) {
+        permissionService.requirePermission("user:update");
         User user = userMapper.selectById(id);
         if (user == null) {
             throw new BizException(ResultCode.NOT_FOUND, "用户不存在");
@@ -138,6 +143,7 @@ public class UserService {
      */
     @Transactional
     public void deleteUser(Long id) {
+        permissionService.requirePermission("user:delete");
         userMapper.deleteById(id);
     }
 

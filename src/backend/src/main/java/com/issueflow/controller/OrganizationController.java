@@ -1,13 +1,9 @@
 package com.issueflow.controller;
 
-import com.issueflow.common.BizException;
-import com.issueflow.common.Constants;
 import com.issueflow.common.Result;
-import com.issueflow.common.ResultCode;
 import com.issueflow.dto.req.OrganizationReq;
 import com.issueflow.dto.resp.OrganizationVO;
 import com.issueflow.service.OrganizationService;
-import com.issueflow.util.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -36,7 +32,6 @@ public class OrganizationController {
      */
     @GetMapping
     public Result<List<OrganizationVO>> list() {
-        requireAdmin();
         return Result.success(organizationService.listAll());
     }
 
@@ -63,11 +58,5 @@ public class OrganizationController {
     public Result<Void> delete(@PathVariable Long id) {
         organizationService.delete(id);
         return Result.success();
-    }
-
-    private void requireAdmin() {
-        if (!Constants.ROLE_ADMIN.equals(SecurityUtils.getCurrentRoleCode())) {
-            throw new BizException(ResultCode.PERMISSION_DENIED);
-        }
     }
 }

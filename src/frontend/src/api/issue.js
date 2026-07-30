@@ -62,6 +62,23 @@ export function downloadAttachment(id) {
   return request.get(`/attachments/${id}/download`, { responseType: 'blob' })
 }
 
+// 问题关联：获取前置/后置列表 GET /api/issues/{id}/relations
+export function getRelations(id) {
+  return request.get(`/issues/${id}/relations`)
+}
+
+// 问题关联：整体保存 PUT /api/issues/{id}/relations {predecessorIds, successorIds}
+export function saveRelations(id, data) {
+  return request.put(`/issues/${id}/relations`, data)
+}
+
+// 关联问题下拉选项 GET /api/issues/options?excludeId=
+export function listIssueOptions(excludeId) {
+  return request.get('/issues/options', {
+    params: excludeId != null ? { excludeId } : {}
+  })
+}
+
 // 图片预览：GET /api/attachments/{id}/preview → 返回 Blob 的 object URL
 // 采用 fetch 携带 Authorization，避免 <img src> 直链无法带 token 导致 401。
 // 调用方负责使用完毕后 URL.revokeObjectURL(url) 释放。

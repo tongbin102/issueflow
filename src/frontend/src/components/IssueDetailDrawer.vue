@@ -49,6 +49,12 @@
           @removed="onRemoved"
         />
 
+        <IssueRelationPanel
+          :issue-id="detail.id"
+          :can-edit="canEditRelation"
+          @updated="onFlowChanged"
+        />
+
         <el-divider content-position="left">流转操作</el-divider>
         <StatusFlowButtons
           :status="detail.status"
@@ -65,7 +71,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   statusLabel,
@@ -75,9 +81,11 @@ import {
   formatDate
 } from '@/utils/format'
 import { getIssue, getHistory } from '@/api/issue'
+import { useUserStore } from '@/store/user'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
 import StatusFlowButtons from '@/components/StatusFlowButtons.vue'
 import StatusTimeline from '@/components/StatusTimeline.vue'
+import IssueRelationPanel from '@/components/IssueRelationPanel.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -90,6 +98,14 @@ const loading = ref(false)
 const detail = ref(null)
 const history = ref([])
 const attachments = ref([])
+
+const userStore = useUserStore()
+/** 关联编辑权限：ADMIN 或提交人本人 */
+const canEditRelation = computed(() => {
+  if (userStore.isAdmin) return true
+  const info = userStore.userInfo || {}
+  return !!(detail.value && detail.value.reporterId != null && detail.value.reporterId === info.id)
+})
 
 async function loadDetail() {
   if (!props.issueId) return

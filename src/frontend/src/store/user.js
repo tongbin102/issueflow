@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { login as apiLogin, logout as apiLogout, getInfo as apiGetInfo } from '@/api/auth'
+import { getRolePermissions } from '@/api/role'
 import { getToken, setToken, removeToken } from '@/utils/auth'
 
 const USER_KEY = 'if_user'
@@ -18,7 +19,9 @@ export const useUserStore = defineStore('user', {
   state: () => ({
     token: getToken() || '',
     userInfo: (persisted && persisted.userInfo) || {},
-    roles: (persisted && persisted.roles) || []
+    roles: (persisted && persisted.roles) || [],
+    /** 当前角色拥有的权限码集合（来自 GET /roles/{id}/permissions） */
+    permissions: (persisted && persisted.permissions) || []
   }),
   getters: {
     isLoggedIn: (state) => !!state.token,
@@ -31,14 +34,45 @@ export const useUserStore = defineStore('user', {
     realName: (state) => {
       const info = state.userInfo || {}
       return info.realName || info.username || ''
+    },
+    /**
+     * 细粒度权限判定（按钮级）。
+     * @param {string|string[]} code 权限码（如 'issue:create' 或 ['issue:create','issue:update']）
+     * @returns {boolean}
+     */
+    hasPerm: (state) => (code) => {
+      const perms = state.permissions || []
+      if (!code) return true
+      const list = Array.isArray(code) ? code : [code]
+      return list.some((c) => perms.includes(c))
     }
   },
   actions: {
     persist() {
       localStorage.setItem(
         USER_KEY,
-        JSON.stringify({ userInfo: this.userInfo, roles: this.roles })
+        JSON.stringify({
+          userInfo: this.userInfo,
+          roles: this.roles,
+          permissions: this.permissions
+        })
       )
+    },
+    /**
+     * 拉取当前角色权限码集合并写入 state。
+     * 权限与单角色模型绑定：userInfo.roleId → GET /roles/{id}/permissions。
+     */
+    async loadPermissions() {
+      const roleId = this.userInfo && this.userInfo.roleId
+      if (!roleId) {
+        this.permissions = []
+        return
+      }
+      try {
+        this.permissions = (await getRolePermissions(roleId)) || []
+      } catch (e) {
+        this.permissions = []
+      }
     },
     /**
      * 登录：调用 api/auth.login，返回 LoginVO{token,userInfo,roles}。
@@ -54,6 +88,7 @@ export const useUserStore = defineStore('user', {
           ? [data.role]
           : []
       setToken(this.token)
+      await this.loadPermissions()
       this.persist()
       return data
     },
@@ -67,6 +102,7 @@ export const useUserStore = defineStore('user', {
           ? [data.role]
           : this.roles
       if (this.token) setToken(this.token)
+      await this.loadPermissions()
       this.persist()
       return data
     },
@@ -80,6 +116,7 @@ export const useUserStore = defineStore('user', {
       this.token = ''
       this.userInfo = {}
       this.roles = []
+      this.permissions = []
       removeToken()
       localStorage.removeItem(USER_KEY)
     },

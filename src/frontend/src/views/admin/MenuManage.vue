@@ -4,7 +4,13 @@
       <template #header>
         <div class="head">
           <span>菜单管理</span>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新建菜单</el-button>
+          <div class="head-right">
+            <el-radio-group v-model="menuType" @change="fetchData">
+              <el-radio-button :value="2">后台端</el-radio-button>
+              <el-radio-button :value="1">前台端</el-radio-button>
+            </el-radio-group>
+            <el-button type="primary" :icon="Plus" @click="openCreate">新建菜单</el-button>
+          </div>
         </div>
       </template>
 
@@ -57,6 +63,12 @@
             style="width: 100%"
           />
         </el-form-item>
+        <el-form-item label="端">
+          <el-radio-group v-model="form.type">
+            <el-radio :value="2">后台端</el-radio>
+            <el-radio :value="1">前台端</el-radio>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="排序">
           <el-input-number v-model="form.sort" :min="0" />
         </el-form-item>
@@ -86,6 +98,8 @@ const list = ref([])
 const dialogVisible = ref(false)
 const saving = ref(false)
 const formRef = ref(null)
+/** 当前管理的端维度：2=后台端 / 1=前台端 */
+const menuType = ref(2)
 
 const treeData = computed(() => buildTree(list.value))
 const parentTreeOptions = computed(() => [{ id: 0, name: '顶级菜单', children: treeData.value }])
@@ -97,7 +111,8 @@ const emptyForm = () => ({
   parentId: 0,
   sort: 0,
   permission: '',
-  icon: ''
+  icon: '',
+  type: 2
 })
 const form = reactive(emptyForm())
 
@@ -133,7 +148,7 @@ function buildTree(flat) {
 async function fetchData() {
   loading.value = true
   try {
-    const data = await listMenus()
+    const data = await listMenus(menuType.value)
     list.value = data || []
   } catch (e) {
     list.value = []
@@ -154,7 +169,8 @@ function openEdit(row) {
     parentId: row.parentId || 0,
     sort: row.sort || 0,
     permission: row.permission || '',
-    icon: row.icon || ''
+    icon: row.icon || '',
+    type: row.type || 2
   })
   dialogVisible.value = true
 }
@@ -170,7 +186,8 @@ function onSubmit() {
       parentId: form.parentId || 0,
       sort: form.sort || 0,
       permission: form.permission,
-      icon: form.icon
+      icon: form.icon,
+      type: form.type || 2
     }
     try {
       if (form.id) {
@@ -210,6 +227,11 @@ onMounted(fetchData)
 .head {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+.head-right {
+  display: flex;
+  gap: 8px;
   align-items: center;
 }
 </style>

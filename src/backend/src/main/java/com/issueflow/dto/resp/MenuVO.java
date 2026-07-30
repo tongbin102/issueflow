@@ -25,4 +25,7 @@ public class MenuVO implements Serializable {
     private String permission;
 
     private String icon;
+
+    /** 端维度：1=前台端 / 2=后台端 */
+    private Integer type;
 }

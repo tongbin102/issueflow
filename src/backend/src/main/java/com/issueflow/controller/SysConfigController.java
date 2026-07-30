@@ -1,12 +1,8 @@
 package com.issueflow.controller;
 
-import com.issueflow.common.BizException;
-import com.issueflow.common.Constants;
 import com.issueflow.common.Result;
-import com.issueflow.common.ResultCode;
 import com.issueflow.dto.req.SysConfigReq;
 import com.issueflow.service.SysConfigService;
-import com.issueflow.util.SecurityUtils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -40,9 +36,6 @@ public class SysConfigController {
      */
     @PutMapping("/config")
     public Result<Void> put(@Valid @RequestBody SysConfigReq req) {
-        if (!Constants.ROLE_ADMIN.equals(SecurityUtils.getCurrentRoleCode())) {
-            throw new BizException(ResultCode.PERMISSION_DENIED);
-        }
         sysConfigService.putConfig(req);
         return Result.success();
     }

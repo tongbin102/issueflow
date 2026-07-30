@@ -8,7 +8,7 @@ import App from './App.vue'
 import router from './router'
 import { useThemeStore } from '@/store/theme'
 import { useUserStore } from '@/store/user'
-import permissionDirective from '@/utils/permission'
+import permissionDirective, { vPermDirective } from '@/utils/permission'
 
 import './styles/variables.css'
 import './styles/theme.css'
@@ -28,6 +28,8 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 
 // 注册角色权限指令 v-permission="['ADMIN']"
 app.directive('permission', permissionDirective)
+// 注册细粒度权限指令 v-perm="'issue:create'"
+app.directive('perm', vPermDirective)
 
 // 初始化主题：从 localStorage / 默认值注入 CSS 变量（--theme-color 等）
 useThemeStore().init()

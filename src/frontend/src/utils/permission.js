@@ -41,3 +41,43 @@ const permissionDirective = {
 }
 
 export default permissionDirective
+
+/**
+ * 按权限码判断当前用户是否拥有给定权限之一。
+ * @param {string|string[]} required 权限码（如 'issue:create' 或 ['issue:create','issue:update']）
+ * @returns {boolean}
+ */
+export function hasPerm(required) {
+  const store = useUserStore()
+  const perms = store.permissions || []
+  if (!required) return true
+  const list = Array.isArray(required) ? required : [required]
+  return list.some((p) => perms.includes(p))
+}
+
+function applyPerm(el, binding) {
+  const ok = hasPerm(binding.value)
+  el.style.display = ok ? '' : 'none'
+}
+
+/**
+ * 全局指令 v-perm：按权限码控制元素显隐（按钮级）。
+ * 用法：<el-button v-perm="'issue:create'">新建</el-button>
+ * 权限为异步加载，监听 permissions 变化刷新显隐。
+ */
+export const vPermDirective = {
+  mounted(el, binding) {
+    applyPerm(el, binding)
+    el.__permStop = watch(
+      () => useUserStore().permissions,
+      () => applyPerm(el, binding),
+      { deep: true }
+    )
+  },
+  updated(el, binding) {
+    applyPerm(el, binding)
+  },
+  unmounted(el) {
+    if (el.__permStop) el.__permStop()
+  }
+}

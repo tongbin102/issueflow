@@ -9,8 +9,12 @@ import com.issueflow.dto.req.IssueUpdateReq;
 import com.issueflow.dto.resp.IssueDetailVO;
 import com.issueflow.dto.resp.IssueHistoryVO;
 import com.issueflow.dto.resp.IssueVO;
+import com.issueflow.dto.req.IssueRelationReq;
+import com.issueflow.dto.resp.IssueRefVO;
+import com.issueflow.dto.resp.IssueRelationVO;
 import com.issueflow.service.IssueAttachmentService;
 import com.issueflow.service.IssueHistoryService;
+import com.issueflow.service.IssueRelationService;
 import com.issueflow.service.IssueService;
 import com.issueflow.util.SecurityUtils;
 import jakarta.validation.Valid;
@@ -38,6 +42,7 @@ public class IssueController {
     private final IssueService issueService;
     private final IssueHistoryService historyService;
     private final IssueAttachmentService attachmentService;
+    private final IssueRelationService issueRelationService;
 
     /**
      * 新建问题（multipart，可附附件）
@@ -96,5 +101,31 @@ public class IssueController {
     public Result<PageResult<IssueHistoryVO>> history(
             @PathVariable Long id, HistoryQueryReq req) {
         return Result.success(historyService.queryPageByIssue(id, req));
+    }
+
+    /**
+     * 问题关联：获取前置 / 后置列表（仅登录）
+     */
+    @GetMapping("/{id}/relations")
+    public Result<IssueRelationVO> getRelations(@PathVariable Long id) {
+        return Result.success(issueRelationService.getRelations(id));
+    }
+
+    /**
+     * 问题关联：整体保存前置 / 后置（登录 + ADMIN 或提交人；成环抛 RELATION_CYCLE）
+     */
+    @PutMapping("/{id}/relations")
+    public Result<Void> saveRelations(@PathVariable Long id, @RequestBody IssueRelationReq req) {
+        issueRelationService.saveRelations(id, req.getPredecessorIds(), req.getSuccessorIds(),
+                SecurityUtils.getCurrentUserId(), SecurityUtils.getCurrentRoleCode());
+        return Result.success();
+    }
+
+    /**
+     * 关联问题下拉选项（仅登录；可排除自身）
+     */
+    @GetMapping("/options")
+    public Result<List<IssueRefVO>> options(@RequestParam(required = false) Long excludeId) {
+        return Result.success(issueRelationService.listOptions(excludeId));
     }
 }

@@ -1,0 +1,132 @@
+%% ============================================================================
+%% 时序图 1：问题关联保存（防环 BFS）
+%% ============================================================================
+sequenceDiagram
+    actor U as 用户(ADMIN/提交人)
+    participant D as IssueDetailDrawer
+    participant P as IssueRelationPanel
+    participant IC as IssueController
+    participant IRS as IssueRelationService
+    participant IM as IssueRelationMapper
+    participant DB as MySQL
+
+    U->>D: 打开问题详情
+    D->>IC: GET /api/issues/{id}/relations
+    IC->>IRS: getRelations(id)
+    IRS->>IM: 查前置边(issue_id=id) + 反向边(related_id=id)
+    IM->>DB: SELECT issue_relation
+    DB-->>IRS: predecessors / successors
+    IRS-->>IC: IssueRelationVO
+    IC-->>D: 200 {predecessors, successors}
+    D->>P: 渲染前置/后置多选 + 列表
+
+    U->>P: 调整前置/后置，点击保存
+    P->>IC: PUT /api/issues/{id}/relations {predecessorIds, successorIds}
+    IC->>IRS: saveRelations(id, predIds, succIds, uid, roleCode)
+
+    Note over IRS: ① 权限校验(ADMIN 或 提交人)
+    IRS->>IM: 校验 issue 存在 + 归属
+    IM->>DB: SELECT issue
+    DB-->>IRS: Issue
+
+    Note over IRS: ② 展开待写边 + 自环/防环校验
+    IRS->>IRS: 边集 = predIds→(id,P) ∪ succIds→(S,id)
+    loop 每条待写边 e=(A,Y)
+        IRS->>IRS: wouldCreateCycle(A,Y) 自环? A==Y
+        IRS->>IM: selectIssueIdsByRelatedId(A) 逐层扩展
+        IM->>DB: SELECT issue_id WHERE related_id=当前 AND rel_type=1 AND deleted=0
+        DB-->>IRS: 后继 issue_id 列表
+        alt BFS 命中 Y（A 能到达 Y）
+            IRS-->>IC: BizException(RELATION_CYCLE, 冲突对 A↔Y)
+            IC-->>P: 400 关联成环（提示具体冲突对）
+        end
+    end
+
+    Note over IRS: ③ 全部通过 → 事务替换
+    IRS->>IM: deleteByIssueId(id) 删旧边
+    IM->>DB: DELETE issue_relation WHERE issue_id=id
+    IRS->>IM: batchInsert(新边)
+    IM->>DB: INSERT issue_relation (唯一索引 uk_ir 兜底)
+    IRS-->>IC: void
+    IC-->>P: 200 保存成功
+    P->>D: 刷新关联区
+
+%% ============================================================================
+%% 时序图 2：角色权限分配与鉴权即时生效
+%% ============================================================================
+sequenceDiagram
+    actor A as 管理员
+    participant RM as RoleManage
+    participant RC as RoleController
+    participant RS as RoleService
+    participant RP as RolePermissionMapper
+    participant PM as PermissionMapper
+    participant PS as PermissionService
+    participant R as Redis
+
+    A->>RM: 打开「分配权限」Dialog
+    RM->>RC: GET /api/permissions
+    RC->>PM: 全量权限目录
+    PM-->>RC: List<PermissionVO>
+    RC-->>RM: 渲染模块树 + 操作复选
+    RM->>RC: PUT /api/roles/{id}/permissions {permissionCodes}
+
+    RC->>RS: assignPermissions(id, codes)
+    RS->>RP: deleteByRoleId(id) 删旧映射
+    RS->>RP: insertBatch(id, permIds) 整体替换
+    RS->>PS: invalidate(roleId)
+    PS->>R: DEL perm:role:{roleId}
+    RS-->>RC: void
+    RC-->>RM: 200 已保存
+
+    Note over A,R: 下一请求即时生效（无需重新登录）
+    A->>RC: （某管理操作）触发 requirePermission
+    RC->>PS: requirePermission("xxx:update")
+    PS->>PS: roleCode=ADMIN? 放行
+    PS->>R: GET perm:role:{roleId} (未命中)
+    PS->>RP: selectPermissionCodesByRoleId(roleId)
+    RP->>PM: join permission 取 code
+    PM-->>PS: Set<String> codes
+    PS->>R: SET perm:role:{roleId}=codes (写回缓存)
+    PS-->>RC: 有交集? 放行 : PERMISSION_DENIED
+
+    Note over A,PS: 运维可 POST /api/roles/permissions/refresh 强制 refreshAll()
+
+%% ============================================================================
+%% 时序图 3：菜单按端动态渲染
+%% ============================================================================
+sequenceDiagram
+    actor U as 用户
+    participant AL as AdminLayout/UserLayout
+    participant SM as SideMenu(type=2/1)
+    participant MC as MenuController
+    participant MS as MenuService
+    participant MM as MenuMapper
+    participant DB as MySQL
+
+    U->>AL: 进入后台/前台
+    AL->>SM: <SideMenu :type="2|1" />
+    SM->>SM: onMounted
+    SM->>MC: GET /api/menus/sidebar?type=2
+    MC->>MS: listSidebarTree(2)
+    MS->>MM: selectList(type=2, deleted=0, order by sort,id)
+    MM->>DB: SELECT menu WHERE type=2
+    DB-->>MS: 扁平菜单
+    MS->>MS: 按 parent_id 组装树(MenuNodeVO)
+    MS-->>MC: List<MenuNodeVO>
+    MC-->>SM: 200 菜单树
+
+    loop 递归渲染每个节点
+        alt 有 children
+            SM->>SM: <el-sub-menu index=path> 递归子节点
+        else 叶子
+            SM->>SM: <el-menu-item index=path>
+        end
+        SM->>SM: <component :is=resolveIcon(icon)> 动态图标
+        SM->>SM: 有 permission 且 无权限? 隐藏 : 显示
+    end
+
+    SM->>SM: :default-active=route.path 激活态
+    SM->>SM: :collapse=sidebarCollapsed 折叠态
+    SM-->>AL: 渲染完成（替代硬编码菜单）
+    U->>SM: 点击菜单项 → router 跳转对应 path

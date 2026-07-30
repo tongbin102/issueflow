@@ -2,13 +2,12 @@ package com.issueflow.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.issueflow.common.BizException;
-import com.issueflow.common.Constants;
 import com.issueflow.common.ResultCode;
 import com.issueflow.dto.req.OrganizationReq;
 import com.issueflow.dto.resp.OrganizationVO;
 import com.issueflow.entity.Organization;
 import com.issueflow.mapper.OrganizationMapper;
-import com.issueflow.util.SecurityUtils;
+import com.issueflow.service.PermissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -24,11 +23,13 @@ import java.util.stream.Collectors;
 public class OrganizationService {
 
     private final OrganizationMapper organizationMapper;
+    private final PermissionService permissionService;
 
     /**
      * 全部组织（按 sort,id 升序），前端组装树
      */
     public List<OrganizationVO> listAll() {
+        permissionService.requirePermission("organization:list");
         List<Organization> all = organizationMapper.selectList(new LambdaQueryWrapper<Organization>()
                 .eq(Organization::getDeleted, 0)
                 .orderByAsc(Organization::getSort)
@@ -40,7 +41,7 @@ public class OrganizationService {
      * 新建组织
      */
     public OrganizationVO create(OrganizationReq req) {
-        requireAdmin();
+        permissionService.requirePermission("organization:create");
         if (req.getParentId() == null) {
             req.setParentId(0L);
         }
@@ -59,7 +60,7 @@ public class OrganizationService {
      * 编辑组织（仅更新非空字段）
      */
     public OrganizationVO update(Long id, OrganizationReq req) {
-        requireAdmin();
+        permissionService.requirePermission("organization:update");
         Organization exist = organizationMapper.selectById(id);
         if (exist == null) {
             throw new BizException(ResultCode.NOT_FOUND, "组织不存在");
@@ -84,7 +85,7 @@ public class OrganizationService {
      * 逻辑删除组织（有子节点则禁止）
      */
     public void delete(Long id) {
-        requireAdmin();
+        permissionService.requirePermission("organization:delete");
         Organization exist = organizationMapper.selectById(id);
         if (exist == null) {
             throw new BizException(ResultCode.NOT_FOUND, "组织不存在");
@@ -107,11 +108,5 @@ public class OrganizationService {
         vo.setCreatedAt(o.getCreatedAt());
         vo.setUpdatedAt(o.getUpdatedAt());
         return vo;
-    }
-
-    private void requireAdmin() {
-        if (!Constants.ROLE_ADMIN.equals(SecurityUtils.getCurrentRoleCode())) {
-            throw new BizException(ResultCode.PERMISSION_DENIED);
-        }
     }
 }

@@ -7,6 +7,7 @@
   "variable": [
     { "key": "baseUrl", "value": "http://localhost:8080" },
     { "key": "token", "value": "" },
+    { "key": "roleId", "value": "" },
     { "key": "issueId", "value": "" }
   ],
   "item": [
@@ -30,7 +31,8 @@
               "var r = pm.response.json();",
               "pm.test('login 200', function () { pm.expect(r.code).to.eql(200); });",
               "pm.test('token 存在', function () { pm.expect(r.data.token).to.be.a('string').and.not.be.empty; });",
-              "pm.collectionVariables.set('token', r.data.token);"
+              "pm.collectionVariables.set('token', r.data.token);",
+              "pm.collectionVariables.set('roleId', r.data.userInfo.roleId);"
             ]
           }
         }
@@ -168,6 +170,112 @@
         "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
         "url": { "raw": "{{baseUrl}}/api/dashboard/export", "host": ["{{baseUrl}}"], "path": ["api", "dashboard", "export"] }
       }
+    },
+    {
+      "name": "Phase2 RBAC / 关联 / 菜单",
+      "item": [
+        {
+          "name": "权限目录 GET /api/permissions",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/permissions", "host": ["{{baseUrl}}"], "path": ["api", "permissions"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var r = pm.response.json();",
+                  "pm.test('perm 200', function () { pm.expect(r.code).to.eql(200); });",
+                  "pm.test('32 条权限码', function () { pm.expect(r.data.length).to.eql(32); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "角色列表 GET /api/roles",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/roles", "host": ["{{baseUrl}}"], "path": ["api", "roles"] }
+          }
+        },
+        {
+          "name": "角色权限 GET /api/roles/{roleId}/permissions",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/roles/{{roleId}}/permissions", "host": ["{{baseUrl}}"], "path": ["api", "roles", "{{roleId}}", "permissions"] }
+          }
+        },
+        {
+          "name": "分配角色权限 PUT /api/roles/{roleId}/permissions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/roles/{{roleId}}/permissions", "host": ["{{baseUrl}}"], "path": ["api", "roles", "{{roleId}}", "permissions"] },
+            "body": { "mode": "raw", "raw": "{\n  \"permissionCodes\": [\"issue:list\",\"issue:create\",\"issue:update\",\"dashboard:view\"]\n}" }
+          }
+        },
+        {
+          "name": "刷新权限缓存 POST /api/roles/permissions/refresh",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/roles/permissions/refresh", "host": ["{{baseUrl}}"], "path": ["api", "roles", "permissions", "refresh"] }
+          }
+        },
+        {
+          "name": "后台菜单列表 GET /api/menus?type=2",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/menus?type=2", "host": ["{{baseUrl}}"], "path": ["api", "menus"], "query": [ { "key": "type", "value": "2" } ] }
+          }
+        },
+        {
+          "name": "侧栏菜单树 GET /api/menus/sidebar?type=2",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/menus/sidebar?type=2", "host": ["{{baseUrl}}"], "path": ["api", "menus", "sidebar"], "query": [ { "key": "type", "value": "2" } ] }
+          }
+        },
+        {
+          "name": "问题关联 GET /api/issues/{issueId}/relations",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/issues/{{issueId}}/relations", "host": ["{{baseUrl}}"], "path": ["api", "issues", "{{issueId}}", "relations"] }
+          }
+        },
+        {
+          "name": "保存问题关联 PUT /api/issues/{issueId}/relations",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{baseUrl}}/api/issues/{{issueId}}/relations", "host": ["{{baseUrl}}"], "path": ["api", "issues", "{{issueId}}", "relations"] },
+            "body": { "mode": "raw", "raw": "{\n  \"predecessorIds\": [],\n  \"successorIds\": []\n}" }
+          }
+        },
+        {
+          "name": "关联选项 GET /api/issues/options",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+            "url": { "raw": "{{baseUrl}}/api/issues/options", "host": ["{{baseUrl}}"], "path": ["api", "issues", "options"] }
+          }
+        }
+      ]
     }
   ]
 }

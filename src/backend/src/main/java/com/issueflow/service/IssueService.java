@@ -46,12 +46,14 @@ public class IssueService {
     private final IssueNoGenerator issueNoGenerator;
     private final UserService userService;
     private final ProjectService projectService;
+    private final PermissionService permissionService;
 
     /**
      * 新建问题（生成编号、reporter=当前用户、status=OPEN、写 CREATE 历史）
      */
     @Transactional
     public IssueVO createIssue(IssueCreateReq req, Long currentUser) {
+        permissionService.requirePermission("issue:create");
         String issueNo = issueNoGenerator.nextIssueNo();
         Issue issue = new Issue();
         issue.setIssueNo(issueNo);
@@ -88,6 +90,7 @@ public class IssueService {
      */
     @Transactional
     public IssueVO update(Long id, IssueUpdateReq req, Long currentUser, String roleCode) {
+        permissionService.requirePermission("issue:update");
         Issue issue = issueMapper.selectById(id);
         if (issue == null) {
             throw new BizException(ResultCode.ISSUE_NOT_FOUND);
@@ -138,6 +141,7 @@ public class IssueService {
      */
     @Transactional
     public void delete(Long id, Long currentUser, String roleCode) {
+        permissionService.requirePermission("issue:delete");
         Issue issue = issueMapper.selectById(id);
         if (issue == null) {
             throw new BizException(ResultCode.ISSUE_NOT_FOUND);
@@ -155,6 +159,7 @@ public class IssueService {
      * 分页查询（按角色数据范围 + 多条件筛选）
      */
     public PageResult<IssueVO> pageQuery(IssuePageReq req, Long currentUser, String roleCode) {
+        permissionService.requirePermission("issue:list");
         int pageNum = req.getPage() == null ? 1 : req.getPage();
         int size = req.getSize() == null ? 10 : req.getSize();
         Page<Issue> page = new Page<>(pageNum, size);
@@ -217,6 +222,7 @@ public class IssueService {
      * 详情（含附件列表 + 最近历史；SUBMITTER 仅可看自己的问题）
      */
     public IssueDetailVO detail(Long id, Long currentUser, String roleCode) {
+        permissionService.requirePermission("issue:list");
         Issue issue = issueMapper.selectById(id);
         if (issue == null) {
             throw new BizException(ResultCode.ISSUE_NOT_FOUND);

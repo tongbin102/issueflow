@@ -3,7 +3,6 @@ package com.issueflow.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.issueflow.common.BizException;
-import com.issueflow.common.Constants;
 import com.issueflow.common.PageResult;
 import com.issueflow.common.ResultCode;
 import com.issueflow.dto.req.ProjectReq;
@@ -11,7 +10,7 @@ import com.issueflow.dto.resp.ProjectOptionVO;
 import com.issueflow.dto.resp.ProjectVO;
 import com.issueflow.entity.Project;
 import com.issueflow.mapper.ProjectMapper;
-import com.issueflow.util.SecurityUtils;
+import com.issueflow.service.PermissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -28,11 +27,13 @@ import java.util.stream.Collectors;
 public class ProjectService {
 
     private final ProjectMapper projectMapper;
+    private final PermissionService permissionService;
 
     /**
      * 项目分页（按创建时间倒序）
      */
     public PageResult<ProjectVO> pageProjects(int page, int size) {
+        permissionService.requirePermission("project:list");
         Page<Project> pg = new Page<>(page, size);
         LambdaQueryWrapper<Project> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByDesc(Project::getCreatedAt);
@@ -47,7 +48,7 @@ public class ProjectService {
      * 新建项目（名称唯一校验）
      */
     public ProjectVO createProject(ProjectReq req) {
-        requireAdmin();
+        permissionService.requirePermission("project:create");
         if (projectMapper.selectCount(new LambdaQueryWrapper<Project>()
                 .eq(Project::getName, req.getName())
                 .eq(Project::getDeleted, 0)) > 0) {
@@ -65,7 +66,7 @@ public class ProjectService {
      * 编辑项目（仅更新非空字段，名称变更时校验唯一）
      */
     public ProjectVO updateProject(Long id, ProjectReq req) {
-        requireAdmin();
+        permissionService.requirePermission("project:update");
         Project exist = projectMapper.selectById(id);
         if (exist == null) {
             throw new BizException(ResultCode.NOT_FOUND, "项目不存在");
@@ -92,7 +93,7 @@ public class ProjectService {
      * 逻辑删除项目
      */
     public void deleteProject(Long id) {
-        requireAdmin();
+        permissionService.requirePermission("project:delete");
         Project exist = projectMapper.selectById(id);
         if (exist == null) {
             throw new BizException(ResultCode.NOT_FOUND, "项目不存在");
@@ -135,11 +136,5 @@ public class ProjectService {
         vo.setCreatedAt(p.getCreatedAt());
         vo.setUpdatedAt(p.getUpdatedAt());
         return vo;
-    }
-
-    private void requireAdmin() {
-        if (!Constants.ROLE_ADMIN.equals(SecurityUtils.getCurrentRoleCode())) {
-            throw new BizException(ResultCode.PERMISSION_DENIED);
-        }
     }
 }

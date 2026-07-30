@@ -12,31 +12,7 @@
         <span v-if="!collapsed">issueFlow</span>
         <span v-else>IF</span>
       </div>
-      <el-menu
-        class="if-menu"
-        :default-active="activeMenu"
-        :collapse="collapsed"
-        :collapse-transition="false"
-        router
-        background-color="transparent"
-      >
-        <el-menu-item index="/user">
-          <el-icon><HomeFilled /></el-icon>
-          <template #title>工作台</template>
-        </el-menu-item>
-        <el-menu-item index="/user/my-issues">
-          <el-icon><Tickets /></el-icon>
-          <template #title>我的问题</template>
-        </el-menu-item>
-        <el-menu-item index="/user/submit-issue">
-          <el-icon><EditPen /></el-icon>
-          <template #title>提交问题</template>
-        </el-menu-item>
-        <el-menu-item index="/user/stats">
-          <el-icon><DataLine /></el-icon>
-          <template #title>个人看板</template>
-        </el-menu-item>
-      </el-menu>
+      <SideMenu :type="1" />
       <!-- 侧栏底部「切换区域」次级入口（折叠态降级为纯图标） -->
       <LayoutSwitchEntry variant="sidebar" />
     </aside>
@@ -69,9 +45,14 @@
               <el-icon><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
-              </el-dropdown-menu>
+            <el-dropdown-menu>
+              <el-dropdown-item command="clearCache">
+                <el-icon><Refresh /></el-icon><span class="dd-text">清理缓存</span>
+              </el-dropdown-item>
+              <el-dropdown-item command="logout" divided>
+                <el-icon><SwitchButton /></el-icon><span class="dd-text">退出登录</span>
+              </el-dropdown-item>
+            </el-dropdown-menu>
             </template>
           </el-dropdown>
         </div>
@@ -89,11 +70,12 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { HomeFilled, Menu, ArrowDown, Tickets, EditPen, DataLine } from '@element-plus/icons-vue'
+import { Menu, ArrowDown, Refresh, SwitchButton } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
 import { useThemeStore } from '@/store/theme'
 import LayoutSwitchEntry from '@/components/LayoutSwitchEntry.vue'
+import SideMenu from '@/components/SideMenu.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -104,8 +86,6 @@ const themeStore = useThemeStore()
 const drawerOpen = ref(false)
 const themeColor = ref(themeStore.themeColor)
 
-const collapsed = computed(() => appStore.sidebarCollapsed && !appStore.isMobile)
-const activeMenu = computed(() => route.path)
 const pageTitle = computed(() => route.meta.title || 'issueFlow')
 const realName = computed(() => userStore.realName)
 const avatarText = computed(() => (realName.value || 'U').charAt(0).toUpperCase())
@@ -132,6 +112,10 @@ function onCommand(cmd) {
         ElMessage.success('已退出登录')
       })
       .catch(() => {})
+  } else if (cmd === 'clearCache') {
+    localStorage.clear()
+    ElMessage.success('缓存已清理，即将刷新页面')
+    setTimeout(() => window.location.reload(), 600)
   }
 }
 
@@ -161,5 +145,9 @@ onBeforeUnmount(() => {
 .if-layout--user .if-sidebar {
   display: flex;
   flex-direction: column;
+}
+
+.dd-text {
+  margin-left: 6px;
 }
 </style>

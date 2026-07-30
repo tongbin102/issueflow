@@ -11,6 +11,7 @@ import com.issueflow.enums.IssueStatusEnum;
 import com.issueflow.enums.SeverityEnum;
 import com.issueflow.handler.StateMachine;
 import com.issueflow.mapper.IssueMapper;
+import com.issueflow.service.PermissionService;
 import com.issueflow.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,6 +35,7 @@ public class IssueFlowService {
     private final StateMachine stateMachine;
     private final SysConfigService sysConfigService;
     private final UserService userService;
+    private final PermissionService permissionService;
 
     /**
      * 状态流转（按状态机规则校验角色与开关）
@@ -99,6 +101,7 @@ public class IssueFlowService {
      * 读取流程开关配置
      */
     public Map<String, Boolean> getFlowConfig() {
+        permissionService.requirePermission("flow:view");
         return sysConfigService.getFlowConfig();
     }
 

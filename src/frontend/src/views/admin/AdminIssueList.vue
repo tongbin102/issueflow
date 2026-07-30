@@ -59,7 +59,7 @@ function refresh() {
   if (tableRef.value) tableRef.value.fetchData()
 }
 function goCreate() {
-  router.push('/user/create')
+  router.push('/user/submit-issue')
 }
 async function onEditSubmit({ data }) {
   if (!editRow.value) return

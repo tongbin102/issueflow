@@ -47,6 +47,12 @@ public class IssueVO implements Serializable {
 
     private String assigneeName;
 
+    /** 关联项目 id */
+    private Long projectId;
+
+    /** 关联项目名称（由 ProjectService.nameMap 回显） */
+    private String projectName;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime closedAt;
 

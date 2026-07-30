@@ -46,7 +46,7 @@ const total = ref(0)
 const trend = ref([])
 
 function goList() {
-  router.push('/user/issues')
+  router.push('/user/my-issues')
 }
 
 async function load() {

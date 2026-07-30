@@ -44,7 +44,7 @@ const createdNo = ref('')
 const flowConfig = ref({ rejectEnabled: true, reopenEnabled: true })
 
 function goList() {
-  router.push('/user/issues')
+  router.push('/user/my-issues')
 }
 
 async function onSubmit({ data, files }) {

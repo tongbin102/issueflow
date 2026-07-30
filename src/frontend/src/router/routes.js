@@ -45,13 +45,13 @@ const routes = [
         meta: { title: '工作台', roles: USER_ROLES }
       },
       {
-        path: 'user/issues',
+        path: 'user/my-issues',
         name: 'user-issues',
         component: () => import('@/views/user/UserIssueList.vue'),
         meta: { title: '我的问题', roles: USER_ROLES }
       },
       {
-        path: 'user/create',
+        path: 'user/submit-issue',
         name: 'issue-create',
         component: () => import('@/views/user/IssueCreate.vue'),
         meta: { title: '提交问题', roles: USER_ROLES }
@@ -84,16 +84,42 @@ const routes = [
         meta: { title: '问题管理', roles: ['ADMIN'] }
       },
       {
+        path: 'projects',
+        name: 'project-manage',
+        component: () => import('@/views/admin/ProjectManage.vue'),
+        meta: { title: '项目管理', roles: ['ADMIN'] }
+      },
+      {
         path: 'flow-monitor',
         name: 'flow-monitor',
         component: () => import('@/views/admin/FlowMonitor.vue'),
         meta: { title: '流程监控', roles: ['ADMIN'] }
       },
       {
-        path: 'users',
-        name: 'user-manage',
-        component: () => import('@/views/admin/UserManage.vue'),
-        meta: { title: '用户管理', roles: ['ADMIN'] }
+        path: 'system',
+        component: () => import('@/views/admin/SystemLayout.vue'),
+        redirect: '/admin/system/organizations',
+        meta: { title: '系统管理', roles: ['ADMIN'] },
+        children: [
+          {
+            path: 'organizations',
+            name: 'organization-manage',
+            component: () => import('@/views/admin/OrganizationManage.vue'),
+            meta: { title: '组织管理', roles: ['ADMIN'] }
+          },
+          {
+            path: 'menus',
+            name: 'menu-manage',
+            component: () => import('@/views/admin/MenuManage.vue'),
+            meta: { title: '菜单管理', roles: ['ADMIN'] }
+          },
+          {
+            path: 'users',
+            name: 'user-manage',
+            component: () => import('@/views/admin/UserManage.vue'),
+            meta: { title: '用户管理', roles: ['ADMIN'] }
+          }
+        ]
       },
       {
         path: 'flow-config',

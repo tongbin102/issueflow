@@ -31,4 +31,7 @@ public class IssueUpdateReq implements Serializable {
     private String envDevice;
 
     private Long assigneeId;
+
+    /** 关联项目 id（非空才更新） */
+    private Long projectId;
 }

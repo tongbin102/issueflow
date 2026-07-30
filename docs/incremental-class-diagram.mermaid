@@ -1,0 +1,98 @@
+classDiagram
+    class BaseEntity {
+        +Long id
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+        +Integer deleted
+    }
+    class Project {
+        +String name
+        +String description
+        +Integer status
+    }
+    class Organization {
+        +String name
+        +Long parentId
+        +Integer sort
+    }
+    class Menu {
+        +String name
+        +String path
+        +Long parentId
+        +Integer sort
+        +String permission
+        +String icon
+    }
+    class Issue {
+        +String issueNo
+        +String title
+        +Integer severity
+        +Integer status
+        +Long reporterId
+        +Long assigneeId
+        +Long projectId
+    }
+    class ProjectReq {
+        +String name
+        +String description
+        +Integer status
+    }
+    class ProjectVO {
+        +Long id
+        +String name
+        +String description
+        +Integer status
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+    }
+    class ProjectOptionVO {
+        +Long id
+        +String name
+    }
+    class OrganizationReq {
+        +String name
+        +Long parentId
+        +Integer sort
+    }
+    class OrganizationVO {
+        +Long id
+        +String name
+        +Long parentId
+        +Integer sort
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+    }
+    class MenuReq {
+        +String name
+        +String path
+        +Long parentId
+        +Integer sort
+        +String permission
+        +String icon
+    }
+    class MenuVO {
+        +Long id
+        +String name
+        +String path
+        +Long parentId
+        +Integer sort
+        +String permission
+        +String icon
+    }
+
+    BaseEntity <|-- Project
+    BaseEntity <|-- Organization
+    BaseEntity <|-- Menu
+    BaseEntity <|-- Issue
+    Issue "0..*" ..> "1" Project : projectId
+
+    ProjectController "1" --> "1" ProjectService
+    OrganizationController "1" --> "1" OrganizationService
+    MenuController "1" --> "1" MenuService
+    ProjectService "1" --> "1" ProjectMapper
+    OrganizationService "1" --> "1" OrganizationMapper
+    MenuService "1" --> "1" MenuMapper
+    ProjectMapper ..|> BaseMapper : extends
+    OrganizationMapper ..|> BaseMapper : extends
+    MenuMapper ..|> BaseMapper : extends
+    IssueService "1" --> "1" ProjectService : nameMap()

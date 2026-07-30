@@ -24,11 +24,11 @@
           <el-icon><HomeFilled /></el-icon>
           <template #title>工作台</template>
         </el-menu-item>
-        <el-menu-item index="/user/issues">
+        <el-menu-item index="/user/my-issues">
           <el-icon><Tickets /></el-icon>
           <template #title>我的问题</template>
         </el-menu-item>
-        <el-menu-item index="/user/create">
+        <el-menu-item index="/user/submit-issue">
           <el-icon><EditPen /></el-icon>
           <template #title>提交问题</template>
         </el-menu-item>

@@ -1,0 +1,97 @@
+%% 1. ADMIN 创建项目（含重名校验）
+sequenceDiagram
+    actor Ad as 管理员
+    participant PC as ProjectController
+    participant PS as ProjectService
+    participant PM as ProjectMapper
+    participant DB as MySQL
+    Ad->>PC: POST /api/projects (ProjectReq)
+    PC->>PC: requireAdmin()
+    PC->>PS: createProject(req)
+    PS->>PM: selectOne(name, deleted=0)
+    PM->>DB: SELECT project
+    DB-->>PS: 已有同名?
+    alt 已存在同名
+        PS-->>PC: BizException(PROJECT_NAME_DUPLICATE)
+        PC-->>Ad: 409 项目名称已存在
+    else 不重复
+        PS->>PM: insert(project)
+        PM->>DB: INSERT project
+        PS-->>PC: ProjectVO
+        PC-->>Ad: 200 ProjectVO
+    end
+
+%% 2. 普通用户获取项目下拉选项（仅登录）
+sequenceDiagram
+    actor U as 用户
+    participant PC as ProjectController
+    participant PS as ProjectService
+    participant PM as ProjectMapper
+    U->>PC: GET /api/projects/options
+    Note over PC: 仅校验登录，不要求 ADMIN
+    PC->>PS: listOptions()
+    PS->>PM: selectList(deleted=0) 仅取 id,name
+    PM->>DB as MySQL: SELECT id,name
+    DB-->>PS: List<Project>
+    PS-->>PC: List<ProjectOptionVO>
+    PC-->>U: 200 [ {id,name} ]
+
+%% 3. 提交问题关联项目
+sequenceDiagram
+    actor R as 提交者
+    participant IC as IssueController
+    participant IS as IssueService
+    participant IM as IssueMapper
+    participant PS as ProjectService
+    R->>IC: POST /api/issues (multipart issue{...projectId})
+    IC->>IS: createIssue(req, uid)
+    IS->>IM: insert(issue, projectId)
+    IM->>DB as MySQL: INSERT issue
+    IS->>PS: nameMap()
+    PS-->>IS: Map<id,name>
+    IS->>IS: toIssueVO(projectName=map.get(projectId))
+    IS-->>IC: IssueVO(projectId, projectName)
+    IC-->>R: 200 IssueVO
+
+%% 4. 组织树加载 + 新增节点（菜单同构）
+sequenceDiagram
+    actor Ad as 管理员
+    participant OC as OrganizationController
+    participant OS as OrganizationService
+    participant OM as OrganizationMapper
+    participant DB as MySQL
+    Ad->>OC: GET /api/organizations
+    OC->>OS: listAll()
+    OS->>OM: selectList(deleted=0, order by sort,id)
+    OM->>DB: SELECT organization
+    DB-->>OS: List<Organization>
+    OS-->>OC: List<OrganizationVO>
+    OC-->>Ad: 200 扁平列表(前端 el-tree 组装)
+    Ad->>OC: POST /api/organizations (OrganizationReq{parentId})
+    OC->>OS: create(req)
+    OS->>OM: insert(org)
+    OM->>DB: INSERT organization
+    OS-->>OC: OrganizationVO
+    OC-->>Ad: 200
+
+%% 5. 删除组织/菜单（有子节点禁止）
+sequenceDiagram
+    actor Ad as 管理员
+    participant C as OrganizationController
+    participant S as OrganizationService
+    participant M as OrganizationMapper
+    participant DB as MySQL
+    Ad->>C: DELETE /api/organizations/{id}
+    C->>S: delete(id)
+    S->>M: selectList(parent_id=id, deleted=0)
+    M->>DB: SELECT child
+    DB-->>S: 有子节点?
+    alt 存在子节点
+        S-->>C: BizException(NODE_HAS_CHILDREN)
+        C-->>Ad: 409 该节点下存在子节点，无法删除
+    else 无子节点
+        S->>M: deleteById(id) 逻辑删除
+        M->>DB: UPDATE deleted=1
+        S-->>C: void
+        C-->>Ad: 200
+    end

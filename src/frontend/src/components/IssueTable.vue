@@ -33,6 +33,23 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="项目">
+          <el-select
+            v-model="filters.projectId"
+            placeholder="全部"
+            clearable
+            filterable
+            style="width: 160px"
+          >
+            <el-option
+              v-for="p in projectOptions"
+              :key="p.id"
+              :label="p.status === 1 ? p.name : p.name + '（停用）'"
+              :value="p.id"
+              :disabled="p.status !== 1"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="标签">
           <el-select
             v-model="filters.tags"
@@ -102,6 +119,7 @@
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column prop="projectName" label="项目" min-width="120" show-overflow-tooltip />
       <el-table-column prop="reporterName" label="提交人" width="110" show-overflow-tooltip />
       <el-table-column prop="assigneeName" label="处理人" width="110" show-overflow-tooltip />
       <el-table-column label="创建时间" width="170">
@@ -170,6 +188,7 @@ import {
 } from '@/utils/format'
 import { pageIssues, deleteIssue } from '@/api/issue'
 import { listTags } from '@/api/tag'
+import { listProjectOptions } from '@/api/project'
 import { useUserStore } from '@/store/user'
 
 const props = defineProps({
@@ -188,6 +207,7 @@ const size = ref(10)
 const filters = reactive({
   status: props.filters.status ?? '',
   severity: props.filters.severity ?? '',
+  projectId: props.filters.projectId ?? '',
   tags: props.filters.tags || [],
   version: props.filters.version || '',
   keyword: props.filters.keyword || '',
@@ -196,6 +216,7 @@ const filters = reactive({
 })
 const timeRange = ref([])
 const tagOptions = ref([])
+const projectOptions = ref([])
 
 const currentUserId = computed(() => userStore.userInfo && userStore.userInfo.id)
 
@@ -216,6 +237,8 @@ function buildParams() {
     filters.severity !== undefined
   )
     p.severity = filters.severity
+  if (filters.projectId !== '' && filters.projectId !== null && filters.projectId !== undefined)
+    p.projectId = filters.projectId
   if (filters.tags && filters.tags.length) p.tag = filters.tags.join(',')
   if (filters.version) p.version = filters.version
   if (filters.keyword) p.keyword = filters.keyword
@@ -243,6 +266,7 @@ function onResetFilter() {
   Object.assign(filters, {
     status: '',
     severity: '',
+    projectId: '',
     tags: [],
     version: '',
     keyword: '',
@@ -275,6 +299,12 @@ onMounted(async () => {
     tagOptions.value = (tags || []).map((t) => ({ label: t.name, value: t.name }))
   } catch (e) {
     tagOptions.value = []
+  }
+  try {
+    const projects = await listProjectOptions()
+    projectOptions.value = projects || []
+  } catch (e) {
+    projectOptions.value = []
   }
   fetchData()
 })

@@ -21,6 +21,24 @@
       </el-select>
     </el-form-item>
 
+    <el-form-item label="关联项目">
+      <el-select
+        v-model="model.projectId"
+        placeholder="选择项目（可选）"
+        clearable
+        filterable
+        style="width: 100%"
+      >
+        <el-option
+          v-for="p in projectOptions"
+          :key="p.id"
+          :label="p.status === 1 ? p.name : p.name + '（停用）'"
+          :value="p.id"
+          :disabled="p.status !== 1"
+        />
+      </el-select>
+    </el-form-item>
+
     <el-form-item label="分类标签">
       <el-select
         v-model="model.tags"
@@ -101,6 +119,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { SEVERITY_OPTIONS } from '@/utils/format'
 import { listTags } from '@/api/tag'
+import { listProjectOptions } from '@/api/project'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
 
 const props = defineProps({
@@ -118,6 +137,7 @@ const localFiles = ref([])
 const model = reactive({
   title: '',
   severity: 2,
+  projectId: null,
   tags: [],
   description: '',
   reproduceSteps: '',
@@ -128,6 +148,7 @@ const model = reactive({
 })
 
 const tagOptions = ref([])
+const projectOptions = ref([])
 
 const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
@@ -140,6 +161,7 @@ function applyInitial() {
   const src = props.initial
   model.title = src.title || ''
   model.severity = src.severity ?? 2
+  model.projectId = src.projectId || null
   model.tags = Array.isArray(src.tags)
     ? src.tags.slice()
     : src.tags
@@ -164,6 +186,7 @@ function onReset() {
   Object.assign(model, {
     title: '',
     severity: 2,
+    projectId: null,
     tags: [],
     description: '',
     reproduceSteps: '',
@@ -193,7 +216,8 @@ function onSubmit() {
       envOs: model.envOs,
       envBrowser: model.envBrowser,
       envAppVersion: model.envAppVersion,
-      envDevice: model.envDevice
+      envDevice: model.envDevice,
+      projectId: model.projectId || null
     }
     const files = isEdit.value ? [] : localFiles.value
     emit('submit', { data, files })
@@ -213,6 +237,12 @@ onMounted(async () => {
     }))
   } catch (e) {
     tagOptions.value = []
+  }
+  try {
+    const projects = await listProjectOptions()
+    projectOptions.value = projects || []
+  } catch (e) {
+    projectOptions.value = []
   }
 })
 </script>

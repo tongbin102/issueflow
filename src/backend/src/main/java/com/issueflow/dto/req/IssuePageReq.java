@@ -36,6 +36,9 @@ public class IssuePageReq implements Serializable {
     /** 提交者 id 筛选 */
     private Long reporterId;
 
+    /** 关联项目 id 筛选 */
+    private Long projectId;
+
     /** 关键词（标题/描述模糊匹配） */
     private String keyword;
 

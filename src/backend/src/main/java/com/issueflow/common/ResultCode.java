@@ -17,7 +17,9 @@ public enum ResultCode {
     ISSUE_NOT_FOUND(1001, "问题不存在"),
     STATUS_TRANSITION_DENIED(1002, "状态流转不被允许"),
     FILE_TOO_LARGE(1003, "文件过大"),
-    PERMISSION_DENIED(1004, "权限不足");
+    PERMISSION_DENIED(1004, "权限不足"),
+    PROJECT_NAME_DUPLICATE(1005, "项目名称已存在"),
+    NODE_HAS_CHILDREN(1006, "该节点下存在子节点，无法删除");
 
     private final Integer code;
     private final String message;

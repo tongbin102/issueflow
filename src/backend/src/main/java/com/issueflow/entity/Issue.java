@@ -56,6 +56,9 @@ public class Issue extends BaseEntity {
     /** 处理人/认领人 id */
     private Long assigneeId;
 
+    /** 关联项目 id（关联 project.id，逻辑删除下不加外键） */
+    private Long projectId;
+
     /** 关闭时间（解决周期计算） */
     private LocalDateTime closedAt;
 }

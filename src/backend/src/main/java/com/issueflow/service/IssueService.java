@@ -45,6 +45,7 @@ public class IssueService {
     private final IssueHistoryService historyService;
     private final IssueNoGenerator issueNoGenerator;
     private final UserService userService;
+    private final ProjectService projectService;
 
     /**
      * 新建问题（生成编号、reporter=当前用户、status=OPEN、写 CREATE 历史）
@@ -66,6 +67,7 @@ public class IssueService {
         issue.setStatus(IssueStatusEnum.OPEN.getCode());
         issue.setReporterId(currentUser);
         issue.setAssigneeId(req.getAssigneeId());
+        issue.setProjectId(req.getProjectId());
 
         // 插入冲突（唯一索引兜底）重试一次
         try {
@@ -78,7 +80,7 @@ public class IssueService {
 
         historyService.record(issue.getId(), HistoryActionEnum.CREATE.getCode(),
                 null, IssueStatusEnum.OPEN.getCode(), currentUser, null);
-        return toIssueVO(issue, userService.userNameMap());
+        return toIssueVO(issue, userService.userNameMap(), projectService.nameMap());
     }
 
     /**
@@ -123,9 +125,12 @@ public class IssueService {
         if (req.getAssigneeId() != null) {
             issue.setAssigneeId(req.getAssigneeId());
         }
+        if (req.getProjectId() != null) {
+            issue.setProjectId(req.getProjectId());
+        }
         issueMapper.updateById(issue);
         historyService.record(id, HistoryActionEnum.EDIT.getCode(), null, null, currentUser, null);
-        return toIssueVO(issue, userService.userNameMap());
+        return toIssueVO(issue, userService.userNameMap(), projectService.nameMap());
     }
 
     /**
@@ -173,6 +178,9 @@ public class IssueService {
         if (req.getReporterId() != null) {
             wrapper.eq(Issue::getReporterId, req.getReporterId());
         }
+        if (req.getProjectId() != null) {
+            wrapper.eq(Issue::getProjectId, req.getProjectId());
+        }
         if (req.getKeyword() != null && !req.getKeyword().isBlank()) {
             String keyword = req.getKeyword();
             wrapper.and(q -> q.like(Issue::getTitle, keyword).or().like(Issue::getDescription, keyword));
@@ -197,9 +205,10 @@ public class IssueService {
         wrapper.orderByDesc(Issue::getCreatedAt);
 
         issueMapper.selectPage(page, wrapper);
-        Map<Long, String> nameMap = userService.userNameMap();
+        Map<Long, String> userNameMap = userService.userNameMap();
+        Map<Long, String> projectNameMap = projectService.nameMap();
         List<IssueVO> list = page.getRecords().stream()
-                .map(i -> toIssueVO(i, nameMap))
+                .map(i -> toIssueVO(i, userNameMap, projectNameMap))
                 .collect(Collectors.toList());
         return PageResult.of(list, page.getTotal(), (long) pageNum, (long) size);
     }
@@ -215,14 +224,14 @@ public class IssueService {
         if (Constants.ROLE_SUBMITTER.equals(roleCode) && !Objects.equals(issue.getReporterId(), currentUser)) {
             throw new BizException(ResultCode.PERMISSION_DENIED);
         }
-        Map<Long, String> nameMap = userService.userNameMap();
-        IssueDetailVO vo = toDetailVO(issue, nameMap);
+        Map<Long, String> userNameMap = userService.userNameMap();
+        IssueDetailVO vo = toDetailVO(issue, userNameMap);
 
         List<IssueAttachment> attachments = attachmentMapper.selectList(
                 new LambdaQueryWrapper<IssueAttachment>()
                         .eq(IssueAttachment::getIssueId, id)
                         .orderByDesc(IssueAttachment::getCreatedAt));
-        vo.setAttachments(attachments.stream().map(a -> toAttachmentVO(a, nameMap)).collect(Collectors.toList()));
+        vo.setAttachments(attachments.stream().map(a -> toAttachmentVO(a, userNameMap)).collect(Collectors.toList()));
 
         List<IssueHistoryVO> history = historyService.queryByIssue(id);
         if (history.size() > 20) {
@@ -232,7 +241,7 @@ public class IssueService {
         return vo;
     }
 
-    private IssueVO toIssueVO(Issue issue, Map<Long, String> nameMap) {
+    private IssueVO toIssueVO(Issue issue, Map<Long, String> userNameMap, Map<Long, String> projectNameMap) {
         IssueVO vo = new IssueVO();
         vo.setId(issue.getId());
         vo.setIssueNo(issue.getIssueNo());
@@ -244,16 +253,18 @@ public class IssueService {
         vo.setTags(issue.getTags());
         vo.setEnvAppVersion(issue.getEnvAppVersion());
         vo.setReporterId(issue.getReporterId());
-        vo.setReporterName(nameMap.get(issue.getReporterId()));
+        vo.setReporterName(userNameMap.get(issue.getReporterId()));
         vo.setAssigneeId(issue.getAssigneeId());
-        vo.setAssigneeName(nameMap.get(issue.getAssigneeId()));
+        vo.setAssigneeName(userNameMap.get(issue.getAssigneeId()));
+        vo.setProjectId(issue.getProjectId());
+        vo.setProjectName(projectNameMap.get(issue.getProjectId()));
         vo.setClosedAt(issue.getClosedAt());
         vo.setCreatedAt(issue.getCreatedAt());
         vo.setUpdatedAt(issue.getUpdatedAt());
         return vo;
     }
 
-    private IssueDetailVO toDetailVO(Issue issue, Map<Long, String> nameMap) {
+    private IssueDetailVO toDetailVO(Issue issue, Map<Long, String> userNameMap) {
         IssueDetailVO vo = new IssueDetailVO();
         vo.setId(issue.getId());
         vo.setIssueNo(issue.getIssueNo());
@@ -270,16 +281,18 @@ public class IssueService {
         vo.setEnvAppVersion(issue.getEnvAppVersion());
         vo.setEnvDevice(issue.getEnvDevice());
         vo.setReporterId(issue.getReporterId());
-        vo.setReporterName(nameMap.get(issue.getReporterId()));
+        vo.setReporterName(userNameMap.get(issue.getReporterId()));
         vo.setAssigneeId(issue.getAssigneeId());
-        vo.setAssigneeName(nameMap.get(issue.getAssigneeId()));
+        vo.setAssigneeName(userNameMap.get(issue.getAssigneeId()));
+        vo.setProjectId(issue.getProjectId());
+        vo.setProjectName(projectService.nameMap().get(issue.getProjectId()));
         vo.setClosedAt(issue.getClosedAt());
         vo.setCreatedAt(issue.getCreatedAt());
         vo.setUpdatedAt(issue.getUpdatedAt());
         return vo;
     }
 
-    private AttachmentVO toAttachmentVO(IssueAttachment a, Map<Long, String> nameMap) {
+    private AttachmentVO toAttachmentVO(IssueAttachment a, Map<Long, String> userNameMap) {
         AttachmentVO vo = new AttachmentVO();
         vo.setId(a.getId());
         vo.setIssueId(a.getIssueId());
@@ -289,7 +302,7 @@ public class IssueService {
         vo.setFileSize(a.getFileSize());
         vo.setContentType(a.getContentType());
         vo.setUploaderId(a.getUploaderId());
-        vo.setUploaderName(nameMap.get(a.getUploaderId()));
+        vo.setUploaderName(userNameMap.get(a.getUploaderId()));
         vo.setImage(a.getContentType() != null && a.getContentType().startsWith("image/"));
         vo.setUrl("/api/attachments/" + a.getId() + "/download");
         vo.setPreviewUrl("/api/attachments/" + a.getId() + "/preview");

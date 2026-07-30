@@ -44,4 +44,7 @@ public class IssueCreateReq implements Serializable {
 
     /** 处理人/认领人 id（可空，由开发人员认领） */
     private Long assigneeId;
+
+    /** 关联项目 id（可空） */
+    private Long projectId;
 }

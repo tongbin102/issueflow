@@ -175,8 +175,8 @@ SELECT 'system:reset', '数据初始化', 'system', 'reset', 2, 90, NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `permission` WHERE `code`='system:reset');
 
 SET @admin_role := (SELECT `id` FROM `role` WHERE `code`='ADMIN');
-INSERT INTO `role_permission` (`role_id`,`permission_id`,`created_at`,`updated_at`)
-SELECT @admin_role, p.`id`, NOW(), NOW()
+INSERT INTO `role_permission` (`role_id`,`permission_id`,`created_at`)
+SELECT @admin_role, p.`id`, NOW()
 FROM `permission` p
 WHERE p.`code`='system:reset'
   AND NOT EXISTS (SELECT 1 FROM `role_permission` rp WHERE rp.`role_id`=@admin_role AND rp.`permission_id`=p.`id`);

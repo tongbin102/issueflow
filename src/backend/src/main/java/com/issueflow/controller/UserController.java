@@ -1,0 +1,90 @@
+package com.issueflow.controller;
+
+import com.issueflow.common.BizException;
+import com.issueflow.common.Constants;
+import com.issueflow.common.PageResult;
+import com.issueflow.common.Result;
+import com.issueflow.common.ResultCode;
+import com.issueflow.dto.req.UserReq;
+import com.issueflow.dto.resp.UserVO;
+import com.issueflow.entity.Role;
+import com.issueflow.mapper.RoleMapper;
+import com.issueflow.service.UserService;
+import com.issueflow.util.SecurityUtils;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+/**
+ * 用户控制器：用户增删改查 + 角色列表（写操作仅 ADMIN）
+ */
+@RestController
+@RequestMapping("/api")
+@RequiredArgsConstructor
+public class UserController {
+
+    private final UserService userService;
+    private final RoleMapper roleMapper;
+
+    /**
+     * 用户分页列表（ADMIN）
+     */
+    @GetMapping("/users")
+    public Result<PageResult<UserVO>> page(@RequestParam(defaultValue = "1") int page,
+                                          @RequestParam(defaultValue = "10") int size) {
+        requireAdmin();
+        return Result.success(userService.pageUsers(page, size));
+    }
+
+    /**
+     * 新增用户（ADMIN）
+     */
+    @PostMapping("/users")
+    public Result<UserVO> create(@Valid @RequestBody UserReq req) {
+        requireAdmin();
+        return Result.success(userService.createUser(req));
+    }
+
+    /**
+     * 编辑用户（ADMIN）
+     */
+    @PutMapping("/users/{id}")
+    public Result<UserVO> update(@PathVariable Long id, @Valid @RequestBody UserReq req) {
+        requireAdmin();
+        return Result.success(userService.updateUser(id, req));
+    }
+
+    /**
+     * 删除用户（ADMIN，逻辑删除）
+     */
+    @DeleteMapping("/users/{id}")
+    public Result<Void> delete(@PathVariable Long id) {
+        requireAdmin();
+        userService.deleteUser(id);
+        return Result.success();
+    }
+
+    /**
+     * 角色列表（任意登录用户）
+     */
+    @GetMapping("/roles")
+    public Result<List<Role>> roles() {
+        return Result.success(roleMapper.selectList(null));
+    }
+
+    private void requireAdmin() {
+        if (!Constants.ROLE_ADMIN.equals(SecurityUtils.getCurrentRoleCode())) {
+            throw new BizException(ResultCode.PERMISSION_DENIED);
+        }
+    }
+}

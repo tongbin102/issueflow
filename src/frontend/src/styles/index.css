@@ -1,0 +1,27 @@
+/* 全局基础样式（variables.css / theme.css 已在 main.js 单独引入，此处不重复 @import） */
+
+.page-card {
+  background: var(--bg-container);
+  border-radius: var(--border-radius-base);
+  padding: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.text-muted {
+  color: var(--text-secondary);
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #909399;
+}

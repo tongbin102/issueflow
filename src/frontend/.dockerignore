@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-verify/
+.workbuddy/
+*.timestamp-*.mjs
+npm-debug.log*
+.git
+.gitignore

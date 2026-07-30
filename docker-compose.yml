@@ -1,0 +1,105 @@
+# issueFlow 一键部署编排
+# 用法（在项目根目录执行）：
+#   docker compose up -d --build      # 首次构建并启动
+#   docker compose ps                 # 查看状态
+#   docker compose logs -f backend    # 查看后端日志
+#   docker compose down               # 停止并移除容器（数据卷保留）
+#
+# 访问：
+#   前端界面   http://localhost:80
+#   后端 API  http://localhost:8080/api
+#   API 文档   http://localhost:8080/doc.html   (Knife4j)
+# 默认管理员：admin / admin123   （首次启动由后端 ApplicationRunner 自动写入，请登录后立即修改密码）
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: issueflow-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-issueflow123}
+      MYSQL_DATABASE: ${MYSQL_DB:-issueflow}
+      TZ: Asia/Shanghai
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-issueflow123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    networks:
+      - issueflow-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: issueflow-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+    networks:
+      - issueflow-net
+
+  backend:
+    build:
+      context: ./src/backend
+      dockerfile: Dockerfile
+    container_name: issueflow-backend
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: ${MYSQL_DB:-issueflow}
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD:-issueflow123}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 0
+      ATTACHMENT_BASE_PATH: /data/attachments
+      JWT_SECRET: ${JWT_SECRET:-issueflow-secret-key-2024-issueflow-jwt-secure-32bytes!!}
+      JWT_EXPIRATION: 7200
+    ports:
+      - "8080:8080"
+    volumes:
+      - attachments-data:/data/attachments
+    restart: unless-stopped
+    networks:
+      - issueflow-net
+
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    container_name: issueflow-frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    networks:
+      - issueflow-net
+
+volumes:
+  mysql-data:
+  redis-data:
+  attachments-data:
+
+networks:
+  issueflow-net:
+    driver: bridge

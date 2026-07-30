@@ -1,0 +1,111 @@
+%% 5.1 提交问题
+sequenceDiagram
+    actor U as 提交者
+    participant F as IssueCreate.vue
+    participant A as Axios(request.js)
+    participant C as IssueController
+    participant S as IssueService
+    participant G as IssueNoGenerator
+    participant M as IssueMapper
+    participant DB as MySQL
+    participant H as IssueHistoryService
+    U->>F: 填写表单提交
+    F->>A: POST /api/issues (IssueCreateReq + token)
+    A->>C: 携带 Authorization
+    C->>S: createIssue(req, currentUser)
+    S->>G: nextIssueNo(YYYYMMDD)
+    G->>M: countByDate(YYYYMMDD)
+    M->>DB: SELECT COUNT(*) WHERE issue_no LIKE 'IS-YYYYMMDD-%'
+    DB-->>G: cnt
+    G-->>S: IS-YYYYMMDD-000(cnt+1)
+    S->>M: insert(issue, status=OPEN)
+    M->>DB: INSERT issue
+    S->>H: record(CREATE, null→OPEN, operator, remark)
+    H->>DB: INSERT issue_history
+    S-->>C: IssueVO
+    C-->>A: Result.success(IssueVO)
+    A-->>F: 跳转详情
+    F-->>U: 提示成功,展示编号
+
+%% 5.2 状态流转 + 写历史
+sequenceDiagram
+    actor T as 测试人员
+    participant F as StatusFlowButtons.vue
+    participant C as IssueFlowController
+    participant S as IssueFlowService
+    participant SM as StateMachine
+    participant I as IssueMapper
+    participant H as IssueHistoryService
+    participant DB as MySQL
+    T->>F: 点击「验证通过」
+    F->>C: POST /api/issues/{id}/status {toStatus:VERIFIED, remark}
+    C->>S: changeStatus(id, toStatus, remark, user)
+    S->>I: selectById(id)
+    I->>DB: SELECT issue
+    DB-->>S: Issue(status=PENDING_VERIFY)
+    S->>SM: isAllowed(PENDING_VERIFY→VERIFIED, role=TESTER)
+    SM-->>S: true
+    S->>I: update status=VERIFIED, closed_at(if CLOSED)
+    I->>DB: UPDATE issue
+    S->>H: record(VERIFY_PASS, PENDING_VERIFY→VERIFIED, operator, remark)
+    H->>DB: INSERT issue_history
+    S-->>C: IssueVO
+    C-->>F: Result.success
+    F-->>T: 时间线新增一条历史
+
+%% 5.3 登录鉴权
+sequenceDiagram
+    actor U as 用户
+    participant F as Login.vue
+    participant A as Axios
+    participant AC as AuthController
+    participant AS as AuthService
+    participant UM as UserMapper
+    participant DB as MySQL
+    participant JWT as JwtUtil
+    participant R as Redis
+    U->>F: 输入账号密码
+    F->>A: POST /api/auth/login
+    A->>AC: LoginReq
+    AC->>AS: login(username, password)
+    AS->>UM: selectByUsername
+    UM->>DB: SELECT user + role
+    DB-->>AS: User(密文)
+    AS->>AS: BCrypt.matches(raw, encoded)
+    AS->>JWT: generate(userId, roleCode)
+    JWT-->>AS: token(jti, exp)
+    AS->>R: SET jwt:blacklist:{jti} TTL=exp
+    AS-->>AC: LoginVO(token, user, roles)
+    AC-->>F: Result.success(LoginVO)
+    F->>F: 存 token 至 localStorage, 跳转布局页
+    Note over F,A: 后续请求 Axios 拦截器注入 Authorization: Bearer <token>
+    A->>P as 受保护接口: 携带 token
+    P->>JF as JwtAuthenticationFilter: 校验签名+未过期+未登出(Redis)
+    JF->>JF: 解析 userId/role → SecurityContext
+    JF-->>P: 放行
+
+%% 5.4 看板统计查询
+sequenceDiagram
+    actor Ad as 管理员
+    participant F as Dashboard.vue
+    participant D as DashboardController
+    participant DS as DashboardService
+    participant IM as IssueMapper
+    participant HM as IssueHistoryMapper
+    participant DB as MySQL
+    Ad->>F: 选择时间范围+版本
+    F->>D: GET /api/dashboard/overview?start=&end=&version=
+    D->>DS: overview(query)
+    DS->>IM: statusDistribution(start,end,version)
+    IM->>DB: SELECT status,COUNT(*) GROUP BY status
+    DB-->>DS: 状态分布
+    DS->>IM: trendByDay(start,end,version)
+    IM->>DB: SELECT DATE(created_at),COUNT(*) GROUP BY DATE
+    DB-->>DS: 趋势
+    DS->>IM: avgResolveCycle(start,end,version)
+    IM->>DB: SELECT AVG(TIMESTAMPDIFF(HOUR,created_at,closed_at)) WHERE status=CLOSED
+    DB-->>DS: 平均周期
+    DS->>IM: resolveRate / severityRatio
+    DS-->>D: DashboardVO
+    D-->>F: Result.success(DashboardVO)
+    F->>F: ECharts 渲染 + 导出PNG/Excel

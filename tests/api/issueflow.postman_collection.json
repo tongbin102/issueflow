@@ -1,0 +1,173 @@
+{
+  "info": {
+    "name": "issueFlow API",
+    "description": "issueFlow 缺陷记录与验证管理平台 API 集合。\n顺序：login → createIssue → pageIssues → changeStatus(多条) → dashboard/overview → export。\n变量：{{baseUrl}}=http://localhost:8080，{{token}} 由 login 的 Tests 脚本写入，{{issueId}} 由 createIssue 写入。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "issueId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "登录 login",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+        "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"admin123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var r = pm.response.json();",
+              "pm.test('login 200', function () { pm.expect(r.code).to.eql(200); });",
+              "pm.test('token 存在', function () { pm.expect(r.data.token).to.be.a('string').and.not.be.empty; });",
+              "pm.collectionVariables.set('token', r.data.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "创建问题 createIssue",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/issues", "host": ["{{baseUrl}}"], "path": ["api", "issues"] },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "issue", "value": "{\"title\":\"冒烟测试问题\",\"severity\":2,\"description\":\"描述\",\"tags\":\"smoke,qa\"}", "type": "text", "contentType": "application/json" }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "var r = pm.response.json();",
+              "pm.test('create 200', function () { pm.expect(r.code).to.eql(200); });",
+              "pm.collectionVariables.set('issueId', r.data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "分页查询 pageIssues",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": {
+          "raw": "{{baseUrl}}/api/issues?page=1&size=10",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "issues"],
+          "query": [ { "key": "page", "value": "1" }, { "key": "size", "value": "10" } ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [ "var r = pm.response.json(); pm.test('page 200', function () { pm.expect(r.code).to.eql(200); });" ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "状态流转 changeStatus: OPEN→IN_PROGRESS",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/issues/{{issueId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "issues", "{{issueId}}", "status"] },
+        "body": { "mode": "raw", "raw": "{\n  \"toStatus\": 1,\n  \"remark\": \"\"\n}" }
+      }
+    },
+    {
+      "name": "状态流转 changeStatus: IN_PROGRESS→PENDING_VERIFY",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/issues/{{issueId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "issues", "{{issueId}}", "status"] },
+        "body": { "mode": "raw", "raw": "{\n  \"toStatus\": 2,\n  \"remark\": \"\"\n}" }
+      }
+    },
+    {
+      "name": "状态流转 changeStatus: PENDING_VERIFY→VERIFIED",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/issues/{{issueId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "issues", "{{issueId}}", "status"] },
+        "body": { "mode": "raw", "raw": "{\n  \"toStatus\": 3,\n  \"remark\": \"\"\n}" }
+      }
+    },
+    {
+      "name": "状态流转 changeStatus: VERIFIED→CLOSED",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": { "raw": "{{baseUrl}}/api/issues/{{issueId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "issues", "{{issueId}}", "status"] },
+        "body": { "mode": "raw", "raw": "{\n  \"toStatus\": 4,\n  \"remark\": \"验证通过，关闭\"\n}" }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [ "var r = pm.response.json(); pm.test('closed status=4', function () { pm.expect(r.data.status).to.eql(4); });" ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "看板概览 dashboard/overview",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": { "raw": "{{baseUrl}}/api/dashboard/overview", "host": ["{{baseUrl}}"], "path": ["api", "dashboard", "overview"] }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [ "var r = pm.response.json(); pm.test('overview 200', function () { pm.expect(r.code).to.eql(200); });" ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "看板导出 dashboard/export",
+      "request": {
+        "method": "GET",
+        "header": [ { "key": "Authorization", "value": "Bearer {{token}}" } ],
+        "url": { "raw": "{{baseUrl}}/api/dashboard/export", "host": ["{{baseUrl}}"], "path": ["api", "dashboard", "export"] }
+      }
+    }
+  ]
+}

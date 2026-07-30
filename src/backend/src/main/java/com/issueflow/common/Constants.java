@@ -1,0 +1,42 @@
+package com.issueflow.common;
+
+/**
+ * 全局常量
+ */
+public final class Constants {
+
+    private Constants() {
+    }
+
+    /** 角色码 */
+    public static final String ROLE_SUBMITTER = "SUBMITTER";
+    public static final String ROLE_DEVELOPER = "DEVELOPER";
+    public static final String ROLE_TESTER = "TESTER";
+    public static final String ROLE_ADMIN = "ADMIN";
+
+    /** Redis Key 前缀 */
+    public static final String REDIS_JWT_BLACKLIST_PREFIX = "jwt:blacklist:";
+
+    /** 附件存储根路径(可被 application.yml 的 app.attachment-base-path 覆盖) */
+    public static final String ATTACHMENT_BASE_PATH = "/data/attachments";
+
+    /** 附件静态资源访问前缀 */
+    public static final String ATTACHMENT_STATIC_URL_PREFIX = "/api/attachments/static/";
+
+    /** 单文件大小上限(字节) 20MB */
+    public static final long MAX_ATTACHMENT_SIZE = 20L * 1024 * 1024;
+
+    /** 分页默认 */
+    public static final int DEFAULT_PAGE = 1;
+    public static final int DEFAULT_SIZE = 10;
+
+    /** JWT 默认有效期(秒) 2 小时 */
+    public static final long JWT_EXPIRATION_SECONDS = 7200L;
+
+    /** 系统配置键 */
+    public static final String CFG_FLOW_REOPEN_ENABLED = "flow_reopen_enabled";
+    public static final String CFG_FLOW_REJECT_ENABLED = "flow_reject_enabled";
+    public static final String CFG_THEME_COLOR = "theme_color";
+    public static final String CFG_LAYOUT = "layout";
+    public static final String CFG_MENU_CONFIG = "menu_config";
+}

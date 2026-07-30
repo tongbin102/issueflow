@@ -1,0 +1,56 @@
+classDiagram
+    class User {
+        +Long id
+        +String username
+        +String password
+        +String realName
+        +Long roleId
+        +Integer status
+        +LocalDateTime createdAt
+    }
+    class Role {
+        +Long id
+        +String code
+        +String name
+    }
+    class Issue {
+        +Long id
+        +String issueNo
+        +String title
+        +Integer severity
+        +Integer status
+        +Long reporterId
+        +Long assigneeId
+        +LocalDateTime closedAt
+    }
+    class IssueAttachment {
+        +Long id
+        +Long issueId
+        +String filePath
+        +Long uploaderId
+    }
+    class IssueHistory {
+        +Long id
+        +Long issueId
+        +String action
+        +Integer fromStatus
+        +Integer toStatus
+        +Long operatorId
+        +String remark
+    }
+    class Tag {
+        +Long id
+        +String name
+        +String color
+    }
+    class SysConfig {
+        +Long id
+        +String configKey
+        +String configValue
+    }
+    User "1" --> "1" Role : roleId
+    User "1" --> "0..*" Issue : reporterId
+    User "1" --> "0..*" Issue : assigneeId
+    Issue "1" --> "0..*" IssueAttachment : issueId
+    Issue "1" --> "0..*" IssueHistory : issueId
+    Issue "0..*" ..> "0..*" Tag : tags(逗号名)

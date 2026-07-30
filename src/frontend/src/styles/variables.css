@@ -1,0 +1,26 @@
+:root {
+  /* 主题色（可被 utils/theme.js 运行时覆盖） */
+  --theme-color: #409eff;
+  --theme-color-light: #79bbff;
+
+  /* 背景与容器 */
+  --bg-page: #f5f7fa;
+  --bg-container: #ffffff;
+
+  /* 文本 */
+  --text-primary: #303133;
+  --text-regular: #606266;
+  --text-secondary: #909399;
+
+  /* 边框与圆角 */
+  --border-color: #e4e7ed;
+  --border-radius-base: 8px;
+
+  /* 布局尺寸 */
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 64px;
+  --topbar-height: 56px;
+
+  /* 布局模式：side | top | mix（store/theme 可切换） */
+  --layout-mode: side;
+}

@@ -1,0 +1,36 @@
+# ===== 编译产物 =====
+dist/
+build/
+target/
+*.exe
+*.o
+*.class
+*.timestamp-*.mjs
+
+# ===== 依赖目录 =====
+node_modules/
+venv/
+__pycache__/
+
+# ===== 临时文件 =====
+*.tmp
+*.log
+*.swp
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== 环境配置（保留 .env.example） =====
+.env
+.env.local
+.env.*.local
+
+# ===== 工具/IDE =====
+.workbuddy/
+.idea/
+.vscode/
+*.iml
+
+# ===== 其他 =====
+dist-verify/

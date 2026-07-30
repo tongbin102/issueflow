@@ -47,4 +47,7 @@ public class IssueCreateReq implements Serializable {
 
     /** 关联项目 id（可空） */
     private Long projectId;
+
+    /** 所属模块 id（可空；非空时须属于 projectId 对应项目） */
+    private Long moduleId;
 }

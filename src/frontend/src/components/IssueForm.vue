@@ -38,6 +38,24 @@
       </el-select>
     </el-form-item>
 
+    <el-form-item label="所属模块">
+      <el-tree-select
+        v-model="model.moduleId"
+        :data="moduleTree"
+        :props="{ label: 'name', children: 'children' }"
+        node-key="id"
+        :render-after-expand="false"
+        filterable
+        clearable
+        placeholder="选择所属模块（可选，随项目联动）"
+        style="width: 100%"
+      >
+        <template #default="{ data }">
+          <span>{{ data.pathLabel }}</span>
+        </template>
+      </el-tree-select>
+    </el-form-item>
+
     <el-form-item label="分类标签">
       <el-select
         v-model="model.tags"
@@ -114,11 +132,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { SEVERITY_OPTIONS } from '@/utils/format'
 import { listTags } from '@/api/tag'
 import { listProjectOptions } from '@/api/project'
+import { listModuleTree } from '@/api/module'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
 
 const props = defineProps({
@@ -137,6 +156,7 @@ const model = reactive({
   title: '',
   severity: 2,
   projectId: null,
+  moduleId: null,
   tags: [],
   description: '',
   reproduceSteps: '',
@@ -148,6 +168,9 @@ const model = reactive({
 
 const tagOptions = ref([])
 const projectOptions = ref([])
+const moduleTree = ref([])
+const moduleLoading = ref(false)
+const lastProject = ref(null)
 
 const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
@@ -161,6 +184,9 @@ function applyInitial() {
   model.title = src.title || ''
   model.severity = src.severity ?? 2
   model.projectId = src.projectId || null
+  model.moduleId = src.moduleId || null
+  lastProject.value = model.projectId
+  if (model.projectId) loadModules(model.projectId) // 编辑回显时保留 moduleId
   model.tags = Array.isArray(src.tags)
     ? src.tags.slice()
     : src.tags
@@ -181,11 +207,47 @@ function onFilesChange(files) {
   localFiles.value = files || []
 }
 
+/* ---------------- 模块树（R2：随项目联动） ---------------- */
+function annotateModulePaths(nodes, parentPath) {
+  ;(nodes || []).forEach((n) => {
+    n.pathLabel = parentPath ? `${parentPath} > ${n.name}` : n.name
+    annotateModulePaths(n.children, n.pathLabel)
+  })
+}
+async function loadModules(projectId) {
+  if (!projectId) {
+    moduleTree.value = []
+    return
+  }
+  moduleLoading.value = true
+  try {
+    const data = await listModuleTree(projectId)
+    const tree = Array.isArray(data) ? data : []
+    annotateModulePaths(tree, '')
+    moduleTree.value = tree
+  } catch (e) {
+    moduleTree.value = []
+  } finally {
+    moduleLoading.value = false
+  }
+}
+// 切换项目 → 清空已选模块并重新加载对应模块树
+watch(
+  () => model.projectId,
+  (val) => {
+    if (val === lastProject.value) return
+    lastProject.value = val
+    model.moduleId = null
+    loadModules(val)
+  }
+)
+
 function onReset() {
   Object.assign(model, {
     title: '',
     severity: 2,
     projectId: null,
+    moduleId: null,
     tags: [],
     description: '',
     reproduceSteps: '',
@@ -216,7 +278,8 @@ function onSubmit() {
       envBrowser: model.envBrowser,
       envAppVersion: model.envAppVersion,
       envDevice: model.envDevice,
-      projectId: model.projectId || null
+      projectId: model.projectId || null,
+      moduleId: model.moduleId || null
     }
     const files = isEdit.value ? [] : localFiles.value
     emit('submit', { data, files })

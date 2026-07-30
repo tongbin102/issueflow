@@ -34,4 +34,11 @@ public class IssueUpdateReq implements Serializable {
 
     /** 关联项目 id（非空才更新） */
     private Long projectId;
+
+    /**
+     * 所属模块 id。
+     * <p><b>语义特殊</b>：采用「存在即覆盖」——前端编辑时始终携带该字段，
+     * 传 null 表示清空模块归属。与 {@link #projectId} 的「非空才更新」不同，切勿套用同一模板。</p>
+     */
+    private Long moduleId;
 }

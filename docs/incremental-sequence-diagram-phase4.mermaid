@@ -1,0 +1,97 @@
+sequenceDiagram
+    %% issueFlow Phase 4 增量时序图
+    %% ① R1 拖拽移动（即拖即存+失败回滚） ② R5-2 批量删除（整体原子阻断）
+    %% ③ R2/R5-1 提交问题携带模块（归属校验） ④ R1-5/R1-6 依赖设置（防环）
+
+    autonumber
+    actor Admin as 管理员
+    actor User as 提交者
+    participant Drawer as ModuleManageDrawer.vue
+    participant Form as IssueForm.vue
+    participant MC as ModuleController
+    participant MS as ModuleService
+    participant IC as IssueController
+    participant IS as IssueService
+    participant MM as ModuleMapper
+    participant DM as ModuleDependencyMapper
+    participant IM as IssueMapper
+    participant GEH as GlobalExceptionHandler
+
+    rect rgb(235, 245, 255)
+    note over Admin, MM: ① R1 拖拽移动（Q3 即拖即存）
+    Admin->>Drawer: 拖拽节点落下 @node-drop
+    Drawer->>Drawer: allow-drop 预检（禁入自身子孙）
+    Drawer->>MC: PUT /api/modules/{id}/move {targetParentId, orderedSiblingIds}
+    MC->>MS: move(id, req) @Transactional
+    MS->>MS: requirePermission("project:update")
+    MS->>MM: selectList(project_id=?, deleted=0) 全量
+    MS->>MS: 内存组树：防环(40033) + 深度<=10(40032)
+    MS->>MM: updateById(parent_id) + 循环重排同级 sort=1..n
+    MC-->>Drawer: Result 200
+    alt 后端校验失败
+        MS-->>GEH: BizException(40033/40032)
+        GEH-->>Drawer: Result{code,message}
+        Drawer->>Drawer: catch → reloadTree() 回滚 UI + 拦截器提示
+    end
+    end
+
+    rect rgb(255, 243, 235)
+    note over Admin, IM: ② R5-2 批量删除（Q5 整体原子阻断 + Q6 级联软删）
+    Admin->>Drawer: 勾选 N 节点 → 批量删除 → 确认弹窗(含子孙数)
+    Drawer->>MC: POST /api/modules/batch-delete {projectId, ids}
+    MC->>MS: batchDelete(req) @Transactional
+    MS->>MM: selectList(project_id) 全量组树
+    MS->>MS: 逐所选根收集子孙 → scopeIds
+    MS->>IM: selectCount(module_id IN scope AND deleted=0) 按根分组
+    alt 任一分组关联问题 > 0
+        MS-->>GEH: BizException(40034, "以下模块存在关联问题：支付中心(3)、订单中心(1)")
+        GEH-->>Drawer: 整体拒绝，一个都不删
+    else 全部为 0
+        MS->>MM: 批量软删 scopeIds (deleted=1)
+        MS->>DM: deletePhysicalByModuleIds(scopeIds) 物理清依赖边
+        MC-->>Drawer: Result 200 → reloadTree()
+    end
+    end
+
+    rect rgb(235, 255, 240)
+    note over User, IM: ③ R2 提交问题携带模块 + R5-1 归属校验
+    User->>Form: 选择关联项目
+    Form->>MC: GET /api/modules/tree?projectId=xxx
+    MC->>MS: tree(projectId)
+    MS->>MM: 全量查该项目模块
+    MS->>DM: 查依赖边 → 回填 dependencyCount/dependencies
+    MC-->>Form: List<ModuleNodeVO> → el-tree-select 渲染(缩进/搜索高亮)
+    User->>Form: 切换项目
+    Form->>Form: moduleId 置空 + 重拉新项目树(R2-3)
+    User->>Form: 选模块并提交
+    Form->>IC: POST /api/issues {..., projectId, moduleId}
+    IC->>IS: createIssue(req)
+    IS->>MS: assertModuleBelongsToProject(moduleId, projectId)
+    MS->>MM: selectById(moduleId)
+    alt module 不存在/已删 或 project_id 不一致
+        MS-->>GEH: BizException(40030/40035)
+        GEH-->>Form: 拦截器提示，不落库
+    else 校验通过
+        IS->>IM: insert(issue 含 module_id)
+        IC-->>Form: Result 200
+    end
+    note over IS: 列表/详情读取：当页汇总 moduleIds → MS.pathMap 一次批查 → 回填 modulePath（无归属显「—」）
+    end
+
+    rect rgb(245, 238, 255)
+    note over Admin, DM: ④ R1-5/R1-6 依赖设置（单向 A→B，仅展示 + 防环）
+    Admin->>Drawer: 节点「依赖 N」→ 依赖弹窗(tree-select 多选) → 保存
+    Drawer->>MC: PUT /api/modules/{id}/dependencies {dependsOnIds}
+    MC->>MS: setDependencies(id, req) @Transactional
+    MS->>MS: 同项目/非自身校验
+    MS->>DM: 查项目内全部依赖边（排除 from=id 旧边）
+    MS->>MS: + 新边构图 → 自 id DFS 检测环
+    alt 成环(A→B→A)
+        MS-->>GEH: BizException(40036)
+        GEH-->>Drawer: 提示，不保存
+    else 无环
+        MS->>DM: deletePhysicalByFromId(id) 物理清空旧边
+        MS->>DM: 批量 insert 新边
+        MC-->>Drawer: List<ModuleBriefVO> → 更新「依赖 N」标签
+    end
+    end

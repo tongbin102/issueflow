@@ -57,8 +57,9 @@
         <el-table-column v-if="columnVisible.createdAt" label="创建时间" width="170">
           <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
+            <el-button link type="primary" size="small" @click="openModuleDrawer(row)">模块</el-button>
             <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
             <el-button link type="danger" size="small" @click="onDelete(row)">删除</el-button>
           </template>
@@ -154,6 +155,14 @@
         <el-button type="primary" :loading="saving" @click="onSubmit">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 模块管理抽屉（R1 项目模块树形结构） -->
+    <ModuleTreeDrawer
+      v-if="moduleDrawerVisible"
+      v-model:visible="moduleDrawerVisible"
+      :project-id="activeProject.id"
+      :project-name="activeProject.name"
+    />
   </div>
 </template>
 
@@ -170,6 +179,7 @@ import {
 } from '@/api/project'
 import { listUserOptions } from '@/api/user'
 import { useUserStore } from '@/store/user'
+import ModuleTreeDrawer from '@/components/ModuleTreeDrawer.vue'
 
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
@@ -182,6 +192,15 @@ const page = ref(1)
 const size = ref(10)
 const dialogVisible = ref(false)
 const formRef = ref(null)
+
+// 模块管理抽屉
+const moduleDrawerVisible = ref(false)
+const activeProject = reactive({ id: null, name: '' })
+function openModuleDrawer(row) {
+  activeProject.id = row.id
+  activeProject.name = row.name || ''
+  moduleDrawerVisible.value = true
+}
 
 // 用户下拉选项（负责人 / 成员共用，远程搜索）
 const userOptions = ref([])

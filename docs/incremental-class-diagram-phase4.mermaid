@@ -1,0 +1,158 @@
+classDiagram
+    %% issueFlow Phase 4 增量类图：模块树 + 依赖标记 + Issue 模块归属
+    %% 新增：Module / ModuleDependency / ModuleService / ModuleController / 相关 DTO
+    %% 修改：Issue(+moduleId) / IssueService / IssueVO / ResultCode
+
+    class BaseEntity {
+        +Long id
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+        +Integer deleted
+    }
+
+    class Module {
+        +Long projectId
+        +Long parentId  %% 0=根，邻接表自引用
+        +String name
+        +String description
+        +Integer sort
+    }
+
+    class ModuleDependency {
+        +Long fromModuleId  %% A 依赖 B：A
+        +Long toModuleId    %% A 依赖 B：B
+    }
+
+    class Issue {
+        +Long projectId
+        +Long moduleId  %% Phase4 新增，可空
+        +String title
+        +Integer status
+    }
+
+    class ModuleReq {
+        +Long projectId
+        +Long parentId
+        +String name
+        +String description
+    }
+
+    class ModuleMoveReq {
+        +Long targetParentId
+        +List~Long~ orderedSiblingIds
+    }
+
+    class ModuleBatchReq {
+        +Long projectId
+        +List~Long~ ids
+        +Long targetParentId
+    }
+
+    class ModuleDependencyReq {
+        +List~Long~ dependsOnIds
+    }
+
+    class ModuleNodeVO {
+        +Long id
+        +Long projectId
+        +Long parentId
+        +String name
+        +String description
+        +Integer sort
+        +Integer dependencyCount
+        +List~ModuleBriefVO~ dependencies
+        +List~ModuleNodeVO~ children
+    }
+
+    class ModuleBriefVO {
+        +Long id
+        +String name
+    }
+
+    class ModuleMapper {
+        <<Mapper>>
+    }
+
+    class ModuleDependencyMapper {
+        <<Mapper>>
+        +deletePhysicalByFromId(Long fromId) int
+        +deletePhysicalByModuleIds(List~Long~ ids) int
+    }
+
+    class ModuleService {
+        -ModuleMapper moduleMapper
+        -ModuleDependencyMapper dependencyMapper
+        -IssueMapper issueMapper
+        -ProjectMapper projectMapper
+        -PermissionService permissionService
+        +tree(Long projectId) List~ModuleNodeVO~
+        +create(ModuleReq req) ModuleNodeVO
+        +update(Long id, ModuleReq req) ModuleNodeVO
+        +delete(Long id) void
+        +move(Long id, ModuleMoveReq req) void
+        +batchDelete(ModuleBatchReq req) void
+        +batchMove(ModuleBatchReq req) void
+        +setDependencies(Long id, ModuleDependencyReq req) List~ModuleBriefVO~
+        +pathMap(Collection~Long~ moduleIds) Map~Long,String~
+        +assertModuleBelongsToProject(Long moduleId, Long projectId) void
+        -loadProjectModules(Long projectId) List~Module~
+        -collectDescendantIds(Map childrenMap, Long id) Set~Long~
+        -depthOf(Map moduleMap, Long id) int
+        -subtreeHeight(Map childrenMap, Long id) int
+        -hasDependencyCycle(Long projectId, Long fromId, List~Long~ newToIds) boolean
+    }
+
+    class ModuleController {
+        -ModuleService moduleService
+        +tree(Long projectId) Result
+        +create(ModuleReq req) Result
+        +update(Long id, ModuleReq req) Result
+        +delete(Long id) Result
+        +move(Long id, ModuleMoveReq req) Result
+        +batchDelete(ModuleBatchReq req) Result
+        +batchMove(ModuleBatchReq req) Result
+        +setDependencies(Long id, ModuleDependencyReq req) Result
+    }
+
+    class IssueService {
+        <<modified>>
+        +createIssue(IssueCreateReq req) IssueVO
+        +updateIssue(Long id, IssueUpdateReq req) IssueVO
+        %% moduleId 写入 + R5-1 归属校验 + modulePath 批量回填
+    }
+
+    class IssueVO {
+        <<modified>>
+        +Long moduleId
+        +String modulePath  %% 「父 > 子 > 孙」，null 前端显「—」
+    }
+
+    class ResultCode {
+        <<enumeration>>
+        MODULE_NOT_FOUND 40030
+        MODULE_NAME_DUPLICATE 40031
+        MODULE_DEPTH_EXCEEDED 40032
+        MODULE_MOVE_CYCLE 40033
+        MODULE_HAS_ISSUES 40034
+        MODULE_PROJECT_MISMATCH 40035
+        MODULE_DEPENDENCY_CYCLE 40036
+    }
+
+    BaseEntity <|-- Module
+    BaseEntity <|-- ModuleDependency
+    BaseEntity <|-- Issue
+    Module "1" o-- "0..*" Module : parentId 自引用
+    Module "1" <-- "0..*" ModuleDependency : from/to
+    Module "1" <-- "0..*" Issue : moduleId 弱引用
+    ModuleController --> ModuleService
+    ModuleService --> ModuleMapper
+    ModuleService --> ModuleDependencyMapper
+    ModuleService --> ResultCode : BizException
+    IssueService --> ModuleService : 归属校验/pathMap
+    ModuleService ..> ModuleNodeVO : 组装
+    ModuleNodeVO o-- ModuleBriefVO
+    ModuleController ..> ModuleReq
+    ModuleController ..> ModuleMoveReq
+    ModuleController ..> ModuleBatchReq
+    ModuleController ..> ModuleDependencyReq
+    IssueService ..> IssueVO

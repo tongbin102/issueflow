@@ -31,13 +31,7 @@
           <span class="topbar-title">{{ pageTitle }}</span>
         </div>
         <div class="topbar-right">
-          <!-- 顶栏「切换区域」入口（含 ADMIN 显隐），作为第一个子元素 -->
-          <LayoutSwitchEntry variant="topbar" />
-          <el-color-picker
-            v-model="themeColor"
-            size="small"
-            @change="onThemeChange"
-          />
+          <!-- R3：移除顶栏「切换后台」按钮与样式定制取色器，仅保留侧栏底部入口（见侧栏 LayoutSwitchEntry variant=sidebar） -->
           <el-dropdown @command="onCommand">
             <span class="user-dropdown">
               <el-avatar :size="28">{{ avatarText }}</el-avatar>
@@ -73,7 +67,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Menu, ArrowDown, Refresh, SwitchButton } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
-import { useThemeStore } from '@/store/theme'
 import LayoutSwitchEntry from '@/components/LayoutSwitchEntry.vue'
 import SideMenu from '@/components/SideMenu.vue'
 
@@ -81,10 +74,8 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const appStore = useAppStore()
-const themeStore = useThemeStore()
 
 const drawerOpen = ref(false)
-const themeColor = ref(themeStore.themeColor)
 
 const pageTitle = computed(() => route.meta.title || 'issueFlow')
 const realName = computed(() => userStore.realName)
@@ -96,11 +87,6 @@ function toggleMenu() {
   } else {
     appStore.toggleSidebar()
   }
-}
-
-function onThemeChange(color) {
-  if (!color) return
-  themeStore.setThemeColor(color)
 }
 
 function onCommand(cmd) {

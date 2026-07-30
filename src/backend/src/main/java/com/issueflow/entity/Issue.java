@@ -59,6 +59,9 @@ public class Issue extends BaseEntity {
     /** 关联项目 id（关联 project.id，逻辑删除下不加外键） */
     private Long projectId;
 
+    /** 所属模块 id（关联 module.id，可空；必须与 projectId 同项目） */
+    private Long moduleId;
+
     /** 关闭时间（解决周期计算） */
     private LocalDateTime closedAt;
 }

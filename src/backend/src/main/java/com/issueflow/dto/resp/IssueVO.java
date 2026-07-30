@@ -53,6 +53,12 @@ public class IssueVO implements Serializable {
     /** 关联项目名称（由 ProjectService.nameMap 回显） */
     private String projectName;
 
+    /** 所属模块 id（可空） */
+    private Long moduleId;
+
+    /** 所属模块全路径「父 &gt; 子 &gt; 孙」（由 ModuleService.pathMap 批量回填；null 时前端显「—」） */
+    private String modulePath;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime closedAt;
 

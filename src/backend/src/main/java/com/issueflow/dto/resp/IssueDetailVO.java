@@ -10,6 +10,9 @@ import java.util.List;
 
 /**
  * 问题详情视图对象（含附件列表 + 最近操作历史）
+ *
+ * <p>注：{@code moduleId} / {@code modulePath} 由父类 {@link IssueVO} 提供，
+ * 详情接口同样输出这两个字段（不在此重复声明，避免字段遮蔽导致序列化歧义）。</p>
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

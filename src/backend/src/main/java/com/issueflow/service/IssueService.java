@@ -1,6 +1,7 @@
 package com.issueflow.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.issueflow.common.BizException;
 import com.issueflow.common.Constants;
@@ -28,9 +29,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -46,6 +50,7 @@ public class IssueService {
     private final IssueNoGenerator issueNoGenerator;
     private final UserService userService;
     private final ProjectService projectService;
+    private final ModuleService moduleService;
     private final PermissionService permissionService;
 
     /**
@@ -70,6 +75,9 @@ public class IssueService {
         issue.setReporterId(currentUser);
         issue.setAssigneeId(req.getAssigneeId());
         issue.setProjectId(req.getProjectId());
+        // R5-1：模块归属校验（moduleId 为空时直接放行）
+        moduleService.assertModuleBelongsToProject(req.getModuleId(), req.getProjectId());
+        issue.setModuleId(req.getModuleId());
 
         // 插入冲突（唯一索引兜底）重试一次
         try {
@@ -82,7 +90,8 @@ public class IssueService {
 
         historyService.record(issue.getId(), HistoryActionEnum.CREATE.getCode(),
                 null, IssueStatusEnum.OPEN.getCode(), currentUser, null);
-        return toIssueVO(issue, userService.userNameMap(), projectService.nameMap());
+        return toIssueVO(issue, userService.userNameMap(), projectService.nameMap(),
+                moduleService.pathMap(Collections.singletonList(issue.getModuleId())));
     }
 
     /**
@@ -131,9 +140,20 @@ public class IssueService {
         if (req.getProjectId() != null) {
             issue.setProjectId(req.getProjectId());
         }
+        // moduleId 语义：存在即覆盖（null = 清空），与 projectId 的「非空才更新」不同。
+        // 校验以更新后最终生效的 projectId 为准。
+        moduleService.assertModuleBelongsToProject(req.getModuleId(), issue.getProjectId());
+        issue.setModuleId(req.getModuleId());
+
         issueMapper.updateById(issue);
+        // updateById 默认 NOT_NULL 策略会跳过 null 字段，无法清空模块归属；
+        // 故 module_id 单独用 UpdateWrapper 显式 set（含 null），实现「存在即覆盖」语义。
+        issueMapper.update(null, new LambdaUpdateWrapper<Issue>()
+                .eq(Issue::getId, id)
+                .set(Issue::getModuleId, req.getModuleId()));
         historyService.record(id, HistoryActionEnum.EDIT.getCode(), null, null, currentUser, null);
-        return toIssueVO(issue, userService.userNameMap(), projectService.nameMap());
+        return toIssueVO(issue, userService.userNameMap(), projectService.nameMap(),
+                moduleService.pathMap(Collections.singletonList(issue.getModuleId())));
     }
 
     /**
@@ -212,8 +232,16 @@ public class IssueService {
         issueMapper.selectPage(page, wrapper);
         Map<Long, String> userNameMap = userService.userNameMap();
         Map<Long, String> projectNameMap = projectService.nameMap();
+        // 批量回填铁律：当页汇总 moduleId → 一次批查 → Map 回填，禁止行内单查（N+1）
+        Set<Long> moduleIds = new HashSet<>();
+        for (Issue i : page.getRecords()) {
+            if (i.getModuleId() != null) {
+                moduleIds.add(i.getModuleId());
+            }
+        }
+        Map<Long, String> modulePathMap = moduleService.pathMap(moduleIds);
         List<IssueVO> list = page.getRecords().stream()
-                .map(i -> toIssueVO(i, userNameMap, projectNameMap))
+                .map(i -> toIssueVO(i, userNameMap, projectNameMap, modulePathMap))
                 .collect(Collectors.toList());
         return PageResult.of(list, page.getTotal(), (long) pageNum, (long) size);
     }
@@ -231,7 +259,8 @@ public class IssueService {
             throw new BizException(ResultCode.PERMISSION_DENIED);
         }
         Map<Long, String> userNameMap = userService.userNameMap();
-        IssueDetailVO vo = toDetailVO(issue, userNameMap);
+        IssueDetailVO vo = toDetailVO(issue, userNameMap,
+                moduleService.pathMap(Collections.singletonList(issue.getModuleId())));
 
         List<IssueAttachment> attachments = attachmentMapper.selectList(
                 new LambdaQueryWrapper<IssueAttachment>()
@@ -247,7 +276,8 @@ public class IssueService {
         return vo;
     }
 
-    private IssueVO toIssueVO(Issue issue, Map<Long, String> userNameMap, Map<Long, String> projectNameMap) {
+    private IssueVO toIssueVO(Issue issue, Map<Long, String> userNameMap,
+                              Map<Long, String> projectNameMap, Map<Long, String> modulePathMap) {
         IssueVO vo = new IssueVO();
         vo.setId(issue.getId());
         vo.setIssueNo(issue.getIssueNo());
@@ -264,13 +294,16 @@ public class IssueService {
         vo.setAssigneeName(userNameMap.get(issue.getAssigneeId()));
         vo.setProjectId(issue.getProjectId());
         vo.setProjectName(projectNameMap.get(issue.getProjectId()));
+        vo.setModuleId(issue.getModuleId());
+        vo.setModulePath(issue.getModuleId() == null ? null : modulePathMap.get(issue.getModuleId()));
         vo.setClosedAt(issue.getClosedAt());
         vo.setCreatedAt(issue.getCreatedAt());
         vo.setUpdatedAt(issue.getUpdatedAt());
         return vo;
     }
 
-    private IssueDetailVO toDetailVO(Issue issue, Map<Long, String> userNameMap) {
+    private IssueDetailVO toDetailVO(Issue issue, Map<Long, String> userNameMap,
+                                     Map<Long, String> modulePathMap) {
         IssueDetailVO vo = new IssueDetailVO();
         vo.setId(issue.getId());
         vo.setIssueNo(issue.getIssueNo());
@@ -292,6 +325,8 @@ public class IssueService {
         vo.setAssigneeName(userNameMap.get(issue.getAssigneeId()));
         vo.setProjectId(issue.getProjectId());
         vo.setProjectName(projectService.nameMap().get(issue.getProjectId()));
+        vo.setModuleId(issue.getModuleId());
+        vo.setModulePath(issue.getModuleId() == null ? null : modulePathMap.get(issue.getModuleId()));
         vo.setClosedAt(issue.getClosedAt());
         vo.setCreatedAt(issue.getCreatedAt());
         vo.setUpdatedAt(issue.getUpdatedAt());

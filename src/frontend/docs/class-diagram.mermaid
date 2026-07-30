@@ -1,0 +1,23 @@
+classDiagram
+    class UserStore {
+        +roles: string[]
+        +isLoggedIn: boolean
+    }
+    class LayoutSwitchEntry {
+        +variant: 'topbar' | 'sidebar'
+        +isAdminContext: boolean
+        +target: string
+        +visible: boolean
+        +label: string
+        +handleClick(): void
+    }
+    class UserLayout {
+        +render()
+    }
+    class AdminLayout {
+        +render()
+    }
+    UserLayout ..> LayoutSwitchEntry : 顶栏/侧栏底部嵌入
+    AdminLayout ..> LayoutSwitchEntry : 顶栏/侧栏底部嵌入
+    LayoutSwitchEntry ..> UserStore : 读取 roles / isLoggedIn
+    LayoutSwitchEntry ..> Router : push(target)

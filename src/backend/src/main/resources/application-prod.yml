@@ -2,7 +2,7 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     # 生产环境全部使用环境变量注入，避免敏感信息落地
-    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DB:issueflow}?useUnicode=true&characterEncoding=utf8mb4&useSSL=true&serverTimezone=UTC&allowPublicKeyRetrieval=false
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT:3306}/${MYSQL_DB:issueflow}?useUnicode=true&characterEncoding=UTF-8&useSSL=true&serverTimezone=UTC&allowPublicKeyRetrieval=false
     username: ${MYSQL_USER}
     password: ${MYSQL_PASSWORD}
   data:

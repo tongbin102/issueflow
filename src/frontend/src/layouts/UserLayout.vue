@@ -1,5 +1,5 @@
 <template>
-  <div class="if-layout">
+  <div class="if-layout if-layout--user">
     <!-- 侧边栏：桌面常驻 / 移动端抽屉 -->
     <aside
       class="if-sidebar"
@@ -37,6 +37,8 @@
           <template #title>个人看板</template>
         </el-menu-item>
       </el-menu>
+      <!-- 侧栏底部「切换区域」次级入口（折叠态降级为纯图标） -->
+      <LayoutSwitchEntry variant="sidebar" />
     </aside>
 
     <div
@@ -53,6 +55,8 @@
           <span class="topbar-title">{{ pageTitle }}</span>
         </div>
         <div class="topbar-right">
+          <!-- 顶栏「切换区域」入口（含 ADMIN 显隐），作为第一个子元素 -->
+          <LayoutSwitchEntry variant="topbar" />
           <el-color-picker
             v-model="themeColor"
             size="small"
@@ -73,7 +77,9 @@
         </div>
       </header>
       <main class="if-content">
-        <router-view />
+        <div class="if-content__inner">
+          <router-view />
+        </div>
       </main>
     </div>
   </div>
@@ -87,6 +93,7 @@ import { HomeFilled, Menu, ArrowDown, Tickets, EditPen, DataLine } from '@elemen
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
 import { useThemeStore } from '@/store/theme'
+import LayoutSwitchEntry from '@/components/LayoutSwitchEntry.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -141,3 +148,18 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
 })
 </script>
+
+<style scoped>
+/* 普通端：浅色侧栏 / 内容居中定宽 / 大圆角柔和风格 */
+.if-layout--user {
+  --if-sidebar-bg: #ffffff;
+  --if-content-max: 1200px;
+  --if-radius: 16px;
+}
+
+/* 侧栏改为 flex 列布局，便于底部入口 margin-top:auto 推到底 */
+.if-layout--user .if-sidebar {
+  display: flex;
+  flex-direction: column;
+}
+</style>

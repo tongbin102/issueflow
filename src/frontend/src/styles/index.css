@@ -2,7 +2,8 @@
 
 .page-card {
   background: var(--bg-container);
-  border-radius: var(--border-radius-base);
+  /* 圆角跟随布局局部变量 --if-radius：用户端 16px 柔和 / 后台 4px 紧凑 */
+  border-radius: var(--if-radius, var(--border-radius-base));
   padding: 16px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }

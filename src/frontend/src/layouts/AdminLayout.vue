@@ -1,5 +1,5 @@
 <template>
-  <div class="if-layout">
+  <div class="if-layout if-layout--admin">
     <!-- 侧边栏：桌面常驻 / 移动端抽屉 -->
     <aside
       class="if-sidebar"
@@ -45,6 +45,8 @@
           <template #title>系统设置</template>
         </el-menu-item>
       </el-menu>
+      <!-- 侧栏底部「切换区域」次级入口（折叠态降级为纯图标） -->
+      <LayoutSwitchEntry variant="sidebar" />
     </aside>
 
     <div
@@ -61,6 +63,8 @@
           <span class="topbar-title">{{ pageTitle }}</span>
         </div>
         <div class="topbar-right">
+          <!-- 顶栏「切换区域」入口（所有已登录用户可见），作为第一个子元素 -->
+          <LayoutSwitchEntry variant="topbar" />
           <el-color-picker
             v-model="themeColor"
             size="small"
@@ -81,7 +85,9 @@
         </div>
       </header>
       <main class="if-content">
-        <router-view />
+        <div class="if-content__inner">
+          <router-view />
+        </div>
       </main>
     </div>
   </div>
@@ -95,6 +101,7 @@ import { DataLine, Menu, ArrowDown, Tickets, Switch, User, Setting, Brush } from
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
 import { useThemeStore } from '@/store/theme'
+import LayoutSwitchEntry from '@/components/LayoutSwitchEntry.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -149,3 +156,39 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
 })
 </script>
+
+<style scoped>
+/* 后台：紧凑 / 内容满宽 / 小圆角；侧栏固定深蓝灰（不随 themeColor 变化） */
+.if-layout--admin {
+  --if-sidebar-bg: #1f2d3d;
+  --if-content-max: none;
+  --if-radius: 4px;
+}
+
+.if-layout--admin .if-sidebar {
+  display: flex;
+  flex-direction: column;
+  /* 固定深蓝灰背景，与全局 --theme-color 解耦 */
+  background: var(--if-sidebar-bg);
+  /* 仅在本作用域内覆盖 Element Plus 菜单变量，不污染全局 */
+  --el-menu-text-color: #c0c4cc;
+  --el-menu-hover-bg-color: #263445;
+  --el-menu-active-color: var(--theme-color);
+  --el-menu-border-color: transparent;
+}
+
+/* 深色底上 logo 反白 */
+.if-layout--admin .if-logo {
+  color: #ffffff;
+}
+
+/* 激活项背景高亮（EP 默认仅改文字色，这里补背景保证对比度） */
+.if-layout--admin .if-menu .el-menu-item.is-active {
+  background-color: color-mix(in srgb, var(--theme-color) 16%, transparent);
+}
+
+/* 高密度：压缩内容区内边距 */
+.if-layout--admin .if-content {
+  padding: 12px;
+}
+</style>

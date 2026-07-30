@@ -27,7 +27,8 @@ a {
 
 .if-sidebar {
   width: var(--sidebar-width);
-  background: var(--bg-container);
+  /* 差异化背景：优先读取布局局部变量，缺省回退全局容器色 */
+  background: var(--if-sidebar-bg, var(--bg-container));
   border-right: 1px solid var(--border-color);
   transition: width 0.2s ease;
   overflow: hidden;
@@ -60,6 +61,12 @@ a {
   flex: 1;
   padding: 16px;
   overflow: auto;
+}
+
+/* 内容居中容器：宽度由布局局部变量 --if-content-max 控制，缺省不限制 */
+.if-content__inner {
+  max-width: var(--if-content-max, none);
+  margin: 0 auto;
 }
 
 .if-logo {

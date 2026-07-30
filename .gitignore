@@ -34,3 +34,7 @@ yarn-error.log*
 
 # ===== 其他 =====
 dist-verify/
+
+# ===== 部署私钥（严禁入库，参考 ss-assess 的 .deploy_key 模式）=====
+.deploy_key
+.deploy_known_hosts

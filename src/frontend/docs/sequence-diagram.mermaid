@@ -1,0 +1,44 @@
+sequenceDiagram
+    actor U as 用户(ADMIN)
+    participant UL as UserLayout
+    participant E as LayoutSwitchEntry
+    participant R as Vue Router
+    participant G as 全局 beforeEach 守卫
+    participant US as UserStore
+    participant AL as AdminLayout
+
+    U->>UL: 点击顶栏/侧栏底部「管理后台」
+    UL->>E: 渲染(v-if visible=true，因 roles 含 ADMIN)
+    E->>US: 读取 roles
+    US-->>E: ['ADMIN','USER']
+    E->>R: router.push('/admin/index')
+    R->>G: 触发 beforeEach
+    G->>US: 校验 /admin 需要 ADMIN
+    US-->>G: 含 ADMIN → 通过
+    G-->>R: next()
+    R->>AL: 渲染 AdminLayout(设 if-layout--admin)
+    AL->>AL: scoped 覆盖深色侧栏/紧凑样式
+    AL-->>U: 展示后台界面
+    note over U,AL: 非 ADMIN 因入口前置隐藏无法点击；守卫为兜底防直接输 URL
+
+---
+
+sequenceDiagram
+    actor U as 已登录用户
+    participant AL as AdminLayout
+    participant E as LayoutSwitchEntry
+    participant R as Vue Router
+    participant G as 全局 beforeEach 守卫
+    participant US as UserStore
+    participant UL as UserLayout
+
+    U->>AL: 点击顶栏/侧栏底部「返回前台」(所有登录用户可见)
+    AL->>E: 渲染(v-if visible=true)
+    E->>R: router.push('/user')
+    R->>G: 触发 beforeEach
+    G->>US: 校验 /user 需要已登录
+    US-->>G: isLoggedIn=true → 通过
+    G-->>R: next()
+    R->>UL: 渲染 UserLayout(设 if-layout--user)
+    UL->>UL: scoped 覆盖浅色/居中/大圆角
+    UL-->>U: 展示普通端界面

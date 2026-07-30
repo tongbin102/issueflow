@@ -22,7 +22,8 @@ public enum ResultCode {
     NODE_HAS_CHILDREN(1006, "该节点下存在子节点，无法删除"),
     RELATION_CYCLE(1007, "问题关联存在环路，无法保存"),
     ROLE_BUILTIN_PROTECTED(1008, "内置角色受保护，禁止删除或修改角色码"),
-    ROLE_CODE_DUPLICATE(1009, "角色码已存在或与内置角色冲突");
+    ROLE_CODE_DUPLICATE(1009, "角色码已存在或与内置角色冲突"),
+    PROJECT_HAS_OPEN_ISSUES(40020, "该项目下存在未关闭问题，无法停用");
 
     private final Integer code;
     private final String message;

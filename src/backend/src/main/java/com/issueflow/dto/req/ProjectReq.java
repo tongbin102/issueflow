@@ -22,4 +22,10 @@ public class ProjectReq implements Serializable {
 
     /** 状态：1 启用 / 0 停用，默认 1 */
     private Integer status = 1;
+
+    /** 负责人 id（user.id），非必填 */
+    private Long leaderId;
+
+    /** 项目成员 id 列表，逗号分隔，非必填 */
+    private String memberIds;
 }

@@ -39,6 +39,9 @@
             </span>
             <template #dropdown>
               <el-dropdown-menu>
+                <el-dropdown-item command="styleSettings">
+                  <el-icon><Brush /></el-icon><span class="dd-text">整体风格设置</span>
+                </el-dropdown-item>
                 <el-dropdown-item command="clearCache">
                   <el-icon><Refresh /></el-icon><span class="dd-text">清理缓存</span>
                 </el-dropdown-item>
@@ -71,6 +74,13 @@
         <el-button @click="profileVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <!-- R7 整体风格设置抽屉（仅作用于后台） -->
+    <AdminStyleDrawer
+      v-model="styleDrawerVisible"
+      :state="styleState"
+      @change="onStyleChange"
+    />
   </div>
 </template>
 
@@ -78,12 +88,15 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Menu, ArrowDown, User, Refresh, SwitchButton } from '@element-plus/icons-vue'
+import { Menu, ArrowDown, User, Refresh, SwitchButton, Brush } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
 import { roleLabel } from '@/utils/format'
+import { applyAdminStyleVars } from '@/utils/theme'
+import { loadAdminStyle } from '@/utils/adminStyle'
 import LayoutSwitchEntry from '@/components/LayoutSwitchEntry.vue'
 import SideMenu from '@/components/SideMenu.vue'
+import AdminStyleDrawer from '@/components/AdminStyleDrawer.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -92,6 +105,18 @@ const appStore = useAppStore()
 
 const drawerOpen = ref(false)
 const profileVisible = ref(false)
+const styleDrawerVisible = ref(false)
+const styleState = ref(loadAdminStyle())
+
+/** 将当前后台风格应用到 AdminLayout 根元素（仅作用域，不污染前台）。 */
+function applyStyle() {
+  const rootEl = document.querySelector('.if-layout--admin')
+  if (rootEl) applyAdminStyleVars(styleState.value, rootEl)
+}
+function onStyleChange(next) {
+  styleState.value = next
+  applyStyle()
+}
 
 const pageTitle = computed(() => route.meta.title || '管理后台')
 const realName = computed(() => userStore.realName)
@@ -118,6 +143,8 @@ function onCommand(cmd) {
         ElMessage.success('已退出登录')
       })
       .catch(() => {})
+  } else if (cmd === 'styleSettings') {
+    styleDrawerVisible.value = true
   } else if (cmd === 'clearCache') {
     localStorage.clear()
     ElMessage.success('缓存已清理，即将刷新页面')
@@ -135,6 +162,7 @@ function handleResize() {
 onMounted(() => {
   handleResize()
   window.addEventListener('resize', handleResize)
+  applyStyle()
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
@@ -142,20 +170,21 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* 后台：紧凑 / 内容满宽 / 小圆角；侧栏固定深蓝灰（不随 themeColor 变化） */
+/* 后台：紧凑 / 内容满宽 / 小圆角；侧栏类型由 R7 风格变量驱动 */
 .if-layout--admin {
-  --if-sidebar-bg: #1f2d3d;
-  --if-content-max: none;
+  --admin-sidebar-bg: #1f2d3d;
+  --admin-sidebar-text: #c0c4cc;
+  --admin-content-max: none;
   --if-radius: 4px;
 }
 
 .if-layout--admin .if-sidebar {
   display: flex;
   flex-direction: column;
-  /* 固定深蓝灰背景，与全局 --theme-color 解耦 */
-  background: var(--if-sidebar-bg);
+  /* 背景跟随 R7 侧栏类型变量（深色/浅色），不污染全局 :root */
+  background: var(--admin-sidebar-bg);
   /* 仅在本作用域内覆盖 Element Plus 菜单变量，不污染全局 */
-  --el-menu-text-color: #c0c4cc;
+  --el-menu-text-color: var(--admin-sidebar-text);
   --el-menu-hover-bg-color: #263445;
   --el-menu-active-color: var(--theme-color);
   --el-menu-border-color: transparent;

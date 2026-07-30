@@ -24,6 +24,11 @@ export function deleteUser(id) {
   return request.delete(`/users/${id}`)
 }
 
+// 用户下拉选项：GET /api/users/options（仅需登录，keyword 可选模糊匹配 realName/username）
+export function listUserOptions(params) {
+  return request.get('/users/options', { params })
+}
+
 // 角色字典：GET /api/roles → List<Role>
 export function listRoles() {
   return request.get('/roles')

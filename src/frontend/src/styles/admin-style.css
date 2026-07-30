@@ -1,0 +1,71 @@
+/*
+ * R7 后台整体风格样式：仅作用于 .if-layout--admin（后台根），绝不污染前台 UserLayout。
+ * 变量由 utils/theme.js 的 applyAdminStyleVars 写入后台根元素内联 style，
+ * 此处定义默认值 + 各开关对应的属性选择器覆盖。
+ */
+
+/* 默认（亮色 / 深色侧栏 / 流式 / 固定 Header+侧栏 / 无色弱） */
+.if-layout--admin {
+  --admin-sidebar-bg: #1f2d3d;
+  --admin-sidebar-text: #c0c4cc;
+  --admin-content-max: none;
+  --if-topbar-position: sticky;
+  --if-sidebar-position: sticky;
+  --if-color-weak-filter: none;
+}
+
+/* 侧边菜单类型：浅色 */
+.if-layout--admin[data-if-admin-sidebar='light'] {
+  --admin-sidebar-bg: #ffffff;
+  --admin-sidebar-text: #303133;
+}
+
+/* 内容区域宽度：固定 1200px 居中限宽 */
+.if-layout--admin[data-if-admin-content='fixed'] .if-content__inner {
+  max-width: var(--admin-content-max);
+  margin: 0 auto;
+}
+
+/* 顶栏位置：sticky / static */
+.if-layout--admin .if-topbar {
+  position: var(--if-topbar-position, sticky);
+  top: 0;
+  z-index: 10;
+}
+
+/* 侧栏位置：sticky / static */
+.if-layout--admin .if-sidebar {
+  position: var(--if-sidebar-position, sticky);
+  top: 0;
+  align-self: flex-start;
+  /* 背景跟随侧栏类型变量（仅本作用域内生效，不污染全局 :root） */
+  background: var(--admin-sidebar-bg);
+  --el-menu-text-color: var(--admin-sidebar-text);
+}
+
+/* 色弱模式：对主区降饱和 */
+.if-layout--admin[data-if-admin-colorweak='true'] .if-main {
+  filter: var(--if-color-weak-filter);
+}
+
+/* 暗色模式：最小覆盖（仅后台内容区/文本底色，侧栏默认深色不变） */
+.if-layout--admin[data-if-admin-theme='dark'] {
+  --bg-page: #141414;
+  --bg-container: #1f1f1f;
+  --text-primary: #e5eaf3;
+  --text-regular: #c0c4cc;
+  --text-secondary: #909399;
+  --border-color: #3a3a3a;
+  --admin-sidebar-bg: #1f2d3d;
+  --admin-sidebar-text: #c0c4cc;
+}
+
+.if-layout--admin[data-if-admin-theme='dark'] .if-content,
+.if-layout--admin[data-if-admin-theme='dark'] .page-card {
+  background: var(--bg-container);
+  color: var(--text-primary);
+}
+
+.if-layout--admin[data-if-admin-theme='dark'] .page-card {
+  border-color: var(--border-color);
+}

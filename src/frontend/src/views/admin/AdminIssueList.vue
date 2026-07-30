@@ -4,7 +4,6 @@
       <template #header>
         <div class="head">
           <span>问题管理</span>
-          <el-button type="primary" :icon="Plus" @click="goCreate">提交问题</el-button>
         </div>
       </template>
 
@@ -31,15 +30,12 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
 import IssueTable from '@/components/IssueTable.vue'
 import IssueDetailDrawer from '@/components/IssueDetailDrawer.vue'
 import IssueForm from '@/components/IssueForm.vue'
 import { updateIssue } from '@/api/issue'
 
-const router = useRouter()
 const tableRef = ref(null)
 const drawerVisible = ref(false)
 const currentId = ref(null)
@@ -57,9 +53,6 @@ function openEdit(row) {
 }
 function refresh() {
   if (tableRef.value) tableRef.value.fetchData()
-}
-function goCreate() {
-  router.push('/user/submit-issue')
 }
 async function onEditSubmit({ data }) {
   if (!editRow.value) return

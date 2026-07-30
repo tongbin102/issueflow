@@ -6,6 +6,7 @@ import com.issueflow.common.BizException;
 import com.issueflow.common.PageResult;
 import com.issueflow.common.ResultCode;
 import com.issueflow.dto.req.UserReq;
+import com.issueflow.dto.resp.UserBriefVO;
 import com.issueflow.dto.resp.UserVO;
 import com.issueflow.entity.Role;
 import com.issueflow.entity.User;
@@ -17,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -159,5 +161,37 @@ public class UserService {
             map.put(user.getId(), name);
         }
         return map;
+    }
+
+    /**
+     * 用户下拉选项（仅登录）：返回 status=1 & deleted=0 的用户，
+     * 按 real_name / username 模糊匹配，上限 100 条，回填 roleName。
+     *
+     * @param keyword 可选模糊关键字（匹配 real_name 或 username）
+     * @return 用户简览列表
+     */
+    public List<UserBriefVO> listUserOptions(String keyword) {
+        Page<User> pg = new Page<>(1, 100);
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getStatus, 1).eq(User::getDeleted, 0);
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            wrapper.and(w -> w.like(User::getRealName, kw).or().like(User::getUsername, kw));
+        }
+        userMapper.selectPage(pg, wrapper);
+
+        Map<Long, String> roleMap = new HashMap<>();
+        roleMapper.selectList(null).forEach(r -> roleMap.put(r.getId(), r.getName()));
+
+        List<UserBriefVO> result = new ArrayList<>();
+        for (User u : pg.getRecords()) {
+            UserBriefVO vo = new UserBriefVO();
+            vo.setId(u.getId());
+            vo.setRealName(u.getRealName());
+            vo.setUsername(u.getUsername());
+            vo.setRoleName(roleMap.get(u.getRoleId()));
+            result.add(vo);
+        }
+        return result;
     }
 }

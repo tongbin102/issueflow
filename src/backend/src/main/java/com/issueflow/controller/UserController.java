@@ -3,6 +3,7 @@ package com.issueflow.controller;
 import com.issueflow.common.PageResult;
 import com.issueflow.common.Result;
 import com.issueflow.dto.req.UserReq;
+import com.issueflow.dto.resp.UserBriefVO;
 import com.issueflow.dto.resp.UserVO;
 import com.issueflow.service.UserService;
 import jakarta.validation.Valid;
@@ -16,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * 用户控制器：用户增删改查（写操作仅 ADMIN；角色列表已迁移至 RoleController）
@@ -59,5 +62,14 @@ public class UserController {
     public Result<Void> delete(@PathVariable Long id) {
         userService.deleteUser(id);
         return Result.success();
+    }
+
+    /**
+     * 用户下拉选项（仅登录，无 requirePermission）：负责人/成员选择用。
+     * 返回 status=1 & deleted=0 的用户，按 real_name/username 模糊匹配，上限 100。
+     */
+    @GetMapping("/users/options")
+    public Result<List<UserBriefVO>> options(@RequestParam(required = false) String keyword) {
+        return Result.success(userService.listUserOptions(keyword));
     }
 }

@@ -1,0 +1,133 @@
+classDiagram
+    %% ===== 实体层 =====
+    class BaseEntity {
+        +Long id
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+        +Integer deleted
+    }
+
+    class Project {
+        +String name
+        +String description
+        +Integer status
+        +Long leaderId
+        +String memberIds
+    }
+    Project --|> BaseEntity
+
+    class User {
+        +String username
+        +String realName
+        +Long roleId
+        +Integer status
+    }
+    User --|> BaseEntity
+
+    class Role {
+        +String code
+        +String name
+    }
+
+    class Issue {
+        +Long projectId
+        +Integer status
+    }
+    Issue --|> BaseEntity
+
+    %% ===== DTO 层 =====
+    class ProjectReq {
+        +String name
+        +String description
+        +Integer status
+        +Long leaderId
+        +String memberIds
+    }
+
+    class ProjectVO {
+        +Long id
+        +String name
+        +String description
+        +Integer status
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+        +Long leaderId
+        +String leaderName
+        +String memberIds
+        +List~UserBriefVO~ members
+    }
+
+    class UserBriefVO {
+        +Long id
+        +String realName
+        +String username
+        +String roleName
+    }
+
+    class ProjectOptionVO {
+        +Long id
+        +String name
+        +Integer status
+    }
+
+    %% ===== 服务层 =====
+    class UserService {
+        +List~UserBriefVO~ listUserOptions(String keyword)
+        +UserVO getUserVO(User user)
+        +Map~Long,String~ userNameMap()
+    }
+
+    class ProjectService {
+        +PageResult~ProjectVO~ pageProjects(int page, int size)
+        +ProjectVO createProject(ProjectReq req)
+        +ProjectVO updateProject(Long id, ProjectReq req)
+        +void deleteProject(Long id)
+        +List~ProjectOptionVO~ listOptions()
+        -Map~Long,User~ batchUsers(List~Project~ records)
+        -ProjectVO toVO(Project p, Map~Long,User~ userMap)
+    }
+
+    class UserController {
+        +Result~List~UserBriefVO~~ options(String keyword)
+    }
+
+    class ProjectController {
+        +Result~PageResult~ProjectVO~~ page(int page, int size)
+        +Result~ProjectVO~ create(ProjectReq req)
+        +Result~ProjectVO~ update(Long id, ProjectReq req)
+        +Result~Void~ delete(Long id)
+    }
+
+    %% ===== R7 前端（后台风格） =====
+    class AdminLayout {
+        +rootEl : HTMLElement
+        +styleDrawerVisible : boolean
+        +onMounted() 读取 if_admin_style 并应用
+        +onCommand(cmd) 打开 styleSettings
+    }
+
+    class AdminStyleDrawer {
+        +state : AdminStyle
+        +onChange() 即时 applyAdminStyleVars + 持久化
+    }
+
+    class applyAdminStyleVars {
+        +applyAdminStyleVars(state, rootEl) 仅写 AdminLayout 根元素
+    }
+
+    %% ===== 关系 =====
+    ProjectService ..> UserMapper : selectBatchIds
+    ProjectService ..> IssueMapper : selectCount(R4)
+    ProjectService ..> RoleMapper : roleName 映射
+    UserService ..> UserMapper : selectList
+    UserService ..> RoleMapper : role 映射
+    UserController ..> UserService : listUserOptions
+    ProjectController ..> ProjectService : CRUD
+
+    ProjectVO "1" *-- "0..*" UserBriefVO : members
+    ProjectReq ..> Project : 写 leaderId/memberIds
+    ProjectVO ..> Project : 由 Project 扩展
+
+    AdminLayout "1" o-- "1" AdminStyleDrawer : 挂载
+    AdminStyleDrawer ..> applyAdminStyleVars : 调用
+    AdminLayout ..> applyAdminStyleVars : onMounted 调用

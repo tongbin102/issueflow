@@ -13,6 +13,7 @@ import permissionDirective, { vPermDirective } from '@/utils/permission'
 import './styles/variables.css'
 import './styles/theme.css'
 import './styles/index.css'
+import './styles/admin-style.css'
 
 const app = createApp(App)
 const pinia = createPinia()

@@ -1,0 +1,71 @@
+sequenceDiagram
+    autonumber
+    participant Admin as 管理员
+    participant PM as ProjectManage.vue
+    participant PC as ProjectController
+    participant PS as ProjectService
+    participant PMap as ProjectMapper
+    participant IM as IssueMapper
+    participant UM as UserMapper
+    participant RM as RoleMapper
+    participant AL as AdminLayout
+    participant ASD as AdminStyleDrawer
+    participant UT as applyAdminStyleVars
+    participant GEH as GlobalExceptionHandler
+
+    == R4 停用校验（仅阻止 + 文案提示，不列问题编号） ==
+    Admin->>PM: 切换项目状态 启用→停用
+    PM->>PC: PUT /api/projects/{id}  (完整 payload: name,status,leaderId,memberIds)
+    PC->>PS: updateProject(id, req)  @Transactional
+    PS->>PMap: selectById(id)
+    PMap-->>PS: exist(status=1)
+    alt req.status==0 且 exist.status==1
+        PS->>IM: selectCount(projectId, status!=CLOSED(4), deleted=0)
+        IM-->>PS: openCount
+        alt openCount > 0
+            PS-->>GEH: throw BizException(PROJECT_HAS_OPEN_ISSUES=40020)
+            GEH-->>PM: Result{code:40020, "该项目下存在未关闭问题，无法停用"}
+            PM-->>Admin: 回滚 row.status + ElMessage.error(拦截器)
+        else openCount == 0
+            PS->>PMap: updateById(exist)
+            PMap-->>PS: ok
+            PS-->>PC: ProjectVO
+            PC-->>PM: Result.success
+            PM-->>Admin: ElMessage.success("状态已更新")
+        end
+    else 非 1→0（放行）
+        PS->>PMap: updateById(exist)
+        PMap-->>PS: ok
+        PS-->>PC: ProjectVO
+        PC-->>PM: Result.success
+    end
+
+    == R2 项目分页批量回填负责人/成员（一次 selectBatchIds，避免 N+1） ==
+    Admin->>PM: 打开项目管理页
+    PM->>PC: GET /api/projects?page&size
+    PC->>PS: pageProjects(page, size)
+    PS->>PMap: selectPage(Page, wrapper)
+    PMap-->>PS: List~Project~（当页记录）
+    PS->>PS: batchUsers(records): 汇总 leaderId + 切分 memberIds
+    PS->>UM: selectBatchIds(所有去重 userId)   %% 仅 1 次
+    UM-->>PS: List~User~
+    PS->>RM: selectList() 构建 roleId→roleName 映射
+    RM-->>PS: List~Role~
+    PS->>PS: toVO(p, userMap): 回填 leaderName / members(UserBriefVO)
+    PS-->>PC: PageResult~ProjectVO~（含 leaderName, members）
+    PC-->>PM: Result.success
+    PM-->>Admin: 表格展示负责人 + 项目成员(首3名+等N人)
+
+    == R7 风格抽屉即时应用（作用域仅 AdminLayout，不污染前台） ==
+    Note over AL: onMounted 读取 if_admin_style
+    AL->>AL: loadAdminStyle() 从 localStorage 解析
+    AL->>UT: applyAdminStyleVars(state, rootEl=.if-layout--admin)
+    UT->>UT: 在根元素写内联 CSS 变量(--theme-color/--admin-sidebar-bg/--if-topbar-position...)
+    UT->>AL: 设置 data-if-admin-style 属性（不写 document.documentElement）
+    Admin->>AL: 点击头像下拉「整体风格设置」
+    AL->>ASD: 打开 ElDrawer（command=styleSettings）
+    Admin->>ASD: 切换主题色/模式/侧栏类型等任一控件
+    ASD->>UT: onChange → applyAdminStyleVars(state, document.querySelector('.if-layout--admin'))
+    UT->>UT: 即时刷新后台根元素变量（前台 UserLayout 无感知）
+    ASD->>ASD: saveAdminStyle(state) → localStorage['if_admin_style']
+    Note over AL,ASD: 刷新页面后 onMounted 重新应用，保持偏好

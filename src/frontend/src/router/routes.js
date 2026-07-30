@@ -132,12 +132,6 @@ const routes = [
         name: 'flow-config',
         component: () => import('@/views/admin/FlowConfig.vue'),
         meta: { title: '流程配置', roles: ['ADMIN'] }
-      },
-      {
-        path: 'settings',
-        name: 'system-settings',
-        component: () => import('@/views/admin/SystemSettings.vue'),
-        meta: { title: '系统设置', roles: ['ADMIN'] }
       }
     ]
   },

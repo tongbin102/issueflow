@@ -32,9 +32,8 @@
         <el-option
           v-for="p in projectOptions"
           :key="p.id"
-          :label="p.status === 1 ? p.name : p.name + '（停用）'"
+          :label="p.name"
           :value="p.id"
-          :disabled="p.status !== 1"
         />
       </el-select>
     </el-form-item>

@@ -7,10 +7,10 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 组织视图对象（Phase 5 扩展 code/leaderId/leaderName/status/description）
+ * 流程节点视图对象
  */
 @Data
-public class OrganizationVO implements Serializable {
+public class FlowNodeVO implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -18,24 +18,26 @@ public class OrganizationVO implements Serializable {
 
     private String name;
 
-    /** 组织编码 */
     private String code;
 
-    /** 负责人 user.id */
-    private Long leaderId;
+    private Integer statusCode;
 
-    /** 负责人显示名（realName 优先，缺省 username） */
-    private String leaderName;
+    private Integer nodeType;
 
-    /** 状态：1 启用 / 0 禁用 */
-    private Integer status;
+    private String color;
 
-    /** 组织描述 */
-    private String description;
+    private Integer posX;
 
-    private Long parentId;
+    private Integer posY;
 
     private Integer sort;
+
+    private String description;
+
+    private Integer enabled;
+
+    /** 状态中文描述（来自 IssueStatusEnum） */
+    private String statusDesc;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;

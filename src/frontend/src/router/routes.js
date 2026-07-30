@@ -87,7 +87,13 @@ const routes = [
         path: 'projects',
         name: 'project-manage',
         component: () => import('@/views/admin/ProjectManage.vue'),
-        meta: { title: '项目管理', roles: ['ADMIN'] }
+        meta: { title: '项目配置', roles: ['ADMIN'] }
+      },
+      {
+        path: 'modules',
+        name: 'module-manage',
+        component: () => import('@/views/admin/ModuleManage.vue'),
+        meta: { title: '模块配置', roles: ['ADMIN'] }
       },
       {
         path: 'flow-monitor',
@@ -124,6 +130,12 @@ const routes = [
             name: 'role-manage',
             component: () => import('@/views/admin/RoleManage.vue'),
             meta: { title: '角色管理', roles: ['ADMIN'] }
+          },
+          {
+            path: 'settings',
+            name: 'system-settings',
+            component: () => import('@/views/admin/SystemSettings.vue'),
+            meta: { title: '系统设置', roles: ['ADMIN'] }
           }
         ]
       },

@@ -1,0 +1,75 @@
+sequenceDiagram
+    %% ===== issueFlow Phase 5 关键时序 =====
+    %% 场景一：R2 状态机读库驱动的状态流转（含缓存与兜底）
+    %% 场景二：R2 流程配置变更即时生效
+    %% 场景三：R7 数据初始化（清库顺序 + admin 保留 + 附件清理）
+
+    participant FE as 前端(StatusFlowButtons/FlowConfig.vue)
+    participant IFC as IssueFlowController
+    participant IFS as IssueFlowService
+    participant SM as StateMachine
+    participant FTM as FlowTransitionMapper/FlowNodeMapper
+    participant SCS as SysConfigService
+    participant DB as MySQL
+
+    rect rgb(235, 244, 255)
+    note over FE,DB: 场景一：状态流转（R2 读库驱动）
+    FE->>IFC: PUT /api/issues/{id}/status {toStatus, remark}
+    IFC->>IFS: changeStatus(id, toStatus, remark, operatorId, roleCode)
+    IFS->>SM: isAllowed(from, to, roleCode)
+    alt 内存缓存为空
+        SM->>FTM: selectList(enabled=1, deleted=0) + 节点 status_code 映射
+        FTM->>DB: SELECT flow_transition JOIN flow_node
+        DB-->>SM: 流转规则列表
+        alt 库中无任何流转记录（清库/迁移未跑）
+            SM->>SM: 回退硬编码 DEFAULT_TRANSITIONS（原 6 条）
+        end
+        SM->>SM: 写入 volatile 缓存
+    end
+    SM->>SM: 匹配 (from.status_code → to.status_code)
+    opt 该流转带 configKey（VERIFY_REJECT/REOPEN）
+        SM->>SCS: isEnabled(flow_reject_enabled / flow_reopen_enabled)
+        SCS-->>SM: false 则直接拒绝
+    end
+    SM-->>IFS: true/false（false 抛 STATUS_TRANSITION_DENIED）
+    IFS->>SM: isRemarkRequired(from, to)
+    SM-->>IFS: true 且 remark 空 → 抛"必须填写原因"
+    IFS->>DB: UPDATE issue SET status=to
+    IFS->>SM: getActionCode(from, to)
+    IFS->>DB: INSERT issue_history(action=actionCode)
+    IFS-->>FE: IssueVO
+    end
+
+    rect rgb(235, 255, 240)
+    note over FE,DB: 场景二：流程配置变更后即时生效（无需重启）
+    FE->>IFC: PUT /api/flow/transitions/{id}（FlowDefinitionController）
+    IFC->>IFS: FlowDefinitionService.updateTransition()
+    IFS->>IFS: 校验 from!=to、(from,to) 不重复、flow:config 权限
+    IFS->>DB: UPDATE flow_transition
+    IFS->>SM: reload() 清空并重建内存缓存
+    IFS-->>FE: FlowTransitionVO（下一次流转即用新规则）
+    end
+
+    participant SDC as SystemDataController
+    participant SDS as SystemDataService
+    participant FS as 磁盘(ATTACHMENT_BASE_PATH)
+
+    rect rgb(255, 240, 240)
+    note over FE,FS: 场景三：R7 数据初始化（不可逆，仅 ADMIN + system:reset）
+    FE->>SDC: POST /api/system/data/reset（前端已输入 RESET 确认）
+    SDC->>SDS: resetData()
+    SDS->>SDS: 校验 roleCode==ADMIN 且 requirePermission("system:reset")
+    SDS->>DB: SELECT file_path FROM issue_attachment（先取待删文件清单）
+    note over SDS,DB: 单事务内按依赖逆序 DELETE（先子后父）：
+    SDS->>DB: 1.issue_attachment 2.issue_history 3.issue_relation 4.issue
+    SDS->>DB: 5.tag 6.module_dependency 7.module 8.project 9.organization
+    SDS->>DB: 10.user WHERE username != 'admin'
+    SDS->>DB: UPDATE user SET leader_id=NULL WHERE username='admin'
+    note over SDS,DB: 保留：role/permission/role_permission/menu/sys_config/flow_node/flow_transition + admin
+    DB-->>SDS: 各表影响行数（事务提交）
+    SDS->>DB: 事务外逐表 ALTER TABLE ... AUTO_INCREMENT=1（失败不影响结果）
+    SDS->>FS: 递归删除附件目录下全部文件（DB 提交成功后才执行）
+    SDS-->>SDC: Map<表名, 清理条数>
+    SDC-->>FE: Result.success(counts) → 提示各表条数并刷新
+    note over FE: admin 登录态不失效，系统立即可用
+    end

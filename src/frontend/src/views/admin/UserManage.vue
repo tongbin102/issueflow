@@ -15,6 +15,9 @@
         <el-table-column label="角色" width="120">
           <template #default="{ row }">{{ roleName(row.roleId) }}</template>
         </el-table-column>
+        <el-table-column label="上级领导" width="120">
+          <template #default="{ row }">{{ row.leaderName || '-' }}</template>
+        </el-table-column>
         <el-table-column label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'" effect="light">
@@ -47,13 +50,16 @@
       </div>
     </el-card>
 
-    <el-dialog
-      v-model="dialogVisible"
-      :title="form.id ? '编辑用户' : '新建用户'"
-      width="460px"
-      append-to-body
+    <!-- 新建 / 编辑抽屉（R3 FormDrawer 规范） -->
+    <FormDrawer
+      v-model="drawerVisible"
+      :title="form.id ? '编辑用户' : '新增用户'"
+      size="sm"
+      :loading="saving"
+      @confirm="onSubmit"
+      @closed="onDrawerClosed"
     >
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
         <el-form-item label="账号" prop="username">
           <el-input v-model="form.username" :disabled="!!form.id" />
         </el-form-item>
@@ -68,11 +74,27 @@
         </el-form-item>
         <el-form-item label="角色" prop="roleId">
           <el-select v-model="form.roleId" placeholder="选择角色" style="width: 100%">
+            <el-option v-for="r in roles" :key="r.id" :label="r.name" :value="r.id" />
+          </el-select>
+        </el-form-item>
+        <!-- R5 上级领导：复用 /api/users/options，排除自己 -->
+        <el-form-item label="上级领导">
+          <el-select
+            v-model="form.leaderId"
+            filterable
+            remote
+            clearable
+            reserve-keyword
+            :remote-method="searchLeaders"
+            :loading="leaderLoading"
+            placeholder="搜索并选择上级领导（可空）"
+            style="width: 100%"
+          >
             <el-option
-              v-for="r in roles"
-              :key="r.id"
-              :label="r.name"
-              :value="r.id"
+              v-for="u in leaderOptions"
+              :key="u.id"
+              :label="u.realName || u.username"
+              :value="u.id"
             />
           </el-select>
         </el-form-item>
@@ -89,11 +111,7 @@
           <el-input v-model="form.password" type="password" show-password />
         </el-form-item>
       </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">保存</el-button>
-      </template>
-    </el-dialog>
+    </FormDrawer>
   </div>
 </template>
 
@@ -102,8 +120,9 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { formatDate } from '@/utils/format'
-import { pageUsers, createUser, updateUser, deleteUser } from '@/api/user'
+import { pageUsers, createUser, updateUser, deleteUser, listUserOptions } from '@/api/user'
 import { listRoles } from '@/api/user'
+import FormDrawer from '@/components/FormDrawer.vue'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -113,7 +132,7 @@ const page = ref(1)
 const size = ref(10)
 const roles = ref([])
 const roleMap = ref({})
-const dialogVisible = ref(false)
+const drawerVisible = ref(false)
 const formRef = ref(null)
 
 const emptyForm = () => ({
@@ -123,6 +142,7 @@ const emptyForm = () => ({
   email: '',
   phone: '',
   roleId: null,
+  leaderId: null,
   status: 1,
   password: ''
 })
@@ -166,9 +186,34 @@ async function fetchData() {
   }
 }
 
+/* ---------------- 上级领导远程搜索（R5，排除自己） ---------------- */
+const leaderOptions = ref([])
+const leaderLoading = ref(false)
+async function searchLeaders(query) {
+  leaderLoading.value = true
+  try {
+    const params = {}
+    if (query && query.trim()) params.keyword = query.trim()
+    const data = await listUserOptions(params)
+    const mapped = (data || [])
+      .filter((u) => !form.id || u.id !== form.id) // 排除自己
+      .map((u) => ({ id: u.id, realName: u.realName, username: u.username }))
+    const merged = [...leaderOptions.value]
+    mapped.forEach((m) => {
+      if (!merged.find((x) => x.id === m.id)) merged.push(m)
+    })
+    leaderOptions.value = merged
+  } catch (e) {
+    leaderOptions.value = []
+  } finally {
+    leaderLoading.value = false
+  }
+}
+
 function openCreate() {
   Object.assign(form, emptyForm())
-  dialogVisible.value = true
+  leaderOptions.value = []
+  drawerVisible.value = true
 }
 function openEdit(row) {
   Object.assign(form, {
@@ -178,16 +223,28 @@ function openEdit(row) {
     email: row.email || '',
     phone: row.phone || '',
     roleId: row.roleId,
+    leaderId: row.leaderId ?? null,
     status: row.status === 0 ? 0 : 1,
     password: ''
   })
-  dialogVisible.value = true
+  // 预填上级领导下拉，保证回显
+  leaderOptions.value =
+    row.leaderId != null ? [{ id: row.leaderId, realName: row.leaderName || '', username: '' }] : []
+  drawerVisible.value = true
+}
+function onDrawerClosed() {
+  formRef.value && formRef.value.resetFields()
+  Object.assign(form, emptyForm())
 }
 
 function onSubmit() {
   if (!formRef.value) return
   formRef.value.validate(async (valid) => {
     if (!valid) return
+    if (form.id && form.leaderId === form.id) {
+      ElMessage.warning('上级领导不能设置为自己')
+      return
+    }
     saving.value = true
     const payload = {
       username: form.username,
@@ -195,6 +252,7 @@ function onSubmit() {
       email: form.email,
       phone: form.phone,
       roleId: form.roleId,
+      leaderId: form.leaderId ?? null,
       status: form.status
     }
     if (!form.id) payload.password = form.password
@@ -206,7 +264,7 @@ function onSubmit() {
         await createUser(payload)
         ElMessage.success('已创建')
       }
-      dialogVisible.value = false
+      drawerVisible.value = false
       fetchData()
     } catch (e) {
     } finally {

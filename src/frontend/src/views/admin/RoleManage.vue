@@ -38,12 +38,14 @@
       </el-table>
     </el-card>
 
-    <!-- 新建 / 编辑角色 -->
-    <el-dialog
+    <!-- 新增 / 编辑角色（R3 统一抽屉） -->
+    <FormDrawer
       v-model="dialogVisible"
-      :title="form.id ? '编辑角色' : '新建角色'"
-      width="460px"
-      append-to-body
+      :title="form.id ? '编辑角色' : '新增角色'"
+      size="md"
+      :loading="saving"
+      @confirm="onSubmit"
+      @closed="onDrawerClosed"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
         <el-form-item label="角色码" prop="code">
@@ -62,19 +64,15 @@
           <el-input v-model="form.description" type="textarea" :rows="3" maxlength="200" />
         </el-form-item>
       </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">保存</el-button>
-      </template>
-    </el-dialog>
+    </FormDrawer>
 
-    <!-- 分配权限 -->
-    <el-dialog
+    <!-- 分配权限（R3 统一抽屉） -->
+    <FormDrawer
       v-model="permDialogVisible"
       title="分配权限"
-      width="640px"
-      append-to-body
-      @open="onPermDialogOpen"
+      size="lg"
+      :loading="permSaving"
+      @confirm="onSavePerm"
     >
       <div v-loading="permLoading" class="perm-dialog">
         <el-alert
@@ -104,11 +102,7 @@
           </el-checkbox-group>
         </el-scrollbar>
       </div>
-      <template #footer>
-        <el-button @click="permDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="permSaving" @click="onSavePerm">保存</el-button>
-      </template>
-    </el-dialog>
+    </FormDrawer>
   </div>
 </template>
 
@@ -126,6 +120,7 @@ import {
   refreshPermissions
 } from '@/api/role'
 import { listPermissions } from '@/api/permission'
+import FormDrawer from '@/components/FormDrawer.vue'
 
 const loading = ref(false)
 const roles = ref([])
@@ -268,10 +263,18 @@ async function onRefresh() {
   }
 }
 
+/** 抽屉关闭后重置表单与校验状态 */
+function onDrawerClosed() {
+  Object.assign(form, { id: null, code: '', name: '', description: '', builtin: false })
+  formRef.value && formRef.value.clearValidate()
+}
+
 // ===== 权限分配 =====
 function openPerm(row) {
   currentRole.value = row
   permDialogVisible.value = true
+  // 抽屉无 open 事件，打开时主动加载该角色已有权限
+  onPermDialogOpen()
 }
 
 async function onPermDialogOpen() {

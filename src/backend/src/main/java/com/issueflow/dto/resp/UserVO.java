@@ -33,6 +33,12 @@ public class UserVO implements Serializable {
     /** 角色名 */
     private String roleName;
 
+    /** 上级领导 user.id */
+    private Long leaderId;
+
+    /** 上级领导显示名（realName 优先，缺省 username） */
+    private String leaderName;
+
     /** 状态：1 启用 / 0 禁用 */
     private Integer status;
 

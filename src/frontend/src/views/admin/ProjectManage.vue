@@ -3,7 +3,7 @@
     <el-card class="page-card" shadow="never">
       <template #header>
         <div class="head">
-          <span>项目管理</span>
+          <span>项目配置</span>
           <div class="head-right">
             <el-popover placement="bottom-end" :width="220" trigger="click">
               <template #reference>
@@ -80,11 +80,14 @@
       </div>
     </el-card>
 
-    <el-dialog
+    <!-- 新增 / 编辑项目（R3 统一抽屉） -->
+    <FormDrawer
       v-model="dialogVisible"
-      :title="form.id ? '编辑项目' : '新建项目'"
-      width="460px"
-      append-to-body
+      :title="form.id ? '编辑项目' : '新增项目'"
+      size="md"
+      :loading="saving"
+      @confirm="onSubmit"
+      @closed="onDrawerClosed"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="名称" prop="name">
@@ -150,11 +153,7 @@
           />
         </el-form-item>
       </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">保存</el-button>
-      </template>
-    </el-dialog>
+    </FormDrawer>
 
     <!-- 模块管理抽屉（R1 项目模块树形结构） -->
     <ModuleTreeDrawer
@@ -180,6 +179,7 @@ import {
 import { listUserOptions } from '@/api/user'
 import { useUserStore } from '@/store/user'
 import ModuleTreeDrawer from '@/components/ModuleTreeDrawer.vue'
+import FormDrawer from '@/components/FormDrawer.vue'
 
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
@@ -379,6 +379,13 @@ function openEdit(row) {
     return true
   })
   dialogVisible.value = true
+}
+
+/** 抽屉关闭后重置表单与校验状态 */
+function onDrawerClosed() {
+  Object.assign(form, emptyForm())
+  userOptions.value = []
+  formRef.value && formRef.value.clearValidate()
 }
 
 /**

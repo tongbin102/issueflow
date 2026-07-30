@@ -13,12 +13,13 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
 /**
- * 组织控制器：列表 + CRUD（写操作仅 ADMIN）
+ * 组织控制器：列表（支持名称/状态筛选）+ CRUD（写操作仅 ADMIN）
  */
 @RestController
 @RequestMapping("/api/organizations")
@@ -28,11 +29,12 @@ public class OrganizationController {
     private final OrganizationService organizationService;
 
     /**
-     * 组织列表（ADMIN）
+     * 组织列表（ADMIN），可按名称模糊 / 状态筛选
      */
     @GetMapping
-    public Result<List<OrganizationVO>> list() {
-        return Result.success(organizationService.listAll());
+    public Result<List<OrganizationVO>> list(@RequestParam(required = false) String name,
+                                             @RequestParam(required = false) Integer status) {
+        return Result.success(organizationService.listAll(name, status));
     }
 
     /**

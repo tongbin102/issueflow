@@ -33,6 +33,9 @@ public class User extends BaseEntity {
     /** 角色 id，关联 role.id */
     private Long roleId;
 
+    /** 上级领导 user.id（可空，不允许指向自己） */
+    private Long leaderId;
+
     /** 状态：1 启用 / 0 禁用 */
     private Integer status;
 }

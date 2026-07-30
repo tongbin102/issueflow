@@ -1,22 +1,31 @@
 package com.issueflow.handler;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.issueflow.common.Constants;
+import com.issueflow.entity.FlowNode;
+import com.issueflow.entity.FlowTransition;
 import com.issueflow.enums.HistoryActionEnum;
-import com.issueflow.enums.IssueStatusEnum;
+import com.issueflow.mapper.FlowNodeMapper;
+import com.issueflow.mapper.FlowTransitionMapper;
 import com.issueflow.service.SysConfigService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.PostConstruct;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
- * 问题状态机：定义状态转移规则、角色约束与流程开关
+ * 问题状态机：规则读库驱动 + 运行时缓存 + 兜底硬编码默认。
  * <p>
- * 转移表（见架构 4.3）：
- * OPEN→IN_PROGRESS (D/A)、IN_PROGRESS→PENDING_VERIFY (D/A)、
- * PENDING_VERIFY→VERIFIED (T/A)、PENDING_VERIFY→IN_PROGRESS (T/A 且需 flow_reject_enabled)、
- * VERIFIED→CLOSED (T/A)、CLOSED→OPEN (A 且需 flow_reopen_enabled)
+ * 设计：启动与每次流程配置写操作后 {@link #reload()} 重建规则缓存；库中无任何流转时
+ * 回退到 {@link #DEFAULT_TRANSITIONS}（原 6 条硬编码），保证流转永不断裂。
+ * config_key 命中的流转仍叠加 SysConfig 开关判断，兼容旧的回退/重开开关。
  * </p>
  */
 @Component
@@ -24,40 +33,62 @@ import java.util.Set;
 public class StateMachine {
 
     private final SysConfigService sysConfigService;
+    private final FlowNodeMapper flowNodeMapper;
+    private final FlowTransitionMapper flowTransitionMapper;
 
-    /** 单条转移定义 */
+    /** 单条转移规则（读库构建） */
     private record Transition(int from, int to, Set<String> roles,
-                              HistoryActionEnum action, String configKey, boolean remarkRequired) {
+                              String actionCode, String configKey, boolean remarkRequired) {
     }
 
-    private static final int OPEN = IssueStatusEnum.OPEN.getCode();
-    private static final int IN_PROGRESS = IssueStatusEnum.IN_PROGRESS.getCode();
-    private static final int PENDING_VERIFY = IssueStatusEnum.PENDING_VERIFY.getCode();
-    private static final int VERIFIED = IssueStatusEnum.VERIFIED.getCode();
-    private static final int CLOSED = IssueStatusEnum.CLOSED.getCode();
+    /** 运行时规则缓存（整体替换，volatile 可见性） */
+    private volatile List<Transition> rules = new ArrayList<>();
 
-    private static final List<Transition> TRANSITIONS = List.of(
-            new Transition(OPEN, IN_PROGRESS, Set.of(Constants.ROLE_DEVELOPER, Constants.ROLE_ADMIN),
-                    HistoryActionEnum.CLAIM, null, false),
-            new Transition(IN_PROGRESS, PENDING_VERIFY, Set.of(Constants.ROLE_DEVELOPER, Constants.ROLE_ADMIN),
-                    HistoryActionEnum.SUBMIT_FIX, null, false),
-            new Transition(PENDING_VERIFY, VERIFIED, Set.of(Constants.ROLE_TESTER, Constants.ROLE_ADMIN),
-                    HistoryActionEnum.VERIFY_PASS, null, false),
-            new Transition(PENDING_VERIFY, IN_PROGRESS, Set.of(Constants.ROLE_TESTER, Constants.ROLE_ADMIN),
-                    HistoryActionEnum.VERIFY_REJECT, Constants.CFG_FLOW_REJECT_ENABLED, true),
-            new Transition(VERIFIED, CLOSED, Set.of(Constants.ROLE_TESTER, Constants.ROLE_ADMIN),
-                    HistoryActionEnum.CLOSE, null, false),
-            new Transition(CLOSED, OPEN, Set.of(Constants.ROLE_ADMIN),
-                    HistoryActionEnum.REOPEN, Constants.CFG_FLOW_REOPEN_ENABLED, false)
-    );
+    @PostConstruct
+    public void init() {
+        reload();
+    }
+
+    /**
+     * 从库重建流转规则缓存；库空则回退硬编码默认（流转永不断裂）
+     */
+    public void reload() {
+        List<FlowTransition> transitions = flowTransitionMapper.selectList(
+                new LambdaQueryWrapper<FlowTransition>()
+                        .eq(FlowTransition::getEnabled, 1).eq(FlowTransition::getDeleted, 0));
+        Map<Long, Integer> statusMap = flowNodeMapper.selectList(
+                        new LambdaQueryWrapper<FlowNode>()
+                                .eq(FlowNode::getEnabled, 1).eq(FlowNode::getDeleted, 0))
+                .stream().collect(Collectors.toMap(FlowNode::getId, FlowNode::getStatusCode));
+
+        List<Transition> built = new ArrayList<>();
+        for (FlowTransition t : transitions) {
+            Integer from = statusMap.get(t.getFromNodeId());
+            Integer to = statusMap.get(t.getToNodeId());
+            if (from == null || to == null) {
+                continue;
+            }
+            built.add(new Transition(from, to, parseRoles(t.getAllowRoles()),
+                    t.getActionCode(), t.getConfigKey(),
+                    t.getRemarkRequired() != null && t.getRemarkRequired() == 1));
+        }
+        if (built.isEmpty()) {
+            this.rules = DEFAULT_TRANSITIONS;
+        } else {
+            this.rules = built;
+        }
+    }
+
+    private Set<String> parseRoles(String roles) {
+        if (roles == null || roles.isBlank()) {
+            return Set.of();
+        }
+        return Arrays.stream(roles.split(",")).map(String::trim)
+                .filter(s -> !s.isEmpty()).collect(Collectors.toSet());
+    }
 
     /**
      * 判断状态流转是否被允许
-     *
-     * @param from     源状态 code
-     * @param to       目标状态 code
-     * @param roleCode 当前角色码
-     * @return 允许返回 true
      */
     public boolean isAllowed(int from, int to, String roleCode) {
         if (from == to) {
@@ -74,17 +105,43 @@ public class StateMachine {
     }
 
     /**
-     * 获取转移对应的历史动作枚举（无匹配返回 null）
+     * 获取转移对应的历史动作码（无匹配返回 null）
      */
-    public HistoryActionEnum getAction(int from, int to) {
+    public String getActionCode(int from, int to) {
         Transition transition = find(from, to);
-        return transition == null ? null : transition.action();
+        return transition == null ? null : transition.actionCode();
+    }
+
+    /**
+     * 该流转是否必填原因
+     */
+    public boolean isRemarkRequired(int from, int to) {
+        Transition transition = find(from, to);
+        return transition != null && transition.remarkRequired();
     }
 
     private Transition find(int from, int to) {
-        return TRANSITIONS.stream()
-                .filter(t -> t.from() == from && t.to() == to)
-                .findFirst()
-                .orElse(null);
+        for (Transition t : rules) {
+            if (t.from() == from && t.to() == to) {
+                return t;
+            }
+        }
+        return null;
     }
+
+    /** 硬编码默认流转（与原 6 条 TRANSITIONS 一致），库空时回退 */
+    private static final List<Transition> DEFAULT_TRANSITIONS = List.of(
+            new Transition(0, 1, Set.of(Constants.ROLE_DEVELOPER, Constants.ROLE_ADMIN),
+                    HistoryActionEnum.CLAIM.getCode(), null, false),
+            new Transition(1, 2, Set.of(Constants.ROLE_DEVELOPER, Constants.ROLE_ADMIN),
+                    HistoryActionEnum.SUBMIT_FIX.getCode(), null, false),
+            new Transition(2, 3, Set.of(Constants.ROLE_TESTER, Constants.ROLE_ADMIN),
+                    HistoryActionEnum.VERIFY_PASS.getCode(), null, false),
+            new Transition(2, 1, Set.of(Constants.ROLE_TESTER, Constants.ROLE_ADMIN),
+                    HistoryActionEnum.VERIFY_REJECT.getCode(), Constants.CFG_FLOW_REJECT_ENABLED, true),
+            new Transition(3, 4, Set.of(Constants.ROLE_TESTER, Constants.ROLE_ADMIN),
+                    HistoryActionEnum.CLOSE.getCode(), null, false),
+            new Transition(4, 0, Set.of(Constants.ROLE_ADMIN),
+                    HistoryActionEnum.REOPEN.getCode(), Constants.CFG_FLOW_REOPEN_ENABLED, false)
+    );
 }

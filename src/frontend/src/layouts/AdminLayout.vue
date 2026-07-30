@@ -12,8 +12,11 @@
         <span v-if="!collapsed">issueFlow 后台</span>
         <span v-else>IF</span>
       </div>
-      <SideMenu :type="2" />
-      <!-- 侧栏底部「切换区域」次级入口（折叠态降级为纯图标） -->
+      <!-- R1：菜单内滚动容器（flex:1 + overflow-y:auto），底部预留固定入口高度 -->
+      <div class="if-sidebar__menu">
+        <SideMenu :type="2" />
+      </div>
+      <!-- 侧栏底部「切换区域」入口：position:fixed 钉底（折叠态降级为纯图标） -->
       <LayoutSwitchEntry variant="sidebar" />
     </aside>
 
@@ -181,6 +184,8 @@ onBeforeUnmount(() => {
 .if-layout--admin .if-sidebar {
   display: flex;
   flex-direction: column;
+  /* R1：底部预留 fixed「返回前台」入口高度，避免菜单末项被遮挡 */
+  padding-bottom: var(--if-switch-entry-height, 56px);
   /* 背景跟随 R7 侧栏类型变量（深色/浅色），不污染全局 :root */
   background: var(--admin-sidebar-bg);
   /* 仅在本作用域内覆盖 Element Plus 菜单变量，不污染全局 */

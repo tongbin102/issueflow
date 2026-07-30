@@ -91,10 +91,33 @@ function handleClick() {
   align-items: center;
 }
 
-/* 侧栏底部形态：推到底部并加内边距 */
+/* R1 侧栏底部形态：position:fixed 钉在视口左下（侧栏贴左边缘，视觉即钉在侧栏底部）。
+   即使 --if-sidebar-position:static（侧栏随页面滚动），fixed 相对视口仍不受影响。 */
 .if-switch-entry--sidebar {
-  margin-top: auto;
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  z-index: 10;
+  width: var(--sidebar-width);
   padding: 12px;
+  background: var(--admin-sidebar-bg, var(--if-sidebar-bg, var(--bg-container)));
+  transition: width 0.2s ease;
+}
+
+/* 折叠态：宽度跟随侧栏 64px */
+.if-sidebar.is-collapsed .if-switch-entry--sidebar {
+  width: var(--sidebar-collapsed-width);
+}
+
+/* 移动端（<=768px）：侧栏自身是 fixed+transform 抽屉（transform 构建包含块），
+   降级为 absolute 钉在抽屉底部，随抽屉一起滑入滑出 */
+@media (max-width: 768px) {
+  .if-switch-entry--sidebar {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+  }
 }
 
 .if-switch-entry__btn--sidebar {

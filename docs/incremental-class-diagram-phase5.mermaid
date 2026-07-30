@@ -1,0 +1,154 @@
+classDiagram
+    %% ===== issueFlow Phase 5 增量类图 =====
+    %% R2 流程数据化 / R4 组织扩展 / R5 用户扩展 / R7 数据初始化
+
+    class BaseEntity {
+        +Long id
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+        +Integer deleted
+    }
+
+    %% ---------- R2 流程配置数据化 ----------
+    class FlowNode {
+        +String name
+        +String code
+        +Integer statusCode  %% 必须与 IssueStatusEnum 0-4 一一对应
+        +Integer nodeType  %% 1开始/2审核/3结束
+        +String color
+        +Integer posX
+        +Integer posY
+        +Integer sort
+        +String description
+        +Integer enabled
+    }
+
+    class FlowTransition {
+        +Long fromNodeId
+        +Long toNodeId
+        +String actionCode  %% 对齐 HistoryActionEnum
+        +String actionName
+        +String allowRoles  %% 逗号分隔角色码
+        +Integer remarkRequired
+        +String configKey  %% 承接 flow_reject_enabled / flow_reopen_enabled
+        +Integer enabled
+        +Integer sort
+    }
+
+    class StateMachine {
+        -SysConfigService sysConfigService
+        -FlowNodeMapper flowNodeMapper
+        -FlowTransitionMapper flowTransitionMapper
+        -volatile List~RuntimeTransition~ cache
+        +isAllowed(int from, int to, String roleCode) boolean
+        +getActionCode(int from, int to) String
+        +isRemarkRequired(int from, int to) boolean
+        +reload() void  %% 配置变更后由 FlowDefinitionService 调用
+        -loadTransitions() List~RuntimeTransition~  %% 库空则回退 DEFAULT_TRANSITIONS
+    }
+
+    class FlowDefinitionService {
+        -FlowNodeMapper flowNodeMapper
+        -FlowTransitionMapper flowTransitionMapper
+        -IssueMapper issueMapper
+        -PermissionService permissionService
+        -StateMachine stateMachine
+        +getGraph() FlowGraphVO  %% flow:view
+        +createNode(FlowNodeReq) FlowNodeVO
+        +updateNode(Long id, FlowNodeReq) FlowNodeVO
+        +deleteNode(Long id) void  %% 有关联流转或存量 issue 时拒绝
+        +savePositions(List~FlowNodePositionReq~) void
+        +createTransition(FlowTransitionReq) FlowTransitionVO
+        +updateTransition(Long id, FlowTransitionReq) FlowTransitionVO
+        +deleteTransition(Long id) void
+        +resetDefault() void  %% 重置为内置 6 条默认流转
+    }
+
+    class FlowDefinitionController {
+        +GET /api/flow/graph
+        +POST /api/flow/nodes
+        +PUT /api/flow/nodes/{id}
+        +DELETE /api/flow/nodes/{id}
+        +PUT /api/flow/nodes/positions
+        +POST /api/flow/transitions
+        +PUT /api/flow/transitions/{id}
+        +DELETE /api/flow/transitions/{id}
+        +POST /api/flow/reset-default
+    }
+
+    class IssueFlowService {
+        +changeStatus(id, toStatus, remark, operatorId, roleCode) IssueVO
+        %% 改造点：remark 必填改为读 stateMachine.isRemarkRequired
+        %% 改造点：action 改为 stateMachine.getActionCode 字符串
+    }
+
+    %% ---------- R4 组织扩展 ----------
+    class Organization {
+        +String name
+        +Long parentId
+        +Integer sort
+        +String code  %% 新增：组织编码，唯一非空
+        +Long leaderId  %% 新增：部门负责人 user.id
+        +Integer status  %% 新增：1启用/0停用
+        +String description  %% 新增
+    }
+
+    class OrganizationService {
+        +listAll(String name, Integer status) List~OrganizationVO~  %% 新增筛选，命中回带祖先链
+        +create(OrganizationReq) OrganizationVO  %% 新增 code 唯一校验
+        +update(Long id, OrganizationReq) OrganizationVO  %% 父级防环：排除自身及子孙
+        +delete(Long id) void
+        -assertCodeUnique(String code, Long excludeId) void
+        -assertNotDescendant(Long id, Long newParentId) void
+    }
+
+    %% ---------- R5 用户扩展 ----------
+    class User {
+        +String username
+        +String password
+        +String realName
+        +String email
+        +String phone
+        +Long roleId
+        +Integer status
+        +Long leaderId  %% 新增：上级领导 user.id
+    }
+
+    class UserService {
+        +create/update  %% 新增 leaderId 校验：不能选自己、汇报链防环(P1)
+        +listUserOptions(keyword) List~UserBriefVO~  %% 已有，R4/R5 复用
+    }
+
+    %% ---------- R7 数据初始化 ----------
+    class SystemDataService {
+        -List~BaseMapper~ 各业务表 Mapper
+        -AttachmentService attachmentService
+        +resetData() Map~String,Long~  %% 返回各表清理条数
+        -assertAdminAndPermission() void  %% ADMIN + system:reset
+        -deleteBusinessRows() Map  %% 事务内按依赖逆序 DELETE
+        -resetAutoIncrement() void  %% 事务提交后执行（ALTER 隐式提交）
+        -purgeAttachmentFiles() void  %% DB 提交后删磁盘文件
+    }
+
+    class SystemDataController {
+        +POST /api/system/data/reset
+    }
+
+    %% ---------- 关系 ----------
+    BaseEntity <|-- FlowNode
+    BaseEntity <|-- FlowTransition
+    BaseEntity <|-- Organization
+    BaseEntity <|-- User
+    FlowTransition "n" --> "1" FlowNode : fromNodeId/toNodeId
+    FlowNode ..> IssueStatusEnum : statusCode 一一对应
+    StateMachine --> FlowTransitionMapper : 读库(带内存缓存)
+    StateMachine --> FlowNodeMapper
+    StateMachine ..> SysConfigService : configKey 开关兜底
+    FlowDefinitionService --> StateMachine : 变更后 reload()
+    FlowDefinitionController --> FlowDefinitionService
+    IssueFlowService --> StateMachine : isAllowed/getActionCode/isRemarkRequired
+    OrganizationService --> Organization
+    Organization "n" ..> "0..1" User : leaderId
+    User "n" ..> "0..1" User : leaderId(上级领导)
+    SystemDataController --> SystemDataService
+    SystemDataService ..> User : 保留 admin

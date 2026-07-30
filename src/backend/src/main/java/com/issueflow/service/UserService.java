@@ -68,6 +68,15 @@ public class UserService {
         vo.setEmail(user.getEmail());
         vo.setPhone(user.getPhone());
         vo.setRoleId(user.getRoleId());
+        vo.setLeaderId(user.getLeaderId());
+        if (user.getLeaderId() != null) {
+            User leader = userMapper.selectById(user.getLeaderId());
+            if (leader != null) {
+                String leaderName = (leader.getRealName() != null && !leader.getRealName().isBlank())
+                        ? leader.getRealName() : leader.getUsername();
+                vo.setLeaderName(leaderName);
+            }
+        }
         vo.setStatus(user.getStatus());
         vo.setCreatedAt(user.getCreatedAt());
         if (user.getRoleId() != null) {
@@ -110,8 +119,14 @@ public class UserService {
         user.setEmail(req.getEmail());
         user.setPhone(req.getPhone());
         user.setRoleId(req.getRoleId());
+        user.setLeaderId(req.getLeaderId());
         user.setStatus(req.getStatus() == null ? 1 : req.getStatus());
         userMapper.insert(user);
+        // 极端场景防环：新建后若上级指向了自己（前端不会出现），置空修正
+        if (user.getLeaderId() != null && Objects.equals(user.getLeaderId(), user.getId())) {
+            user.setLeaderId(null);
+            userMapper.updateById(user);
+        }
         return getUserVO(user);
     }
 
@@ -133,6 +148,10 @@ public class UserService {
         user.setEmail(req.getEmail());
         user.setPhone(req.getPhone());
         user.setRoleId(req.getRoleId());
+        if (req.getLeaderId() != null && Objects.equals(req.getLeaderId(), id)) {
+            throw new BizException(ResultCode.USER_LEADER_CYCLE);
+        }
+        user.setLeaderId(req.getLeaderId());
         if (req.getStatus() != null) {
             user.setStatus(req.getStatus());
         }

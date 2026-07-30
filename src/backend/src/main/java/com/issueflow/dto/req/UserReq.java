@@ -34,6 +34,9 @@ public class UserReq implements Serializable {
     @NotNull(message = "角色不能为空")
     private Long roleId;
 
+    /** 上级领导 user.id（可空，不允许指向自己） */
+    private Long leaderId;
+
     /** 状态：1 启用 / 0 禁用（默认 1） */
     private Integer status = 1;
 }

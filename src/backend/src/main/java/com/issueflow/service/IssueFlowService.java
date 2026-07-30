@@ -53,11 +53,9 @@ public class IssueFlowService {
         if (!stateMachine.isAllowed(from, toStatus, roleCode)) {
             throw new BizException(ResultCode.STATUS_TRANSITION_DENIED);
         }
-        // 验证回退必须填写原因
-        if (from == IssueStatusEnum.PENDING_VERIFY.getCode()
-                && toStatus == IssueStatusEnum.IN_PROGRESS.getCode()
-                && (remark == null || remark.isBlank())) {
-            throw new BizException(ResultCode.VALID_ERROR, "回退必须填写原因");
+        // 必填备注由流转规则数据驱动（flow_transition.remark_required）
+        if (stateMachine.isRemarkRequired(from, toStatus) && (remark == null || remark.isBlank())) {
+            throw new BizException(ResultCode.VALID_ERROR, "该流转必须填写备注");
         }
         issue.setStatus(toStatus);
         if (toStatus == IssueStatusEnum.CLOSED.getCode()) {
@@ -65,8 +63,8 @@ public class IssueFlowService {
         }
         issueMapper.updateById(issue);
 
-        HistoryActionEnum action = stateMachine.getAction(from, toStatus);
-        historyService.record(id, action == null ? null : action.getCode(), from, toStatus, operatorId, remark);
+        String actionCode = stateMachine.getActionCode(from, toStatus);
+        historyService.record(id, actionCode, from, toStatus, operatorId, remark);
         return toIssueVO(issue);
     }
 

@@ -37,11 +37,14 @@
       </el-table>
     </el-card>
 
-    <el-dialog
+    <!-- 新增 / 编辑菜单（R3 统一抽屉） -->
+    <FormDrawer
       v-model="dialogVisible"
-      :title="form.id ? '编辑菜单' : '新建菜单'"
-      width="480px"
-      append-to-body
+      :title="form.id ? '编辑菜单' : '新增菜单'"
+      size="md"
+      :loading="saving"
+      @confirm="onSubmit"
+      @closed="onDrawerClosed"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
         <el-form-item label="名称" prop="name">
@@ -79,11 +82,7 @@
           <el-input v-model="form.icon" placeholder="Element Plus 图标名" maxlength="50" />
         </el-form-item>
       </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="onSubmit">保存</el-button>
-      </template>
-    </el-dialog>
+    </FormDrawer>
   </div>
 </template>
 
@@ -92,6 +91,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { listMenus, createMenu, updateMenu, deleteMenu } from '@/api/menu'
+import FormDrawer from '@/components/FormDrawer.vue'
 
 const loading = ref(false)
 const list = ref([])
@@ -173,6 +173,12 @@ function openEdit(row) {
     type: row.type || 2
   })
   dialogVisible.value = true
+}
+
+/** 抽屉关闭后重置表单与校验状态 */
+function onDrawerClosed() {
+  Object.assign(form, emptyForm())
+  formRef.value && formRef.value.clearValidate()
 }
 
 function onSubmit() {

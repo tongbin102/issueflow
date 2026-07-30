@@ -56,6 +56,11 @@ jwt:
 app:
   attachment-base-path: ${ATTACHMENT_BASE_PATH:/data/attachments}
 
+# 系统数据初始化开关（R7，默认开启；需要关闭时取消注释并置 false）
+# system:
+#   data-reset:
+#     enabled: false
+
 # 日志
 logging:
   level:

@@ -39,6 +39,14 @@ a {
   width: var(--sidebar-collapsed-width);
 }
 
+/* R1：侧栏内部菜单滚动容器（外层保持 overflow:hidden，滚动收敛到菜单区） */
+.if-sidebar__menu {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 .if-main {
   flex: 1;
   display: flex;

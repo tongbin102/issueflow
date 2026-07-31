@@ -118,9 +118,10 @@ async function onCreateSubmit({ data, files }) {
   createLoading.value = true
   try {
     const fd = new FormData()
-    Object.keys(data).forEach((k) => {
-      if (data[k] !== null && data[k] !== undefined) fd.append(k, data[k])
-    })
+    // #3.4：后端 IssueController.create 要求 multipart 含名为 issue 的 JSON part
+    // （@RequestPart("issue") @Valid IssueCreateReq）。原「扁平字段逐个 append」缺少该
+    // part，会导致后端校验失败并由拦截器统一弹「系统错误」，此处与 IssueCreate.vue 对齐修复。
+    fd.append('issue', new Blob([JSON.stringify(data)], { type: 'application/json' }))
     ;(files || []).forEach((f) => fd.append('files', f))
     const res = await createIssue(fd)
     ElMessage.success(`${t('issue.msg.createSuccess')} ${res && res.issueNo ? res.issueNo : ''}`)

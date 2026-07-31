@@ -59,15 +59,18 @@ export default {
     attachment: 'Attachments'
   },
   // Phase8 W2 #12: vertical (left) tabs inside the issue dialog
+  // (#3.3: rename the "description" tab from "Description" to "Details")
   tab: {
     basic: 'Basic Info',
-    description: 'Description',
+    description: 'Details',
     attachment: 'Attachments',
     relation: 'Relations',
     history: 'History'
   },
   tabTip: {
     basicInvalid: 'Please complete the required fields in "Basic Info" first',
+    // #3.2 / #3.4: unified hint when full validation fails on submit
+    submitInvalid: 'Please complete the required fields before submitting',
     relationPending: 'Relations can be managed after the issue is submitted',
     historyPending: 'History will be recorded after the issue is submitted'
   },

@@ -16,7 +16,7 @@
   >
     <IssueFormSections
       ref="sectionsRef"
-      :before-leave="onBeforeLeaveTab"
+      :filled-tabs="filledTabs"
       @change="onTabChange"
     >
       <!-- ===== 标签 1：基本信息 ===== -->
@@ -390,8 +390,35 @@ const rules = computed(() => ({
   projectId: [{ required: true, message: t('issue.rules.projectRequired'), trigger: 'change' }]
 }))
 
-/** 「基本信息」标签下参与校验的字段（切换标签前逐项校验） */
-const BASIC_FIELDS = ['title', 'typeId', 'source', 'severity', 'priority', 'projectId']
+/**
+ * #3.1：各标签「已填写」状态（驱动 IssueFormSections 标签红点）。
+ * 基于 model 响应式：填写即亮，标签切换不清空（内容持久保存在 model 中）。
+ * - basic：标题非空，或类型/来源/严重/优先级/项目/模块任一非默认值，或标签为非空数组；
+ * - detail：描述 / 复现步骤 / 四项环境信息任一非空；
+ * - attachment：新建态本地暂存文件 > 0，编辑态已上传附件 > 0。
+ */
+const filledTabs = computed(() => {
+  const basic =
+    !!(model.title && model.title.trim()) ||
+    model.typeId != null ||
+    model.source !== DEFAULT_SOURCE_CODE ||
+    model.severity !== 2 ||
+    model.priority !== DEFAULT_PRIORITY ||
+    model.projectId != null ||
+    model.moduleId != null ||
+    (Array.isArray(model.tags) && model.tags.length > 0)
+  const detail =
+    !!(model.description && model.description.trim()) ||
+    !!(model.reproduceSteps && model.reproduceSteps.trim()) ||
+    !!(model.envOs && model.envOs.trim()) ||
+    !!(model.envBrowser && model.envBrowser.trim()) ||
+    !!(model.envAppVersion && model.envAppVersion.trim()) ||
+    !!(model.envDevice && model.envDevice.trim())
+  const attachment = issueId.value
+    ? (attachments.value && attachments.value.length > 0)
+    : (localFiles.value && localFiles.value.length > 0)
+  return { basic, detail, attachment }
+})
 
 /** 校验字段 → 所属标签映射（校验失败自动切标签 + 滚动定位） */
 const SECTION_BY_FIELD = {
@@ -489,22 +516,7 @@ function onAttachmentRemoved(id) {
   attachments.value = attachments.value.filter((a) => a.id !== id)
 }
 
-/* ---------------- 标签切换：校验 + 懒加载 ---------------- */
-/**
- * 离开「基本信息」前校验必填项，不通过则阻止切换并提示。
- * @returns {Promise<boolean>} false 阻止切换
- */
-async function onBeforeLeaveTab() {
-  if (readonly.value || !formRef.value) return true
-  try {
-    await formRef.value.validateField(BASIC_FIELDS)
-    return true
-  } catch (e) {
-    ElMessage.warning(t('issue.tabTip.basicInvalid'))
-    return false
-  }
-}
-
+/* ---------------- 标签切换：懒加载（#3.2 起自由切换，不再离开校验） ---------------- */
 /** 切到附件 / 操作历史标签时按需拉取数据（仅编辑、查看态） */
 function onTabChange(name) {
   if (!issueId.value) return
@@ -622,6 +634,9 @@ function submit() {
           }
         })
       }
+      // #3.2 / #3.4：全量校验未过时给出明确提示，且不发起请求
+      // （空表单点提交只会命中此分支，不会触碰后端而弹「系统错误」）
+      ElMessage.warning(t('issue.tabTip.submitInvalid'))
       return
     }
     const data = {

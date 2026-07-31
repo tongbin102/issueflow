@@ -16,9 +16,9 @@
     <template #header="{ titleId, titleClass }">
       <div class="if-form-drawer__header">
         <span :id="titleId" :class="titleClass" class="if-form-drawer__title">{{ title }}</span>
-        <!-- 全屏切换：纯图标按钮（无文字，title 提示），仅 fullscreenable=true 时渲染 -->
+        <!-- 全屏切换：纯图标按钮（无文字，title 提示）；#3.6：移动端隐藏（已强制全屏） -->
         <el-button
-          v-if="fullscreenable"
+          v-if="fullscreenable && !isMobile"
           link
           class="if-form-drawer__fullscreen-btn"
           :title="isFullscreen ? t('common.action.exitFullscreen') : t('common.action.fullscreen')"
@@ -48,9 +48,10 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, provide, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { FullScreen, Aim } from '@element-plus/icons-vue'
+import { useAppStore } from '@/store/app'
 
 const props = defineProps({
   /** v-model 显隐 */
@@ -76,11 +77,34 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue', 'confirm', 'cancel', 'closed'])
 
 const { t } = useI18n()
+const appStore = useAppStore()
 
 const SIZE_MAP = { sm: 480, md: 620, lg: 800 }
 
 /** 全屏态：仅 fullscreenable=true 时可进入；抽屉完全关闭后自动复位 */
 const isFullscreen = ref(false)
+
+/**
+ * #3.5：把全屏态以响应式 ref 下发给子组件（如 IssueFormSections），
+ * 供其在全屏时把左侧竖形标签切为顶部横排。无 provide 的调用点（如 IssueDetailDrawer）
+ * inject 默认 ref(false)，行为不变。
+ */
+provide('drawerFullscreen', isFullscreen)
+
+/** #3.6：移动端判定（Pinia device=mobile 或视口 <=768px），用于强制全屏 + 隐藏全屏按钮 */
+const isMobile = computed(
+  () => appStore.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768)
+)
+
+/** #3.6：移动端打开弹窗时强制全屏（满宽 + 标签横排）；关闭后由 onClosed 复位 */
+watch(
+  () => props.modelValue,
+  (visible) => {
+    if (visible && isMobile.value) {
+      isFullscreen.value = true
+    }
+  }
+)
 
 /** 默认按钮文案走 i18n，显式传入 confirmText/cancelText 时优先 */
 const confirmLabel = computed(() => props.confirmText || t('common.action.save'))

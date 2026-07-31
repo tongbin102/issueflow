@@ -21,6 +21,102 @@
 
 ---
 
+## [Phase8-Wave5] - 2026-08-05
+
+UI / 数据优化三项：**#1** 头像下拉顺序调整、**#2** 前台侧边菜单默认展开且刷新保持、
+**#4** Phase6 图标白名单缺口补齐（根治 W4 遗留项）。
+前端改动：`layouts/UserLayout.vue`、`components/SideMenu.vue`；
+迁移脚本：`scripts/V20260805_issueflow_phase6_whitelist_fix.sql`（幂等，可重复执行），
+并对 `scripts/V20260803_issueflow_phase6.sql` §12.2 白名单追加一行取值（根治）。
+
+> **协作说明**：本 Wave 与另一轮的「问题表单交互」项（#3）并行开发、文件互不重叠；
+> 本节仅记录本轮负责的 #1 / #2 / #4，未触碰 `IssueForm.vue` / `IssueFormSections.vue` /
+> `FormDrawer.vue` / `UserIssueList.vue` / `locale/issue.js`。
+
+### Added
+- （无新功能；均为既有能力的交互 / 数据订正）
+
+### Changed
+- **#1 头像下拉「清理缓存」上移到「个人中心」之上**（`layouts/UserLayout.vue`）：
+  前台顶栏头像下拉最终顺序调整为 **清理缓存 → 个人中心 → 退出登录（`divided`）**。
+  仅交换两个 `el-dropdown-item` 位置，文案（i18n `layout.topbar.clearCache` /
+  `layout.topbar.profileCenter`）与 `onCommand` 逻辑零改动。
+- **#2 前台左侧菜单默认展开 + 刷新保持 + 手动折叠**（`components/SideMenu.vue`，仅前台 `type=1`）：
+  - 页面加载时**所有层级**父菜单自动展开（递归 `collectParentIndices` 覆盖多级嵌套，非仅顶层）。
+  - 用户手动折叠 / 展开后刷新页面**保持该状态**：以 `localStorage['if-menu-closed-type1']`
+    记录「已手动折叠」集合，初始展开项 = 全部父级 index − 已折叠集合。
+  - 保留 el-menu 原生点击折叠 / 展开交互（`@open` / `@close` 仅做持久化，不干预内部状态）。
+  - 新增顶层 prop `defaultExpandAll`（Boolean，默认 `false`）；`UserLayout.vue` 的
+    `<SideMenu :type="1" />` 改为 `<SideMenu :type="1" :default-expand-all="true" />`。
+  - **后台（`type=2`）零行为变更**：不注入任何展开 / 持久化绑定，渲染时机与原逻辑一致。
+  - **实现说明（对需求的必要偏差）**：本项目 `element-plus@2.14.3` 的 `el-menu`
+    只有 `default-openeds`（**无** `openeds`），且该 prop 仅在组件创建时读取一次、非响应式。
+    故改用 `default-openeds` + 就绪门闸 `menuReady`（等菜单树异步加载完、`openedMenus`
+    算好后再渲染顶层 `el-menu`），以拿到正确初始展开态；`default-openeds` 里含被权限过滤的
+    父级 index 亦无害（仅存在性比对，不会像 `menuRef.open()` 那样抛错）。
+
+### Fixed
+- **#4 Phase6 图标白名单缺口补齐（根治）**：
+  - `scripts/V20260803_issueflow_phase6.sql` §12.2 的白名单自愈 `UPDATE` 追加
+    `FolderOpened` / `Share` / `Files` / `SetUp` / `Timer` 五个取值，使 Wave4 新图标
+    （及 Phase7 的 `Timer`）在「单独重跑 Phase6」时不再被回刷为 `Grid`。
+  - 新增幂等迁移 `scripts/V20260805_issueflow_phase6_whitelist_fix.sql`：对受影响菜单
+    （id=17 项目管理→`FolderOpened`、id=16 流程管理→`Share`、id=6 流程配置→`Share`、
+    id=26 文件管理→`Files`、id=29 配置管理→`SetUp`）按 `id` 守卫式重断言，并复制带扩充
+    白名单的自愈语句 + 末尾自检 `SELECT`（校验 5 个 id 均为新值、`deleted=0` 全盘无 `Grid`
+    占位 / 无空 icon）。
+  - 本项即 **Wave4 CHANGELOG「运维注意」遗留项（根治方案）** 的落地：原
+    「任何时候单独重跑 Phase6，必须紧接着重跑一次 W4」的运维约定自此不再必需。
+
+### Security
+- 无。#1 / #2 为前端交互 / 展示层改动；#4 仅订正 `menu.icon` 展示字段与白名单，
+  不涉及权限码、鉴权链路与任何敏感配置。
+
+### #3 提交新问题弹窗标签重做与提交修复
+
+> 与本 Wave 的 #1 / #2 / #4 并行开发、随后合入本章节归档；#3 的改动集中在
+> 「问题表单交互」链路，与上文各项文件互不重叠（`FormDrawer.vue` /
+> `IssueForm.vue` / `IssueFormSections.vue` / `views/user/UserIssueList.vue` /
+> `locales/{zh-CN,en-US}/issue.js`），**未触碰** K1 已交付的
+> `UserLayout.vue` / `SideMenu.vue` / `V20260803` / `V20260805` / README §4.7。
+
+- **标签「已填写」红点标识**（#3.1）：`IssueForm.vue` 新增 `filledTabs` 计算属性
+  （`{ basic, detail, attachment }`，基于 `model` 响应式），并以 `:filled-tabs`
+  传给 `IssueFormSections.vue`；后者用 `el-tab-pane` 的 `#label` 插槽渲染
+  「标签文字 + 纯 CSS 小红点」，仅在对应标签有内容时点亮。判定规则：
+  - basic：标题非空，或类型 / 来源 / 严重 / 优先级 / 项目 / 模块任一非默认值，或标签为非空数组；
+  - detail：描述 / 复现步骤 / 四项环境信息任一非空；
+  - attachment：新建态本地暂存文件 > 0，编辑态已上传附件 > 0。
+  内容持久保存在 `model` 中，切换标签不清空、红点保持。
+- **标签自由切换、不再离开校验**（#3.2）：移除 `IssueForm.vue` 的 `:before-leave`
+  绑定与 `onBeforeLeaveTab` / `BASIC_FIELDS`；`IssueFormSections.handleBeforeLeave`
+  恒返回 `true`（`beforeLeave` prop 保留仅为向后兼容）。全量校验仅在点击「提交」时
+  由 `IssueForm.submit()` 统一执行；校验未过时**显式 `ElMessage.warning`
+  「请完善必填项后再提交」**，并定位首个错误标签 + 滚动高亮错误字段。`@tab-change` 懒加载保留。
+- **文案「问题描述」→「详细信息」**（#3.3）：`locales/zh-CN/issue.js` 的
+  `issue.tab.description` 由「问题描述」改为「详细信息」；`en-US` 对应键
+  `Description` → `Details`。模板仍用 `t('issue.tab.description')`，仅改 locale。
+- **提交修复（根治「系统错误」）**（#3.4）：`views/user/UserIssueList.vue` 的
+  `onCreateSubmit` 由「按扁平字段逐个 `append`」改为与 `IssueCreate.vue` 一致的
+  **单个 `issue` JSON part**——
+  `fd.append('issue', new Blob([JSON.stringify(data)], { type: 'application/json' }))`
+  + `files` 逐个 `append`，命中后端 `IssueController.create` 的
+  `@RequestPart("issue") @Valid IssueCreateReq` 契约。空表单点提交在 `submit()`
+  校验阶段即被拦截并给 warning，**不发起请求**、不再触发「系统错误」。
+  （`views/admin/AdminIssueList.vue` 无「新建」入口、仅编辑走 `updateIssue(JSON)`，无同类 bug，未改。）
+- **全屏适配：标签布局跟随全屏态**（#3.5）：`FormDrawer.vue` 在 `setup` 顶层
+  `provide('drawerFullscreen', isFullscreen)`（响应式 ref）；`IssueFormSections.vue`
+  `inject('drawerFullscreen', ref(false))`，`tabPosition` 改为
+  `computed(() => (drawerFullscreen || isNarrow) ? 'top' : 'left')`——弹窗全屏时标签
+  横排（top）、收缩时恢复竖排（left），两种布局红点均可见。`IssueDetailDrawer` 等无
+  provide 的调用点 inject 默认 `false`，行为不变；抽屉 `onClosed` 仍复位
+  `isFullscreen=false`，provide 的 ref 自动同步。
+- **移动端适配**（#3.6）：`FormDrawer.vue` 引入 `useAppStore`，`isMobile`（`appStore.isMobile`
+  或视口 `<=768px`）；`watch(modelValue)` 在移动端打开时强制 `isFullscreen=true`
+  （满宽 + 标签自动横排），全屏按钮 `v-if` 收紧为 `fullscreenable && !isMobile`（移动端隐藏）。
+
+---
+
 ## [Phase8-Wave4] - 2026-08-04
 
 菜单体系收尾订正：基础设施排序、全量图标语义统一、历史残留菜单行清理。

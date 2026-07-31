@@ -58,16 +58,18 @@ export default {
     detail: '详细描述',
     attachment: '附件与备注'
   },
-  // Phase8 W2 #12：问题弹窗左侧竖形标签页
+  // Phase8 W2 #12：问题弹窗左侧竖形标签页（#3.3：description 由「问题描述」改为「详细信息」）
   tab: {
     basic: '基本信息',
-    description: '问题描述',
+    description: '详细信息',
     attachment: '附件上传',
     relation: '关联信息',
     history: '操作历史'
   },
   tabTip: {
     basicInvalid: '请先完善「基本信息」中的必填项',
+    // #3.2 / #3.4：点击提交时全量校验未通过的统一提示
+    submitInvalid: '请完善必填项后再提交',
     relationPending: '问题提交后可维护关联信息',
     historyPending: '问题提交后将自动记录操作历史'
   },

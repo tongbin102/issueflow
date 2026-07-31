@@ -190,6 +190,14 @@ bash tests/api/test-api.sh
 > 因此在「菜单管理」页填写图标时必须使用真实导出名。W4 已统一全部菜单图标语义并消除 `Grid` 占位；
 > 同时将「基础设施」`sort` 调整为 `8`，使其在**根级与「系统管理」平级且排在其下方**（不嵌套）；
 > 并清理了两行历史残留菜单墓碑行（id=7 系统设置 `/admin/settings`、id=18 模块配置 `/admin/modules`，均 `deleted=1` 软删、线上不渲染、无用户可见变化）；本次唯二可见改动为 #1（基础设施排序）与 #3（图标统一）。
+>
+> 前台侧边菜单展开行为（Phase8 W5 #2）：前台（`<SideMenu :type="1" :default-expand-all="true" />`）
+> 各层级父菜单**默认全部展开**；用户手动折叠/展开后**刷新保持**（`localStorage['if-menu-closed-type1']` 记录已折叠集合）。
+> 后台（`:type="2"`）保持原生默认收起行为，不受影响。
+>
+> 图标白名单补齐（Phase8 W5 #4）：Phase6 §12.2 的图标自愈白名单已追加 `FolderOpened` / `Share` / `Files` / `SetUp` / `Timer`，
+> 并新增幂等迁移 `scripts/V20260805_issueflow_phase6_whitelist_fix.sql` 对受影响菜单图标做守卫式重断言；
+> 「单独重跑 Phase6 后需紧接着重跑 W4」的运维约定自此不再必需。
 
 ### 4.8 关键字段约定（Phase8 W2）
 

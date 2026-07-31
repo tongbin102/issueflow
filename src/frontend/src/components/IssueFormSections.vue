@@ -1,8 +1,9 @@
 <template>
   <!-- Phase8 W2 #12：问题弹窗内容容器，由「4 分区折叠」改为「左侧竖形标签页」。
-       5 个标签：基本信息 / 问题描述 / 附件上传 / 关联信息 / 操作历史。
-       - tab-position 默认 left，窄屏（< 768px）自动切 top，保证移动端可用；
-       - before-leave 钩子把「离开基本信息」的校验交给父级（校验不过则阻止切换）；
+       5 个标签：基本信息 / 详细信息 / 附件上传 / 关联信息 / 操作历史。
+       - tab-position：全屏（drawerFullscreen）或窄屏（< 768px）时切 top 横排，否则 left 竖排（#3.5）；
+       - #3.2 起标签间自由切换、不再离开校验（handleBeforeLeave 恒 true，全量校验仅在提交时执行）；
+       - #3.1 各标签经 #label 插槽渲染「已填写」红点（由父级 filledTabs 驱动）；
        - 切换时给内容区加一次性动画类，实现淡入 + 轻微位移的平滑过渡（不重挂子组件）。 -->
   <el-tabs
     v-model="active"
@@ -12,14 +13,33 @@
     @tab-change="onTabChange"
   >
     <el-tab-pane name="basic" :label="t('issue.tab.basic')">
+      <!-- #3.1：#label 插槽渲染标签文字 + 「已填写」红点（filledTabs.basic 为真时显示） -->
+      <template #label>
+        <span class="if-tab-label">
+          {{ t('issue.tab.basic') }}
+          <span v-if="filledTabs.basic" class="if-tab-dot" />
+        </span>
+      </template>
       <div class="if-tab-panel"><slot name="basic" /></div>
     </el-tab-pane>
 
     <el-tab-pane name="detail" :label="t('issue.tab.description')">
+      <template #label>
+        <span class="if-tab-label">
+          {{ t('issue.tab.description') }}
+          <span v-if="filledTabs.detail" class="if-tab-dot" />
+        </span>
+      </template>
       <div class="if-tab-panel"><slot name="detail" /></div>
     </el-tab-pane>
 
     <el-tab-pane v-if="showAttachment" name="attachment" :label="t('issue.tab.attachment')">
+      <template #label>
+        <span class="if-tab-label">
+          {{ t('issue.tab.attachment') }}
+          <span v-if="filledTabs.attachment" class="if-tab-dot" />
+        </span>
+      </template>
       <div class="if-tab-panel"><slot name="attachment" /></div>
     </el-tab-pane>
 
@@ -34,7 +54,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, inject, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
@@ -45,11 +65,15 @@ const props = defineProps({
   /** 是否渲染「操作历史」标签页 */
   showHistory: { type: Boolean, default: true },
   /**
-   * 离开当前标签前的校验钩子，由父级注入。
-   * 签名 (nextName, oldName) => boolean | Promise<boolean>，返回 false 阻止切换。
-   * 仅在「离开 basic」时调用，其余标签自由切换。
+   * #3.2：离开当前标签前的校验钩子（历史 prop，保留仅为向后兼容）。
+   * 自此版本起标签间自由切换，handleBeforeLeave 恒返回 true，本 prop 不再参与拦截。
    */
   beforeLeave: { type: Function, default: null },
+  /**
+   * #3.1：各标签「已填写」状态（{ basic, detail, attachment } 布尔），
+   * 为真时该标签渲染「已填写」红点；由父级 IssueForm 传入，默认空对象。
+   */
+  filledTabs: { type: Object, default: () => ({}) },
   /** 窄屏阈值（px），低于该宽度标签页切换为水平（top） */
   narrowWidth: { type: Number, default: 768 }
 })
@@ -65,7 +89,20 @@ const isNarrow = ref(false)
 function updateNarrow() {
   isNarrow.value = typeof window !== 'undefined' && window.innerWidth < props.narrowWidth
 }
-const tabPosition = computed(() => (isNarrow.value ? 'top' : 'left'))
+
+/**
+ * #3.5：抽屉全屏态（由 FormDrawer provide 的响应式 ref）。
+ * 未被 provide 的调用点（如 IssueDetailDrawer）取默认 ref(false)，行为不变。
+ */
+const drawerFullscreen = inject('drawerFullscreen', ref(false))
+
+/**
+ * 标签排布：全屏（横向铺开）或窄屏时用顶部横排 top，否则左侧竖排 left。
+ * 两种布局下「已填写」红点均随 #label 插槽渲染，保持可见。
+ */
+const tabPosition = computed(() =>
+  drawerFullscreen.value || isNarrow.value ? 'top' : 'left'
+)
 
 /* ---------------- 切换过渡动画（一次性类，避免重挂内容） ---------------- */
 const switching = ref(false)
@@ -83,20 +120,13 @@ function onTabChange(name) {
 }
 
 /**
- * el-tabs before-leave：仅拦截「离开基本信息」，交由父级校验。
- * @param {string} nextName 目标标签
- * @param {string} oldName 当前标签
- * @returns {Promise<boolean>} false 阻止切换
+ * el-tabs before-leave：#3.2 起标签间「自由切换」，不做任何校验拦截
+ * （全量校验仅在点击「提交」时由 IssueForm.submit() 统一执行）。
+ * 保留函数与 beforeLeave prop 仅为向后兼容，恒返回 true。
+ * @returns {boolean} 恒 true，允许切换
  */
-async function handleBeforeLeave(nextName, oldName) {
-  if (oldName !== 'basic') return true
-  if (typeof props.beforeLeave !== 'function') return true
-  try {
-    const result = await props.beforeLeave(nextName, oldName)
-    return result !== false
-  } catch (e) {
-    return false
-  }
+function handleBeforeLeave() {
+  return true
 }
 
 /**
@@ -162,6 +192,21 @@ onBeforeUnmount(() => {
 
 .if-tab-panel {
   padding: 2px 0 8px;
+}
+
+/* #3.1：标签文字 + 「已填写」红点。inline-flex 保证左排 / 顶排两种布局下均不溢出 */
+.if-tab-label {
+  display: inline-flex;
+  align-items: center;
+}
+.if-tab-dot {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background-color: var(--el-color-danger);
 }
 
 /* 窄屏：水平标签允许横向滚动，避免挤压 */

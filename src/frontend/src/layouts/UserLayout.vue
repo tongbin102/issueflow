@@ -12,7 +12,8 @@
         <span v-if="!collapsed">{{ appStore.siteName }}</span>
         <span v-else>{{ appStore.siteShortName }}</span>
       </div>
-      <SideMenu :type="1" />
+      <!-- Phase8 W5 #2：前台菜单默认全展开 + 刷新保持 + 手动折叠持久化（仅 type=1 启用） -->
+      <SideMenu :type="1" :default-expand-all="true" />
       <!-- 侧栏底部「切换区域」次级入口（flex 吸底，折叠态降级为纯图标） -->
       <LayoutSwitchEntry variant="sidebar" />
     </aside>
@@ -49,12 +50,13 @@
             </span>
             <template #dropdown>
             <el-dropdown-menu>
-              <!-- R1：个人中心入口，位于「退出登录」之上、divided 之前 -->
-              <el-dropdown-item command="profileCenter">
-                <el-icon><User /></el-icon><span class="dd-text">{{ t('layout.topbar.profileCenter') }}</span>
-              </el-dropdown-item>
+              <!-- Phase8 W5 #1：「清理缓存」置于「个人中心」之上；logout 仍最后且带 divided。
+                   文案走 i18n（layout.topbar.*），onCommand 逻辑不变。 -->
               <el-dropdown-item command="clearCache">
                 <el-icon><Refresh /></el-icon><span class="dd-text">{{ t('layout.topbar.clearCache') }}</span>
+              </el-dropdown-item>
+              <el-dropdown-item command="profileCenter">
+                <el-icon><User /></el-icon><span class="dd-text">{{ t('layout.topbar.profileCenter') }}</span>
               </el-dropdown-item>
               <el-dropdown-item command="logout" divided>
                 <el-icon><SwitchButton /></el-icon><span class="dd-text">{{ t('layout.topbar.logout') }}</span>

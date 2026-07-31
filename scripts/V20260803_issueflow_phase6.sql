@@ -155,7 +155,8 @@ WHERE `deleted`=0 AND `icon` IS NOT NULL AND `icon`<>''
     'Operation','Tools','Setting','User','UserFilled','OfficeBuilding','Document',
     'CollectionTag','Monitor','Menu','List','Brush','FullScreen','Aim','Star','Bell',
     'Search','Plus','Delete','Edit','Refresh','Download','Upload','Link','Filter',
-    'Histogram','PieChart','TrendCharts','DataBoard','DataAnalysis','Odometer','Notebook'
+    'Histogram','PieChart','TrendCharts','DataBoard','DataAnalysis','Odometer','Notebook',
+    'FolderOpened','Share','Files','SetUp','Timer'
   );
 
 UPDATE `menu` SET `deleted`=1 WHERE `path`='/admin/settings' AND `type`=2 AND `deleted`=0;

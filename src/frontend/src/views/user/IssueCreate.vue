@@ -51,9 +51,11 @@ function goList() {
 
 async function onSubmit({ data, files }) {
   const fd = new FormData()
-  Object.keys(data).forEach((k) => {
-    if (data[k] !== null && data[k] !== undefined) fd.append(k, data[k])
-  })
+  // 后端 @RequestPart("issue") 要求整个 IssueCreateReq JSON 作为一个 part
+  fd.append(
+    'issue',
+    new Blob([JSON.stringify(data)], { type: 'application/json' })
+  )
   ;(files || []).forEach((f) => fd.append('files', f))
   try {
     const res = await createIssue(fd)

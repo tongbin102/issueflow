@@ -34,6 +34,7 @@ yarn-error.log*
 
 # ===== 其他 =====
 dist-*/
+build-*/
 scripts/.p7*.sql
 src/frontend/check-i18n-keys.mjs
 src/frontend/scan-cn.mjs

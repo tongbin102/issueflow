@@ -33,7 +33,10 @@ yarn-error.log*
 *.iml
 
 # ===== 其他 =====
-dist-verify*/
+dist-*/
+scripts/.p7*.sql
+src/frontend/check-i18n-keys.mjs
+src/frontend/scan-cn.mjs
 
 # ===== 部署私钥（严禁入库，参考 ss-assess 的 .deploy_key 模式）=====
 .deploy_key

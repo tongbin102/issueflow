@@ -66,6 +66,11 @@ function redirect403() {
 // ============ 响应拦截：解包 Result ============
 instance.interceptors.response.use(
   (response) => {
+    // Phase7 T8：显式声明 rawResponse:true 的请求返回完整响应（含 headers），
+    // 供备份导出按 Content-Type 判定「二进制文件」还是「JSON 错误体」。
+    if (response.config && response.config.rawResponse) {
+      return response
+    }
     const res = response.data
     // 非 Result 结构（如文件流 blob）原样返回
     if (!res || typeof res !== 'object' || !('code' in res)) {

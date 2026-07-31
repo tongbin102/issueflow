@@ -3,8 +3,8 @@
     <el-card class="page-card" shadow="never">
       <template #header>
         <div class="head">
-          <span>提交问题</span>
-          <el-button text @click="goList">返回列表</el-button>
+          <span>{{ t('issue.action.new') }}</span>
+          <el-button text @click="goList">{{ t('issue.action.backToList') }}</el-button>
         </div>
       </template>
 
@@ -13,7 +13,7 @@
         type="success"
         show-icon
         :closable="false"
-        :title="`提交成功，问题编号：${createdNo}`"
+        :title="t('issue.msg.createSuccessWithNo', { no: createdNo })"
         style="margin-bottom: 16px"
       />
 
@@ -32,11 +32,13 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import IssueForm from '@/components/IssueForm.vue'
 import IssueDetailDrawer from '@/components/IssueDetailDrawer.vue'
 import { createIssue } from '@/api/issue'
 
+const { t } = useI18n()
 const router = useRouter()
 const drawerVisible = ref(false)
 const createdId = ref(null)
@@ -57,7 +59,7 @@ async function onSubmit({ data, files }) {
     const res = await createIssue(fd)
     createdNo.value = res.issueNo || ''
     createdId.value = res.id || null
-    ElMessage.success(`提交成功，编号 ${createdNo.value}`)
+    ElMessage.success(t('issue.msg.createSuccessWithNo', { no: createdNo.value }))
     drawerVisible.value = true
   } catch (e) {}
 }

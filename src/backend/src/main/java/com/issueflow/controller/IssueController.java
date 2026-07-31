@@ -1,5 +1,7 @@
 package com.issueflow.controller;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.List;
 
 import com.issueflow.common.PageResult;
@@ -19,6 +21,7 @@ import com.issueflow.service.IssueHistoryService;
 import com.issueflow.service.IssueRelationService;
 import com.issueflow.service.IssueService;
 import com.issueflow.util.SecurityUtils;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -95,6 +98,27 @@ public class IssueController {
     public Result<PageResult<IssueVO>> page(IssuePageReq req) {
         return Result.success(issueService.pageQuery(req,
                 SecurityUtils.getCurrentUserId(), SecurityUtils.getCurrentRoleCode()));
+    }
+
+    /**
+     * 导出当前筛选结果为 Excel（Phase7-R6⑦：含「来源」「优先级」两列）。
+     * <p>路径为字面量，Spring 的精确匹配优先于 {@code /{id}}，不会被详情接口截获。</p>
+     *
+     * @param req      与列表一致的筛选条件
+     * @param response HTTP 响应，直接写文件流
+     * @throws IOException 写流失败
+     */
+    @GetMapping("/export")
+    public void export(IssuePageReq req, HttpServletResponse response) throws IOException {
+        byte[] data = issueService.exportExcel(req,
+                SecurityUtils.getCurrentUserId(), SecurityUtils.getCurrentRoleCode());
+        response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        response.setHeader("Content-Disposition", "attachment;filename=\"issues.xlsx\"");
+        response.setContentLength(data.length);
+        try (OutputStream out = response.getOutputStream()) {
+            out.write(data);
+            out.flush();
+        }
     }
 
     /**

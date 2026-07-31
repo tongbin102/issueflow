@@ -42,6 +42,12 @@ public class IssuePageReq implements Serializable {
     /** 关联项目 id 筛选 */
     private Long projectId;
 
+    /** 来源编码筛选（dict_item 的 item_code，字典类型 ISSUE_SOURCE） */
+    private String source;
+
+    /** 优先级筛选：0高 1中 2低 */
+    private Integer priority;
+
     /** 关键词（标题/描述模糊匹配） */
     private String keyword;
 

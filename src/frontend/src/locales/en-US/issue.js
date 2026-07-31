@@ -7,6 +7,7 @@ export default {
     type: 'Issue Type',
     severity: 'Severity',
     priority: 'Priority',
+    source: 'Source',
     project: 'Project',
     module: 'Module',
     tags: 'Tags',
@@ -32,6 +33,8 @@ export default {
     title: 'Enter the title',
     selectType: 'Select issue type',
     selectSeverity: 'Select severity',
+    selectPriority: 'Select priority',
+    selectSource: 'Select source',
     selectProject: 'Select project',
     selectModule: 'Select module',
     selectAssignee: 'Select assignee',
@@ -43,6 +46,8 @@ export default {
     titleRequired: 'Please enter the title',
     typeRequired: 'Please select the issue type',
     severityRequired: 'Please select the severity',
+    priorityRequired: 'Please select the priority',
+    sourceRequired: 'Please select the source',
     descriptionRequired: 'Please enter the description'
   },
   section: {
@@ -57,6 +62,8 @@ export default {
       issueNo: 'No.',
       title: 'Title',
       type: 'Type',
+      source: 'Source',
+      priority: 'Priority',
       severity: 'Severity',
       status: 'Status',
       tags: 'Tags',
@@ -72,6 +79,8 @@ export default {
       status: 'Status',
       type: 'Type',
       severity: 'Severity',
+      source: 'Source',
+      priority: 'Priority',
       project: 'Project',
       tag: 'Tag',
       version: 'Version',
@@ -110,6 +119,7 @@ export default {
   },
   msg: {
     createSuccess: 'Issue submitted',
+    createSuccessWithNo: 'Issue submitted, No. {no}',
     updateSuccess: 'Issue updated',
     deleteSuccess: 'Issue deleted',
     deleteConfirm: 'Delete this issue? This cannot be undone',
@@ -121,14 +131,42 @@ export default {
     reopenSuccess: 'Reopened',
     claimRequired: 'Please claim this issue first',
     notFound: 'Issue not found or deleted',
-    remarkRequired: 'A remark is required for this operation'
+    remarkRequired: 'A remark is required for this operation',
+    exportSuccess: 'Export started, please check your downloads',
+    exportFail: 'Export failed, narrow the filters and try again'
   },
   action: {
     new: 'Submit Issue',
     submitNew: 'Submit New Issue',
+    backToList: 'Back to List',
     viewDetail: 'View Detail',
     flow: 'Transition',
+    exportExcel: 'Export Excel',
     remark: 'Add Remark'
+  },
+  attachment: {
+    preview: 'Preview',
+    previewAlt: 'Attachment preview',
+    empty: 'No attachment',
+    upload: 'Upload Attachment',
+    sizeLimit: 'The file exceeds the {size}MB limit',
+    uploadSuccess: 'Uploaded successfully',
+    deleteSuccess: 'Attachment deleted'
+  },
+  relation: {
+    title: 'Issue Relations',
+    predecessor: 'Predecessors',
+    successor: 'Successors',
+    none: 'None',
+    edit: 'Edit Relations',
+    selectPredecessor: 'Select predecessor issues',
+    selectSuccessor: 'Select successor issues',
+    saveSuccess: 'Relations saved'
+  },
+  history: {
+    system: 'System',
+    remarkLine: 'Note: {text}',
+    empty: 'No operation record'
   },
   flowBtn: {
     claim: 'Claim / In Progress',

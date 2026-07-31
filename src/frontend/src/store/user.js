@@ -21,7 +21,13 @@ export const useUserStore = defineStore('user', {
     userInfo: (persisted && persisted.userInfo) || {},
     roles: (persisted && persisted.roles) || [],
     /** 当前角色拥有的权限码集合（来自 GET /roles/{id}/permissions） */
-    permissions: (persisted && persisted.permissions) || []
+    permissions: (persisted && persisted.permissions) || [],
+    /**
+     * 头像版本号（Phase7 T5）：个人中心上传头像后自增，
+     * UserAvatar 监听到变化即重新拉流，顶栏头像无需刷新页面即可同步。
+     * 仅内存态，不持久化。
+     */
+    avatarVersion: 0
   }),
   getters: {
     isLoggedIn: (state) => !!state.token,
@@ -34,6 +40,15 @@ export const useUserStore = defineStore('user', {
     realName: (state) => {
       const info = state.userInfo || {}
       return info.realName || info.username || ''
+    },
+    /** 当前用户 id（头像端点 /api/profile/avatar/{userId} 需要） */
+    userId: (state) => (state.userInfo && state.userInfo.id) || null,
+    /** 头像相对路径，为空表示未设置（UserAvatar 退化为首字母） */
+    avatar: (state) => (state.userInfo && state.userInfo.avatar) || '',
+    /** 顶栏展示名：昵称优先 → 姓名 → 账号（Phase7 T5 起消费 nickname） */
+    displayName: (state) => {
+      const info = state.userInfo || {}
+      return info.nickname || info.realName || info.username || ''
     },
     /**
      * 细粒度权限判定（按钮级）。
@@ -106,6 +121,30 @@ export const useUserStore = defineStore('user', {
       this.persist()
       return data
     },
+    /**
+     * 本地写入新头像路径并自增版本号（Phase7 T5）。
+     * 用于个人中心上传成功后即时刷新顶栏头像，避免多一次 /auth/info 往返。
+     * @param {string} path 头像相对路径
+     */
+    setAvatar(path) {
+      this.userInfo = { ...(this.userInfo || {}), avatar: path || '' }
+      this.avatarVersion += 1
+      this.persist()
+    },
+    /**
+     * 重新拉取当前用户信息并刷新顶栏展示（Phase7 T5）。
+     * 失败静默降级：个人中心保存本身已成功，不应因刷新失败弹二次错误。
+     * @returns {Promise<boolean>} 是否刷新成功
+     */
+    async refreshUserInfo() {
+      try {
+        await this.getInfo()
+        this.avatarVersion += 1
+        return true
+      } catch (e) {
+        return false
+      }
+    },
     /** 登出：调用后端写 Redis 黑名单（失败忽略），再清本地态。 */
     logout() {
       try {
@@ -117,6 +156,7 @@ export const useUserStore = defineStore('user', {
       this.userInfo = {}
       this.roles = []
       this.permissions = []
+      this.avatarVersion = 0
       removeToken()
       localStorage.removeItem(USER_KEY)
     },

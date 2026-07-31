@@ -19,10 +19,17 @@ spring:
       encoding: UTF-8
       continue-on-error: true
   # 文件上传限制(附件模块使用，地基预留)
+  # 容器层放宽到 50MB，业务上限由 sys_config 的 file.max_size_mb 动态收紧
   servlet:
     multipart:
-      max-file-size: 20MB
+      max-file-size: 50MB
       max-request-size: 60MB
+  # 定时任务调度线程池（Phase7 DynamicTaskScheduler 使用）
+  task:
+    scheduling:
+      pool:
+        size: 4
+      thread-name-prefix: if-sched-
   # Redis(开发环境默认本机，生产由 application-prod.yml 覆盖)
   data:
     redis:
@@ -30,7 +37,8 @@ spring:
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       database: ${REDIS_DB:0}
-      timeout: 5000ms
+      # Redis 监控页只读 INFO，超时收紧到 2s 避免监控请求长时间挂起
+      timeout: 2000ms
 
 # MyBatis-Plus 全局配置（独立前缀，非 spring.*）
 mybatis-plus:
@@ -55,6 +63,12 @@ jwt:
 # 应用自定义配置
 app:
   attachment-base-path: ${ATTACHMENT_BASE_PATH:/data/attachments}
+  # 文件模块兜底默认值（sys_config 的 file.* 缺键时生效）
+  file:
+    storage-root: ${FILE_STORAGE_ROOT:/data/attachments}
+    max-size-mb: ${FILE_MAX_SIZE_MB:10}
+    allowed-exts: ${FILE_ALLOWED_EXTS:jpg,jpeg,png,gif,pdf,zip,rar,doc,docx,xls,xlsx,txt,log}
+    storage-type: ${FILE_STORAGE_TYPE:LOCAL}
 
 # 系统数据初始化开关（R7，默认开启；需要关闭时取消注释并置 false）
 # system:

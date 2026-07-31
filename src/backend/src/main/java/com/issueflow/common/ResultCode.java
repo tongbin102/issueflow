@@ -46,7 +46,17 @@ public enum ResultCode {
     ISSUE_TYPE_NOT_FOUND(40060, "问题类型不存在"),
     ISSUE_TYPE_CODE_DUPLICATE(40061, "类型编码已存在"),
     ISSUE_TYPE_HAS_USAGE(40062, "该类型下存在关联问题，无法删除，可改为停用"),
-    ISSUE_TYPE_DISABLED(40063, "该问题类型已停用，不可选择");
+    ISSUE_TYPE_DISABLED(40063, "该问题类型已停用，不可选择"),
+    DICT_TYPE_NOT_FOUND(40070, "字典类型不存在"),
+    DICT_TYPE_CODE_DUPLICATE(40071, "字典类型编码已存在"),
+    DICT_TYPE_SYSTEM_PROTECTED(40072, "系统预设字典类型不可删除"),
+    DICT_TYPE_HAS_ITEMS(40073, "该类型下仍存在选项，请先删除选项"),
+    DICT_TYPE_MIRROR_READONLY(40074, "该类型为系统枚举镜像，不可新增选项"),
+    DICT_ITEM_NOT_FOUND(40075, "字典选项不存在"),
+    DICT_ITEM_CODE_DUPLICATE(40076, "该类型下选项编码已存在"),
+    DICT_ITEM_SYSTEM_PROTECTED(40077, "系统预设项不可删除，可改为停用"),
+    DICT_ITEM_HAS_USAGE(40078, "该选项下存在关联问题，无法删除，可改为停用"),
+    DICT_ITEM_DISABLED(40079, "该选项已停用，不可选择");
 
     private final Integer code;
     private final String message;

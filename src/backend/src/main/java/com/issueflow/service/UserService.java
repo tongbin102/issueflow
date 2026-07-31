@@ -78,6 +78,10 @@ public class UserService {
             }
         }
         vo.setStatus(user.getStatus());
+        vo.setAvatar(user.getAvatar());
+        vo.setNickname(user.getNickname());
+        vo.setBindWechat(user.getBindWechat());
+        vo.setBindDingtalk(user.getBindDingtalk());
         vo.setCreatedAt(user.getCreatedAt());
         if (user.getRoleId() != null) {
             Role role = roleMapper.selectById(user.getRoleId());
@@ -118,6 +122,8 @@ public class UserService {
         user.setRealName(req.getRealName());
         user.setEmail(req.getEmail());
         user.setPhone(req.getPhone());
+        user.setAvatar(req.getAvatar());
+        user.setNickname(req.getNickname());
         user.setRoleId(req.getRoleId());
         user.setLeaderId(req.getLeaderId());
         user.setStatus(req.getStatus() == null ? 1 : req.getStatus());
@@ -147,6 +153,12 @@ public class UserService {
         user.setRealName(req.getRealName());
         user.setEmail(req.getEmail());
         user.setPhone(req.getPhone());
+        if (req.getAvatar() != null) {
+            user.setAvatar(req.getAvatar());
+        }
+        if (req.getNickname() != null) {
+            user.setNickname(req.getNickname());
+        }
         user.setRoleId(req.getRoleId());
         if (req.getLeaderId() != null && Objects.equals(req.getLeaderId(), id)) {
             throw new BizException(ResultCode.USER_LEADER_CYCLE);

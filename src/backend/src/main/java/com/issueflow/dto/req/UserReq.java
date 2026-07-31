@@ -39,4 +39,10 @@ public class UserReq implements Serializable {
 
     /** 状态：1 启用 / 0 禁用（默认 1） */
     private Integer status = 1;
+
+    /** 头像相对路径（相对文件存储根，Phase7 新增，管理员可设置） */
+    private String avatar;
+
+    /** 昵称（Phase7 新增，为空时展示 realName） */
+    private String nickname;
 }

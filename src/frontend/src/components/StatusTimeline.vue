@@ -9,21 +9,27 @@
         :color="timelineColor(item)"
       >
         <div class="tl-row">
-          <span class="tl-action">{{ actionLabel(item.action) }}</span>
-          <span class="tl-operator">{{ item.operatorName || '系统' }}</span>
+          <span class="tl-action">{{ actionLabelI18n(item.action) }}</span>
+          <span class="tl-operator">{{ item.operatorName || t('issue.history.system') }}</span>
         </div>
         <div v-if="showTransition(item)" class="tl-transition text-muted">
-          {{ statusLabel(item.fromStatus) }} → {{ statusLabel(item.toStatus) }}
+          {{ statusLabelI18n(item.fromStatus) }} → {{ statusLabelI18n(item.toStatus) }}
         </div>
-        <div v-if="item.remark" class="tl-remark">备注：{{ item.remark }}</div>
+        <div v-if="item.remark" class="tl-remark">
+          {{ t('issue.history.remarkLine', { text: item.remark }) }}
+        </div>
       </el-timeline-item>
     </el-timeline>
-    <el-empty v-else description="暂无操作记录" :image-size="48" />
+    <el-empty v-else :description="t('issue.history.empty')" :image-size="48" />
   </div>
 </template>
 
 <script setup>
-import { formatDate, actionLabel, statusLabel, statusColor } from '@/utils/format'
+import { useI18n } from 'vue-i18n'
+import { formatDate, statusColor } from '@/utils/format'
+import { actionLabelI18n, statusLabelI18n } from '@/utils/i18nEnum'
+
+const { t } = useI18n()
 
 const props = defineProps({
   history: { type: Array, default: () => [] }

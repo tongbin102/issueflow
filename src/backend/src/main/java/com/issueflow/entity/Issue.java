@@ -29,6 +29,9 @@ public class Issue extends BaseEntity {
     /** 严重等级：0致命 1严重 2一般 3轻微 */
     private Integer severity;
 
+    /** 优先级：0高 1中 2低（Phase7 新增，NOT NULL DEFAULT 1，见 PriorityEnum） */
+    private Integer priority;
+
     /** 标签（逗号分隔名称） */
     private String tags;
 
@@ -64,6 +67,9 @@ public class Issue extends BaseEntity {
 
     /** 问题类型 id（关联 issue_type.id；Phase6 起新建必填，存量已回填 OTHER） */
     private Long typeId;
+
+    /** 来源编码（存 dict_item 的 item_code，字典类型 ISSUE_SOURCE；Phase7 新增，存量已回填 SYSTEM） */
+    private String source;
 
     /** 关闭时间（解决周期计算） */
     private LocalDateTime closedAt;

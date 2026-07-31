@@ -34,14 +34,25 @@
           <!-- Phase6：前台主题切换（4 主题）+ 语言切换 -->
           <ThemeSwitch />
           <LocaleSwitch />
-          <el-dropdown @command="onCommand">
+          <el-dropdown popper-class="if-user-topbar-dropdown" @command="onCommand">
             <span class="user-dropdown">
-              <el-avatar :size="28">{{ avatarText }}</el-avatar>
-              <span class="user-name">{{ realName }}</span>
+              <!-- Phase7 T5：头像改用 UserAvatar（有图显示图 / 无图首字母 + 稳定色） -->
+              <UserAvatar
+                :user-id="userStore.userId"
+                :avatar="userStore.avatar"
+                :name="displayName"
+                :size="28"
+                :version="userStore.avatarVersion"
+              />
+              <span class="user-name">{{ displayName }}</span>
               <el-icon><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
             <el-dropdown-menu>
+              <!-- R1：个人中心入口，位于「退出登录」之上、divided 之前 -->
+              <el-dropdown-item command="profileCenter">
+                <el-icon><User /></el-icon><span class="dd-text">{{ t('layout.topbar.profileCenter') }}</span>
+              </el-dropdown-item>
               <el-dropdown-item command="clearCache">
                 <el-icon><Refresh /></el-icon><span class="dd-text">{{ t('layout.topbar.clearCache') }}</span>
               </el-dropdown-item>
@@ -67,10 +78,11 @@ import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Menu, ArrowDown, Refresh, SwitchButton } from '@element-plus/icons-vue'
+import { Menu, ArrowDown, Refresh, SwitchButton, User } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
 import { useThemeStore } from '@/store/theme'
+import UserAvatar from '@/components/UserAvatar.vue'
 import LayoutSwitchEntry from '@/components/LayoutSwitchEntry.vue'
 import SideMenu from '@/components/SideMenu.vue'
 import LocaleSwitch from '@/components/LocaleSwitch.vue'
@@ -93,8 +105,8 @@ const pageTitle = computed(() => {
   if (key && te(key)) return t(key)
   return key || appStore.siteName
 })
-const realName = computed(() => userStore.realName)
-const avatarText = computed(() => (realName.value || 'U').charAt(0).toUpperCase())
+/** 顶栏展示名：昵称优先 → 姓名 → 账号（Phase7 T5 起 userInfo 带 nickname） */
+const displayName = computed(() => userStore.displayName || userStore.realName)
 
 // ===== Phase6 前台主题挂载（ARCH §七.3）=====
 // 仅写 body[data-if-theme]，严禁写 document.documentElement；
@@ -132,6 +144,9 @@ function onCommand(cmd) {
     localStorage.clear()
     ElMessage.success(t('layout.msg.cacheCleared'))
     setTimeout(() => window.location.reload(), 600)
+  } else if (cmd === 'profileCenter') {
+    // R1：前台头像下拉 →「个人中心」
+    router.push('/user/profile')
   }
 }
 
@@ -166,5 +181,29 @@ onBeforeUnmount(() => {
 
 .dd-text {
   margin-left: 6px;
+}
+
+.user-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+</style>
+
+<!-- 下拉菜单被 teleport 到 body，scoped 选择器命中不到，故单独用非 scoped 块 + popper-class 限定作用域 -->
+<style>
+.if-user-topbar-dropdown .el-dropdown-menu__item {
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  /* 移动端下拉项触控热区 ≥44px（ARCH §2.5-114） */
+  .if-user-topbar-dropdown .el-dropdown-menu__item {
+    min-height: 44px;
+    line-height: 44px;
+    font-size: 15px;
+  }
 }
 </style>

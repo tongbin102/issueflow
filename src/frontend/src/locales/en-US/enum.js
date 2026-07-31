@@ -17,6 +17,12 @@ export default {
     3: 'Minor',
     unknown: 'Unknown'
   },
+  priority: {
+    0: 'High',
+    1: 'Medium',
+    2: 'Low',
+    unknown: 'Unknown'
+  },
   role: {
     SUBMITTER: 'Submitter',
     DEVELOPER: 'Developer',

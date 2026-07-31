@@ -64,6 +64,13 @@ const routes = [
         name: 'user-stats',
         component: () => import('@/views/user/UserStats.vue'),
         meta: { title: 'menu.user.stats', roles: USER_ROLES }
+      },
+      {
+        // Phase7 T5 / R1：个人中心（前台顶栏头像下拉入口，不进侧边菜单）
+        path: 'user/profile',
+        name: 'user-profile',
+        component: () => import('@/views/user/UserProfile.vue'),
+        meta: { title: 'profile.title', roles: USER_ROLES }
       }
     ]
   },
@@ -81,10 +88,22 @@ const routes = [
         meta: { title: 'menu.admin.overview', roles: ['ADMIN'] }
       },
       {
+        // Phase7：业务管理分组入口（菜单目录节点，重定向到问题列表）
+        path: 'business',
+        redirect: '/admin/issues'
+      },
+      {
         path: 'issues',
         name: 'admin-issues',
         component: () => import('@/views/admin/AdminIssueList.vue'),
-        meta: { title: 'menu.admin.issues', roles: ['ADMIN'] }
+        meta: { title: 'menu.admin.issueList', roles: ['ADMIN'] }
+      },
+      {
+        // Phase7 新增：字典配置（业务管理 > 字典配置）
+        path: 'dicts',
+        name: 'dict-manage',
+        component: () => import('@/views/admin/DictManage.vue'),
+        meta: { title: 'menu.admin.dict', roles: ['ADMIN'] }
       },
       {
         // Phase6 新增（Q5 决策：与问题管理同级平铺，不做父子嵌套）
@@ -161,6 +180,41 @@ const routes = [
         name: 'flow-config',
         component: () => import('@/views/admin/FlowConfig.vue'),
         meta: { title: 'menu.admin.flowConfig', roles: ['ADMIN'] }
+      },
+      {
+        // Phase7 T6 / R2.2：基础设施入口（菜单目录节点，重定向到文件列表）
+        path: 'infra',
+        redirect: '/admin/infra/file/list'
+      },
+      {
+        path: 'infra/file/config',
+        name: 'infra-file-config',
+        component: () => import('@/views/admin/infra/FileConfig.vue'),
+        meta: { title: 'menu.admin.infraFileConfig', roles: ['ADMIN'] }
+      },
+      {
+        path: 'infra/file/list',
+        name: 'infra-file-list',
+        component: () => import('@/views/admin/infra/FileList.vue'),
+        meta: { title: 'menu.admin.infraFileList', roles: ['ADMIN'] }
+      },
+      {
+        path: 'infra/config',
+        name: 'infra-config',
+        component: () => import('@/views/admin/infra/ConfigManage.vue'),
+        meta: { title: 'menu.admin.infraConfig', roles: ['ADMIN'] }
+      },
+      {
+        path: 'infra/redis',
+        name: 'infra-redis',
+        component: () => import('@/views/admin/infra/RedisMonitor.vue'),
+        meta: { title: 'menu.admin.infraRedis', roles: ['ADMIN'] }
+      },
+      {
+        path: 'infra/job',
+        name: 'infra-job',
+        component: () => import('@/views/admin/infra/JobManage.vue'),
+        meta: { title: 'menu.admin.infraJob', roles: ['ADMIN'] }
       }
     ]
   },

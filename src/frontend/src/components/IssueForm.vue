@@ -40,6 +40,31 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
+            <!-- Phase7 T3：来源（字典 ISSUE_SOURCE，value = item_code，与后端落库口径一致）。
+                 新建留空由后端填默认来源；编辑回显停用来源时追加只读展示项。 -->
+            <el-form-item :label="t('issue.form.source')" prop="source">
+              <el-select
+                v-model="model.source"
+                :placeholder="t('issue.placeholder.selectSource')"
+                clearable
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="opt in sourceSelectOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                  :disabled="opt.disabled"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- Phase7 T3（ARCH 硬要求）：严重等级与优先级同一 el-row 的两个 span=12，
+             同为 el-select、同必填星号、同校验提示风格 -->
+        <el-row :gutter="16">
+          <el-col :span="12">
             <el-form-item :label="t('issue.form.severity')" prop="severity">
               <el-select
                 v-model="model.severity"
@@ -48,6 +73,22 @@
               >
                 <el-option
                   v-for="opt in severityOptions"
+                  :key="opt.value"
+                  :label="opt.label"
+                  :value="opt.value"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item :label="t('issue.form.priority')" prop="priority">
+              <el-select
+                v-model="model.priority"
+                :placeholder="t('issue.placeholder.selectPriority')"
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="opt in priorityOptions"
                   :key="opt.value"
                   :label="opt.label"
                   :value="opt.value"
@@ -163,8 +204,18 @@
 <script setup>
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useSeverityOptions, issueTypeLabelI18n } from '@/utils/i18nEnum'
+import {
+  useSeverityOptions,
+  usePriorityOptions,
+  useDictCodeOptions,
+  dictCodeLabelI18n,
+  issueTypeLabelI18n,
+  DICT_TYPE,
+  DEFAULT_PRIORITY,
+  DEFAULT_SOURCE_CODE
+} from '@/utils/i18nEnum'
 import { useIssueTypeStore } from '@/store/issueType'
+import { useDictStore } from '@/store/dict'
 import { listTags } from '@/api/tag'
 import { listProjectOptions } from '@/api/project'
 import { listModuleTree } from '@/api/module'
@@ -179,6 +230,7 @@ const emit = defineEmits(['submit', 'cancel'])
 
 const { t } = useI18n()
 const issueTypeStore = useIssueTypeStore()
+const dictStore = useDictStore()
 
 const isEdit = computed(() => !!props.initial)
 const uploaderRef = ref(null)
@@ -187,10 +239,16 @@ const formRef = ref(null)
 const localFiles = ref([])
 
 const severityOptions = useSeverityOptions()
+const priorityOptions = usePriorityOptions()
+/** 来源下拉：仅启用项（表单场景，Q6 同款口径） */
+const sourceOptions = useDictCodeOptions(DICT_TYPE.ISSUE_SOURCE, false)
 
 const model = reactive({
   title: '',
   typeId: null,
+  // Phase7 T3：新建默认来源 SYSTEM、默认优先级 中（与后端兜底口径一致）
+  source: DEFAULT_SOURCE_CODE,
+  priority: DEFAULT_PRIORITY,
   severity: 2,
   projectId: null,
   moduleId: null,
@@ -210,6 +268,25 @@ const moduleLoading = ref(false)
 const lastProject = ref(null)
 /** 编辑回显补充项：当前值为停用类型时追加的只读展示项 */
 const extraTypeOption = ref(null)
+/** 编辑回显补充项：当前来源已停用/已删除时追加的只读展示项（code + label） */
+const extraSourceOption = ref(null)
+
+/**
+ * 来源下拉最终数据源：启用项 + （编辑态）当前停用来源只读项。
+ * 保证编辑旧数据时不会因来源被停用而把已有值清空。
+ */
+const sourceSelectOptions = computed(() => {
+  const base = (sourceOptions.value || []).map((o) => ({
+    value: o.value,
+    label: o.label,
+    disabled: false
+  }))
+  const extra = extraSourceOption.value
+  if (extra && !base.some((o) => o.value === extra.value)) {
+    base.push({ value: extra.value, label: extra.label, disabled: true })
+  }
+  return base
+})
 
 /** 类型下拉：启用项 + （编辑态）当前停用值只读展示项（Q6） */
 const typeOptions = computed(() => {
@@ -236,6 +313,9 @@ const rules = computed(() => ({
   title: [{ required: true, message: t('issue.rules.titleRequired'), trigger: 'blur' }],
   typeId: [{ required: true, message: t('issue.rules.typeRequired'), trigger: 'change' }],
   severity: [{ required: true, message: t('issue.rules.severityRequired'), trigger: 'change' }],
+  // Phase7 T3：优先级与严重等级同为必选，校验强度保持一致
+  priority: [{ required: true, message: t('issue.rules.priorityRequired'), trigger: 'change' }],
+  source: [{ required: true, message: t('issue.rules.sourceRequired'), trigger: 'change' }],
   description: [{ required: true, message: t('issue.rules.descriptionRequired'), trigger: 'blur' }]
 }))
 
@@ -243,6 +323,8 @@ const rules = computed(() => ({
 const SECTION_BY_FIELD = {
   title: 'basic',
   typeId: 'basic',
+  source: 'basic',
+  priority: 'basic',
   severity: 'basic',
   projectId: 'basic',
   moduleId: 'basic',
@@ -260,6 +342,8 @@ function applyInitial() {
   const src = props.initial
   model.title = src.title || ''
   model.typeId = src.typeId ?? null
+  model.source = src.source || DEFAULT_SOURCE_CODE
+  model.priority = src.priority ?? DEFAULT_PRIORITY
   model.severity = src.severity ?? 2
   model.projectId = src.projectId || null
   model.moduleId = src.moduleId || null
@@ -292,6 +376,27 @@ async function resolveExtraTypeOption() {
     extraTypeOption.value = (all || []).find((o) => o.id === model.typeId) || null
   } catch (e) {
     extraTypeOption.value = null
+  }
+}
+
+/**
+ * 编辑态：当前 source 不在启用项内（已停用/已删除）时补一条只读展示项，
+ * 名称优先取后端返回的 sourceDesc，再退回字典缓存 / code 原值。
+ */
+async function resolveExtraSourceOption() {
+  extraSourceOption.value = null
+  if (!isEdit.value || !model.source) return
+  const enabledHit = (sourceOptions.value || []).some((o) => o.value === model.source)
+  if (enabledHit) return
+  try {
+    await dictStore.fetchAllOptions(DICT_TYPE.ISSUE_SOURCE)
+  } catch (e) {
+    // 全量字典拉取失败时仍用 sourceDesc 兜底展示
+  }
+  const fallback = (props.initial && props.initial.sourceDesc) || model.source
+  extraSourceOption.value = {
+    value: model.source,
+    label: dictCodeLabelI18n(DICT_TYPE.ISSUE_SOURCE, model.source, fallback)
   }
 }
 
@@ -339,6 +444,8 @@ function reset() {
   Object.assign(model, {
     title: '',
     typeId: null,
+    source: DEFAULT_SOURCE_CODE,
+    priority: DEFAULT_PRIORITY,
     severity: 2,
     projectId: null,
     moduleId: null,
@@ -355,6 +462,7 @@ function reset() {
   }
   localFiles.value = []
   extraTypeOption.value = null
+  extraSourceOption.value = null
   if (formRef.value) formRef.value.clearValidate()
 }
 
@@ -381,6 +489,9 @@ function submit() {
     const data = {
       title: model.title,
       typeId: model.typeId,
+      // 来源留空时不下发字段，由后端 DictService.defaultSourceCode() 填默认值
+      source: model.source || null,
+      priority: model.priority,
       severity: model.severity,
       tags: model.tags.join(','),
       description: model.description,
@@ -407,6 +518,7 @@ onMounted(async () => {
     // 下拉加载失败不阻塞表单其余部分
   }
   await resolveExtraTypeOption()
+  await resolveExtraSourceOption()
   try {
     const tags = await listTags()
     tagOptions.value = (tags || []).map((tg) => ({ label: tg.name, value: tg.name }))

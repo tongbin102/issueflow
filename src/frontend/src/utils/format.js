@@ -21,6 +21,57 @@ export function formatDate(value, fmt = 'YYYY-MM-DD HH:mm:ss') {
 }
 
 /**
+ * 字节数 → 可读文件大小（Phase7 T6：文件列表 / 文件配置 / Redis 内存复用）。
+ * @param {number|string} bytes 字节数
+ * @param {number} [fractionDigits=1] 小数位数
+ * @returns {string} 如 「1.5 MB」；空值返回 '-'
+ */
+export function formatFileSize(bytes, fractionDigits = 1) {
+  const num = Number(bytes)
+  if (bytes === null || bytes === undefined || Number.isNaN(num)) return '-'
+  if (num < 0) return '-'
+  if (num < 1024) return `${num} B`
+  const units = ['KB', 'MB', 'GB', 'TB', 'PB']
+  let value = num / 1024
+  let index = 0
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024
+    index += 1
+  }
+  return `${value.toFixed(fractionDigits)} ${units[index]}`
+}
+
+/**
+ * 数字 → 千分位字符串（Phase7 T8：备份预估条数展示复用）。
+ * @param {number|string} value 数值
+ * @returns {string} 如 「12,486」；空值/非法值返回 '0'
+ */
+export function formatNumber(value) {
+  const num = Number(value)
+  if (value === null || value === undefined || value === '' || Number.isNaN(num)) return '0'
+  return num.toLocaleString('en-US')
+}
+
+/**
+ * 毫秒 → 可读耗时（Phase7 T7：定时任务耗时 / Redis 运行时长复用）。
+ * @param {number|string} ms 毫秒数
+ * @returns {string} 如 「820 ms」「1.5 s」「2 分 05 秒」；空值返回 '-'
+ */
+export function formatDuration(ms) {
+  const num = Number(ms)
+  if (ms === null || ms === undefined || Number.isNaN(num) || num < 0) return '-'
+  if (num < 1000) return `${Math.round(num)} ms`
+  const totalSeconds = num / 1000
+  if (totalSeconds < 60) return `${totalSeconds.toFixed(1)} s`
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = Math.floor(totalSeconds % 60)
+  if (minutes < 60) return `${minutes}m ${String(seconds).padStart(2, '0')}s`
+  const hours = Math.floor(minutes / 60)
+  const restMinutes = minutes % 60
+  return `${hours}h ${String(restMinutes).padStart(2, '0')}m`
+}
+
+/**
  * 角色码 → 中文名。
  * @deprecated Phase6 起页面展示请改用 utils/i18nEnum.js 的 roleLabelI18n（支持中英切换）；
  *             此常量仅保留给非展示逻辑（比较 / 兜底），后续版本移除。
@@ -107,6 +158,21 @@ export const SEVERITY_COLORS = {
   3: '#909399'
 }
 
+// 优先级 → el-tag 类型（Phase7 决策 B：0 高=danger / 1 中=warning / 2 低=info，
+// 与 severity 同一渲染风格；ARCH §七.6 硬约束：色值固定，不随主题变化）
+export const PRIORITY_TAG_TYPE = {
+  0: 'danger',
+  1: 'warning',
+  2: 'info'
+}
+
+// 优先级 → 颜色（图表 / 自定义着色使用）
+export const PRIORITY_COLORS = {
+  0: '#F56C6C',
+  1: '#E6A23C',
+  2: '#909399'
+}
+
 export function statusTagType(code) {
   return STATUS_TAG_TYPE[Number(code)] || 'info'
 }
@@ -121,6 +187,24 @@ export function severityTagType(code) {
 
 export function severityColor(code) {
   return SEVERITY_COLORS[Number(code)] || '#909399'
+}
+
+/**
+ * 优先级 → el-tag 类型（Phase7-R4：0 高=danger / 1 中=warning / 2 低=info）。
+ * @param {number|string} code 0 高 / 1 中 / 2 低
+ * @returns {string} danger | warning | info
+ */
+export function priorityTagType(code) {
+  return PRIORITY_TAG_TYPE[Number(code)] || 'info'
+}
+
+/**
+ * 优先级 → 颜色值。
+ * @param {number|string} code 0 高 / 1 中 / 2 低
+ * @returns {string} 十六进制色值
+ */
+export function priorityColor(code) {
+  return PRIORITY_COLORS[Number(code)] || '#909399'
 }
 
 /**

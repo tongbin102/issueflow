@@ -42,6 +42,18 @@ public class UserVO implements Serializable {
     /** 状态：1 启用 / 0 禁用 */
     private Integer status;
 
+    /** 头像相对路径（Phase7 新增） */
+    private String avatar;
+
+    /** 昵称（Phase7 新增，为空时展示 realName） */
+    private String nickname;
+
+    /** 是否已绑定微信（0 否 / 1 是，Phase7 新增） */
+    private Integer bindWechat;
+
+    /** 是否已绑定钉钉（0 否 / 1 是，Phase7 新增） */
+    private Integer bindDingtalk;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 }

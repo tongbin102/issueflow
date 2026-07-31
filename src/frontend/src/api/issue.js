@@ -11,6 +11,12 @@ export function pageIssues(params) {
   return request.get('/issues', { params })
 }
 
+// 导出 Excel：GET /api/issues/export → xlsx 二进制流
+// 参数与 pageIssues 一致（不含 page/size），后端按 5000 行上限截断。
+export function exportIssues(params) {
+  return request.get('/issues/export', { params, responseType: 'blob' })
+}
+
 // 详情：GET /api/issues/{id} → IssueDetailVO
 export function getIssue(id) {
   return request.get(`/issues/${id}`)

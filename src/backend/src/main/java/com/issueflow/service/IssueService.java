@@ -17,12 +17,15 @@ import com.issueflow.dto.resp.IssueVO;
 import com.issueflow.entity.Issue;
 import com.issueflow.entity.IssueAttachment;
 import com.issueflow.entity.IssueType;
+import com.issueflow.enums.DictTypeCodeEnum;
 import com.issueflow.enums.HistoryActionEnum;
 import com.issueflow.enums.IssueStatusEnum;
+import com.issueflow.enums.PriorityEnum;
 import com.issueflow.enums.SeverityEnum;
 import com.issueflow.mapper.IssueAttachmentMapper;
 import com.issueflow.mapper.IssueMapper;
 import com.issueflow.util.DateTimeUtils;
+import com.issueflow.util.ExcelExportUtil;
 import com.issueflow.util.IssueNoGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
@@ -45,6 +48,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class IssueService {
 
+    /** 单次 Excel 导出最大行数（超出部分不导出，前端提示缩小筛选范围） */
+    private static final int EXPORT_MAX_ROWS = 5000;
+
     private final IssueMapper issueMapper;
     private final IssueAttachmentMapper attachmentMapper;
     private final IssueHistoryService historyService;
@@ -54,6 +60,7 @@ public class IssueService {
     private final ModuleService moduleService;
     private final PermissionService permissionService;
     private final IssueTypeService issueTypeService;
+    private final DictService dictService;
 
     /**
      * 新建问题（生成编号、reporter=当前用户、status=OPEN、写 CREATE 历史）
@@ -83,6 +90,16 @@ public class IssueService {
         // R5-1：模块归属校验（moduleId 为空时直接放行）
         moduleService.assertModuleBelongsToProject(req.getModuleId(), req.getProjectId());
         issue.setModuleId(req.getModuleId());
+        // Phase7-R3：来源为空时服务端填默认项（MANUAL，取自 DictCache 不查库）；
+        // 非空时校验该项存在且启用（停用项禁止新建选中，历史数据回显不受影响）。
+        if (req.getSource() == null || req.getSource().isBlank()) {
+            issue.setSource(dictService.defaultSourceCode());
+        } else {
+            dictService.requireEnabledSource(req.getSource());
+            issue.setSource(req.getSource());
+        }
+        // Phase7-R4：优先级为固定枚举，非法值直接拒绝，缺省兜底「中」
+        issue.setPriority(requireValidPriority(req.getPriority()));
 
         // 插入冲突（唯一索引兜底）最多重试 3 次；每次重新生成编号，
         // 因 maxSeq 随并发插入自增，重试才真正有效。3 次仍失败则抛受控业务异常，避免裸奔成 500。
@@ -104,7 +121,8 @@ public class IssueService {
                 null, IssueStatusEnum.OPEN.getCode(), currentUser, null);
         return toIssueVO(issue, userService.userNameMap(), projectService.nameMap(),
                 moduleService.pathMap(Collections.singletonList(issue.getModuleId())),
-                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())));
+                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())),
+                sourceNameMapOf(issue.getSource()));
     }
 
     /**
@@ -163,6 +181,18 @@ public class IssueService {
         moduleService.assertModuleBelongsToProject(req.getModuleId(), issue.getProjectId());
         issue.setModuleId(req.getModuleId());
 
+        // Phase7：来源 / 优先级（非空才更新）
+        // 来源变更时同样要求目标项启用；未变更（等值提交）时放行，避免停用后无法编辑旧问题。
+        if (req.getSource() != null && !req.getSource().isBlank()) {
+            if (!Objects.equals(req.getSource(), issue.getSource())) {
+                dictService.requireEnabledSource(req.getSource());
+            }
+            issue.setSource(req.getSource());
+        }
+        if (req.getPriority() != null) {
+            issue.setPriority(requireValidPriority(req.getPriority()));
+        }
+
         issueMapper.updateById(issue);
         // updateById 默认 NOT_NULL 策略会跳过 null 字段，无法清空模块归属；
         // 故 module_id 单独用 UpdateWrapper 显式 set（含 null），实现「存在即覆盖」语义。
@@ -172,7 +202,8 @@ public class IssueService {
         historyService.record(id, HistoryActionEnum.EDIT.getCode(), null, null, currentUser, null);
         return toIssueVO(issue, userService.userNameMap(), projectService.nameMap(),
                 moduleService.pathMap(Collections.singletonList(issue.getModuleId())),
-                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())));
+                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())),
+                sourceNameMapOf(issue.getSource()));
     }
 
     /**
@@ -228,6 +259,12 @@ public class IssueService {
         if (req.getProjectId() != null) {
             wrapper.eq(Issue::getProjectId, req.getProjectId());
         }
+        if (req.getSource() != null && !req.getSource().isBlank()) {
+            wrapper.eq(Issue::getSource, req.getSource());
+        }
+        if (req.getPriority() != null) {
+            wrapper.eq(Issue::getPriority, req.getPriority());
+        }
         if (req.getKeyword() != null && !req.getKeyword().isBlank()) {
             String keyword = req.getKeyword();
             wrapper.and(q -> q.like(Issue::getTitle, keyword).or().like(Issue::getDescription, keyword));
@@ -257,6 +294,7 @@ public class IssueService {
         // 批量回填铁律：当页汇总 moduleId/typeId → 一次批查 → Map 回填，禁止行内单查（N+1）
         Set<Long> moduleIds = new HashSet<>();
         Set<Long> typeIds = new HashSet<>();
+        Set<String> sourceCodes = new HashSet<>();
         for (Issue i : page.getRecords()) {
             if (i.getModuleId() != null) {
                 moduleIds.add(i.getModuleId());
@@ -264,11 +302,16 @@ public class IssueService {
             if (i.getTypeId() != null) {
                 typeIds.add(i.getTypeId());
             }
+            if (i.getSource() != null && !i.getSource().isBlank()) {
+                sourceCodes.add(i.getSource());
+            }
         }
         Map<Long, String> modulePathMap = moduleService.pathMap(moduleIds);
         Map<Long, IssueType> typeMap = issueTypeService.nameMap(typeIds);
+        Map<String, String> sourceNameMap = dictService.itemNameMap(
+                DictTypeCodeEnum.ISSUE_SOURCE.getCode(), sourceCodes);
         List<IssueVO> list = page.getRecords().stream()
-                .map(i -> toIssueVO(i, userNameMap, projectNameMap, modulePathMap, typeMap))
+                .map(i -> toIssueVO(i, userNameMap, projectNameMap, modulePathMap, typeMap, sourceNameMap))
                 .collect(Collectors.toList());
         return PageResult.of(list, page.getTotal(), (long) pageNum, (long) size);
     }
@@ -288,7 +331,8 @@ public class IssueService {
         Map<Long, String> userNameMap = userService.userNameMap();
         IssueDetailVO vo = toDetailVO(issue, userNameMap,
                 moduleService.pathMap(Collections.singletonList(issue.getModuleId())),
-                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())));
+                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())),
+                sourceNameMapOf(issue.getSource()));
 
         List<IssueAttachment> attachments = attachmentMapper.selectList(
                 new LambdaQueryWrapper<IssueAttachment>()
@@ -306,7 +350,7 @@ public class IssueService {
 
     private IssueVO toIssueVO(Issue issue, Map<Long, String> userNameMap,
                               Map<Long, String> projectNameMap, Map<Long, String> modulePathMap,
-                              Map<Long, IssueType> typeMap) {
+                              Map<Long, IssueType> typeMap, Map<String, String> sourceNameMap) {
         IssueVO vo = new IssueVO();
         vo.setId(issue.getId());
         vo.setIssueNo(issue.getIssueNo());
@@ -316,6 +360,10 @@ public class IssueService {
         vo.setStatus(issue.getStatus());
         vo.setStatusDesc(descOf(IssueStatusEnum.getByCode(issue.getStatus())));
         fillTypeFields(vo, issue, typeMap);
+        vo.setSource(issue.getSource());
+        vo.setSourceDesc(issue.getSource() == null ? "" : sourceNameMap.getOrDefault(issue.getSource(), issue.getSource()));
+        vo.setPriority(issue.getPriority());
+        vo.setPriorityDesc(PriorityEnum.descOf(issue.getPriority()));
         vo.setTags(issue.getTags());
         vo.setEnvAppVersion(issue.getEnvAppVersion());
         vo.setReporterId(issue.getReporterId());
@@ -334,7 +382,7 @@ public class IssueService {
 
     private IssueDetailVO toDetailVO(Issue issue, Map<Long, String> userNameMap,
                                      Map<Long, String> modulePathMap,
-                                     Map<Long, IssueType> typeMap) {
+                                     Map<Long, IssueType> typeMap, Map<String, String> sourceNameMap) {
         IssueDetailVO vo = new IssueDetailVO();
         vo.setId(issue.getId());
         vo.setIssueNo(issue.getIssueNo());
@@ -345,6 +393,10 @@ public class IssueService {
         vo.setStatus(issue.getStatus());
         vo.setStatusDesc(descOf(IssueStatusEnum.getByCode(issue.getStatus())));
         fillTypeFields(vo, issue, typeMap);
+        vo.setSource(issue.getSource());
+        vo.setSourceDesc(issue.getSource() == null ? "" : sourceNameMap.getOrDefault(issue.getSource(), issue.getSource()));
+        vo.setPriority(issue.getPriority());
+        vo.setPriorityDesc(PriorityEnum.descOf(issue.getPriority()));
         vo.setTags(issue.getTags());
         vo.setReproduceSteps(issue.getReproduceSteps());
         vo.setEnvOs(issue.getEnvOs());
@@ -403,5 +455,49 @@ public class IssueService {
 
     private String descOf(com.issueflow.enums.SeverityEnum e) {
         return e == null ? "" : e.getDesc();
+    }
+
+    /**
+     * 导出当前筛选结果为 Excel（R6-⑦：含「来源」「优先级」两列，值为名称而非编码）。
+     * <p>复用 {@link #pageQuery} 的权限 / 数据范围 / 筛选逻辑，单次导出上限 {@value #EXPORT_MAX_ROWS} 行，
+     * 避免大表全量导出打爆内存。</p>
+     *
+     * @param req         筛选条件（page/size 由本方法接管）
+     * @param currentUser 当前用户 id
+     * @param roleCode    当前用户角色码
+     * @return xlsx 文件字节数组
+     */
+    public byte[] exportExcel(IssuePageReq req, Long currentUser, String roleCode) {
+        req.setPage(1);
+        req.setSize(EXPORT_MAX_ROWS);
+        PageResult<IssueVO> result = pageQuery(req, currentUser, roleCode);
+        List<IssueVO> rows = result == null || result.getList() == null
+                ? Collections.emptyList() : result.getList();
+        return ExcelExportUtil.exportIssues(rows);
+    }
+
+    /**
+     * 校验优先级取值合法性，为空时回落默认值「中」。
+     *
+     * @param priority 请求中的优先级
+     * @return 合法的优先级数值
+     * @throws BizException 非法取值
+     */
+    private int requireValidPriority(Integer priority) {
+        if (priority == null) {
+            return PriorityEnum.DEFAULT_CODE;
+        }
+        if (!PriorityEnum.isValid(priority)) {
+            throw new BizException(ResultCode.VALID_ERROR, "优先级取值非法");
+        }
+        return priority;
+    }
+
+    /**
+     * 构建单条来源编码 → 名称的映射（供 create/update/detail 单对象回填，避免重复查询）。
+     */
+    private Map<String, String> sourceNameMapOf(String source) {
+        return dictService.itemNameMap(DictTypeCodeEnum.ISSUE_SOURCE.getCode(),
+                source == null || source.isBlank() ? Collections.emptySet() : Collections.singleton(source));
     }
 }

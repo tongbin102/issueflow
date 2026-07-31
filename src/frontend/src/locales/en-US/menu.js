@@ -6,11 +6,22 @@ export default {
     dashboard: 'Workspace',
     issueManage: 'Issue Management',
     myIssues: 'My Issues',
-    stats: 'My Dashboard'
+    stats: 'My Dashboard',
+    profile: 'Profile Center'
   },
   admin: {
     overview: 'Overview',
     issues: 'Issue Management',
+    business: 'Business',
+    issueList: 'Issue List',
+    dict: 'Dictionaries',
+    infra: 'Infrastructure',
+    infraFile: 'File Management',
+    infraFileConfig: 'File Config',
+    infraFileList: 'File List',
+    infraConfig: 'Config Management',
+    infraRedis: 'Redis Monitor',
+    infraJob: 'Scheduled Tasks',
     issueTypes: 'Issue Types',
     projectGroup: 'Project',
     projects: 'Project Config',

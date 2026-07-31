@@ -7,11 +7,22 @@ export default {
     dashboard: '工作台',
     issueManage: '问题管理',
     myIssues: '我的问题',
-    stats: '个人看板'
+    stats: '个人看板',
+    profile: '个人中心'
   },
   admin: {
     overview: '概览',
     issues: '问题管理',
+    business: '业务管理',
+    issueList: '问题列表',
+    dict: '字典配置',
+    infra: '基础设施',
+    infraFile: '文件管理',
+    infraFileConfig: '文件配置',
+    infraFileList: '文件列表',
+    infraConfig: '配置管理',
+    infraRedis: 'Redis 监控',
+    infraJob: '定时任务',
     issueTypes: '问题类型',
     projectGroup: '项目管理',
     projects: '项目配置',

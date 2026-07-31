@@ -6,7 +6,8 @@ export default {
     admin: 'issueFlow Admin'
   },
   topbar: {
-    profile: 'Profile',
+    profile: 'User Settings',
+    profileCenter: 'Profile Center',
     clearCache: 'Clear Cache',
     styleSettings: 'Appearance',
     logout: 'Log Out'

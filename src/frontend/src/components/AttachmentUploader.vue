@@ -8,7 +8,7 @@
             <img
               v-if="isImage(att)"
               :src="previewUrls[att.id]"
-              alt="预览"
+              :alt="t('issue.attachment.previewAlt')"
               class="att-img"
             />
             <el-icon v-else class="att-file-icon"><Document /></el-icon>
@@ -26,19 +26,19 @@
               type="primary"
               size="small"
               @click="onPreview(att)"
-              >预览</el-button
+              >{{ t('issue.attachment.preview') }}</el-button
             >
             <el-button link type="primary" size="small" @click="onDownload(att)"
-              >下载</el-button
+              >{{ t('common.action.download') }}</el-button
             >
             <el-button link type="danger" size="small" @click="onDelete(att)"
-              >删除</el-button
+              >{{ t('common.action.delete') }}</el-button
             >
           </div>
         </div>
         <el-empty
           v-if="!attachments.length"
-          description="暂无附件"
+          :description="t('issue.attachment.empty')"
           :image-size="48"
         />
       </div>
@@ -49,7 +49,9 @@
         :before-upload="beforeUpload"
         :on-change="handleDetailChange"
       >
-        <el-button :icon="Upload" :loading="uploading">上传附件</el-button>
+        <el-button :icon="Upload" :loading="uploading">
+          {{ t('issue.attachment.upload') }}
+        </el-button>
       </el-upload>
     </template>
 
@@ -70,6 +72,7 @@
 
 <script setup>
 import { ref, reactive, watch, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Upload, Plus, Document } from '@element-plus/icons-vue'
 import {
@@ -88,6 +91,8 @@ const props = defineProps({
   maxSizeMB: { type: Number, default: 20 }
 })
 const emit = defineEmits(['change', 'uploaded', 'removed'])
+
+const { t } = useI18n()
 
 const uploading = ref(false)
 const localList = ref([])
@@ -108,7 +113,7 @@ function isImage(att) {
 function beforeUpload(file) {
   const sizeMB = file.size / 1024 / 1024
   if (sizeMB > props.maxSizeMB) {
-    ElMessage.error(`文件超过 ${props.maxSizeMB}MB 限制`)
+    ElMessage.error(t('issue.attachment.sizeLimit', { size: props.maxSizeMB }))
     return false
   }
   return true
@@ -140,7 +145,7 @@ function handleDetailChange(uploadFile) {
     .then((res) => {
       const list = Array.isArray(res) ? res : res ? [res] : []
       list.forEach((att) => emit('uploaded', att))
-      ElMessage.success('上传成功')
+      ElMessage.success(t('issue.attachment.uploadSuccess'))
     })
     .catch(() => {})
     .finally(() => {
@@ -199,7 +204,7 @@ function onDelete(att) {
   deleteAttachment(att.id)
     .then(() => {
       emit('removed', att.id)
-      ElMessage.success('已删除')
+      ElMessage.success(t('issue.attachment.deleteSuccess'))
     })
     .catch(() => {})
 }

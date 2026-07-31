@@ -1,0 +1,303 @@
+```mermaid
+classDiagram
+    class BaseEntity {
+        +Long id
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+        +Integer deleted
+    }
+    class DictType {
+        +String name
+        +String code
+        +String description
+        +Integer sort
+        +Integer enabled
+        +Integer isSystem
+    }
+    class DictItem {
+        +Long typeId
+        +String name
+        +String code
+        +String description
+        +Integer sort
+        +Integer enabled
+        +Integer isSystem
+        +String extra
+    }
+    class Issue {
+        +String issueNo
+        +String title
+        +Integer severity
+        +Integer priority
+        +Long typeId
+        +Long sourceId
+        +Integer status
+    }
+    class User {
+        +String username
+        +String password
+        +String realName
+        +String nickname
+        +String avatar
+        +String email
+        +String phone
+        +LocalDateTime pwdUpdatedAt
+    }
+    class LoginLog {
+        +Long userId
+        +String username
+        +String ip
+        +String userAgent
+        +String browser
+        +String os
+        +Integer success
+        +String failReason
+        +LocalDateTime loginAt
+    }
+    class FileRecord {
+        +String fileName
+        +String originalName
+        +String relativePath
+        +String filePath
+        +Long fileSize
+        +String contentType
+        +String ext
+        +String bizType
+        +Long bizId
+        +Long uploaderId
+        +String storageType
+    }
+    class ScheduledTask {
+        +String taskName
+        +String taskGroup
+        +String jobKey
+        +String cron
+        +String params
+        +Integer status
+        +LocalDateTime lastExecTime
+        +Integer lastExecResult
+        +Long lastCostMs
+    }
+    class ScheduledTaskLog {
+        +Long taskId
+        +LocalDateTime startTime
+        +Long costMs
+        +Integer success
+        +String message
+        +String triggerType
+    }
+
+    class DictService {
+        -DictTypeMapper dictTypeMapper
+        -DictItemMapper dictItemMapper
+        -IssueMapper issueMapper
+        -DictCache dictCache
+        +listTypes(String keyword) List~DictTypeVO~
+        +listItems(Long typeId, String typeCode, String keyword) List~DictItemVO~
+        +options(String typeCode, boolean includeDisabled) List~DictOptionVO~
+        +createItem(DictItemReq req) Long
+        +updateItem(Long id, DictItemReq req) void
+        +toggleItem(Long id, Boolean enabled) void
+        +deleteItem(Long id) void
+        +nameMap(Collection~Long~ ids) Map~Long,DictItem~
+        -assertNotSystem(DictItem item) void
+        -countIssueRef(Long itemId) long
+        -assertCodeUnique(Long typeId, String code, Long excludeId) void
+    }
+    class DictCache {
+        -RedisTemplate redis
+        -Map~String,List~ local
+        +items(String typeCode) List~DictItem~
+        +evict(String typeCode) void
+        +evictAll() void
+    }
+    class ProfileService {
+        -UserService userService
+        -LoginLogService loginLogService
+        -IssueHistoryService issueHistoryService
+        -FileRecordService fileRecordService
+        -PasswordEncoder passwordEncoder
+        +profile() ProfileVO
+        +updateProfile(ProfileUpdateReq req) void
+        +uploadAvatar(MultipartFile file) String
+        +changePassword(PasswordChangeReq req) void
+        +changeBinding(BindingChangeReq req) void
+        +activities(ActivityPageReq req) PageResult~ActivityVO~
+        -assertStrongPassword(String pwd) void
+    }
+    class LoginLogService {
+        -LoginLogMapper loginLogMapper
+        +record(String username, Long userId, boolean success, String failReason) void
+        +pageMine(int page, int size) PageResult~LoginLogVO~
+        +cleanBefore(int days) int
+    }
+    class FileRecordService {
+        -FileRecordMapper fileRecordMapper
+        -FileConfigService fileConfigService
+        -FileUtil fileUtil
+        +page(FilePageReq req) PageResult~FileRecordVO~
+        +upload(MultipartFile file, String bizType, Long bizId) FileRecordVO
+        +download(Long id, HttpServletResponse resp, boolean inline) void
+        +delete(Long id) void
+        +statSize() Map~String,Object~
+    }
+    class FileConfigService {
+        -SysConfigService sysConfigService
+        +current() FileConfig
+        +save(FileConfigReq req) void
+        +validate(MultipartFile file) void
+        -evict() void
+    }
+    class RedisMonitorService {
+        -RedisConnectionFactory factory
+        +info() RedisInfoVO
+        -parseInfo(Properties p) void
+        -dbSize() Long
+    }
+    class ScheduledTaskService {
+        -ScheduledTaskMapper taskMapper
+        -ScheduledTaskLogMapper logMapper
+        -DynamicTaskScheduler scheduler
+        +page(...) PageResult~ScheduledTaskVO~
+        +options() List~JobOptionVO~
+        +create(ScheduledTaskReq req) Long
+        +update(Long id, ScheduledTaskReq req) void
+        +delete(Long id) void
+        +toggle(Long id, Integer status) void
+        +runOnce(Long id) void
+        +logPage(Long id, int page, int size) PageResult~ScheduledTaskLogVO~
+        +executeAndLog(ScheduledTask task, String triggerType) void
+    }
+    class DynamicTaskScheduler {
+        -ThreadPoolTaskScheduler taskScheduler
+        -Map~Long,ScheduledFuture~ registry
+        -Map~String,ScheduledJob~ jobRegistry
+        +onReady() void
+        +refresh(ScheduledTask task) void
+        +cancel(Long taskId) void
+        +runOnce(ScheduledTask task) void
+        +jobOptions() List~JobOptionVO~
+    }
+    class ScheduledJob {
+        <<interface>>
+        +jobKey() String
+        +displayName() String
+        +execute(Map~String,String~ params) void
+    }
+    class CleanExpiredFileJob
+    class CleanLoginLogJob
+    class BackupService {
+        -BackupMapper backupMapper
+        -SysConfigService sysConfigService
+        +estimate(String scope) BackupEstimateVO
+        +export(BackupReq req, HttpServletResponse resp) void
+        -tablesOf(String scope) List~String~
+        -maskValue(String table, String column, Object v) Object
+        -streamTable(String table, DumpWriter w) void
+    }
+    class IssueService {
+        +create(IssueCreateReq req, MultipartFile[] files) Long
+        +page(IssuePageReq req) PageResult~IssueVO~
+        +detail(Long id) IssueDetailVO
+        -fillSourceName(List~IssueVO~ rows) void
+    }
+
+    BaseEntity <|-- DictType
+    BaseEntity <|-- DictItem
+    BaseEntity <|-- Issue
+    BaseEntity <|-- User
+    BaseEntity <|-- LoginLog
+    BaseEntity <|-- FileRecord
+    BaseEntity <|-- ScheduledTask
+    BaseEntity <|-- ScheduledTaskLog
+    DictType "1" o-- "0..*" DictItem : type_id
+    DictItem "1" o-- "0..*" Issue : source_id (弱关联,无外键)
+    User "1" o-- "0..*" LoginLog
+    ScheduledTask "1" o-- "0..*" ScheduledTaskLog
+    DictService --> DictCache
+    IssueService --> DictService : 批量回填 sourceName
+    ProfileService --> LoginLogService
+    ProfileService --> FileRecordService : 头像落 file_record
+    FileRecordService --> FileConfigService
+    ScheduledTaskService --> DynamicTaskScheduler
+    DynamicTaskScheduler --> ScheduledJob : jobRegistry 白名单
+    ScheduledJob <|.. CleanExpiredFileJob
+    ScheduledJob <|.. CleanLoginLogJob
+    CleanLoginLogJob --> LoginLogService
+    CleanExpiredFileJob --> FileRecordService
+    BackupService --> DictService : 无依赖(仅表清单)
+```
+
+```mermaid
+classDiagram
+    class DictStore {
+        +Map~String,Array~ cache
+        +Map~String,Array~ allCache
+        +optionsOf(String typeCode) Promise
+        +allOptionsOf(String typeCode) Promise
+        +nameOf(String typeCode, Long id) String
+        +invalidate(String typeCode) void
+    }
+    class UserStore {
+        +Object userInfo
+        +refreshUserInfo() Promise
+    }
+    class UserProfile {
+        -String activeTab
+    }
+    class ProfileBasic {
+        -Object form
+        +save() Promise
+    }
+    class ProfileSecurity {
+        -Boolean pwdDrawerVisible
+        -Boolean bindDrawerVisible
+    }
+    class ProfileActivity {
+        -String filterType
+        -Array timeline
+        +load(page) Promise
+    }
+    class AvatarUploader
+    class UserAvatar
+    class DictManage {
+        -Array types
+        -Long activeTypeId
+        -Array items
+    }
+    class FileList
+    class FileConfig
+    class ConfigManage
+    class RedisMonitor {
+        -Boolean autoRefresh
+        -Number timer
+    }
+    class JobManage {
+        -Boolean formDrawer
+        -Boolean logDrawer
+    }
+    class BackupDrawer {
+        -String scope
+        -String format
+        -Object estimate
+        +refreshEstimate() Promise
+        +doExport() Promise
+    }
+    class FormDrawer
+    class SiteSettings
+
+    UserProfile o-- ProfileBasic
+    UserProfile o-- ProfileSecurity
+    UserProfile o-- ProfileActivity
+    ProfileBasic --> AvatarUploader
+    ProfileBasic --> UserStore : 保存后 refreshUserInfo
+    ProfileSecurity --> FormDrawer : 改密/绑定
+    UserProfile --> UserAvatar
+    DictManage --> FormDrawer : sm CRUD
+    DictManage --> DictStore : 变更后 invalidate
+    JobManage --> FormDrawer : md CRUD + 日志
+    FileList --> FormDrawer : 上传
+    SiteSettings --> BackupDrawer
+    BackupDrawer --> FormDrawer
+```
+

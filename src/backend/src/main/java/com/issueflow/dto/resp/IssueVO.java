@@ -68,6 +68,18 @@ public class IssueVO implements Serializable {
     /** 所属模块全路径「父 &gt; 子 &gt; 孙」（由 ModuleService.pathMap 批量回填；null 时前端显「—」） */
     private String modulePath;
 
+    /** 来源编码（dict_item 的 item_code，字典类型 ISSUE_SOURCE） */
+    private String source;
+
+    /** 来源名称（由 DictService 批量回填） */
+    private String sourceDesc;
+
+    /** 优先级 code：0高 1中 2低 */
+    private Integer priority;
+
+    /** 优先级描述（由 PriorityEnum 计算） */
+    private String priorityDesc;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime closedAt;
 

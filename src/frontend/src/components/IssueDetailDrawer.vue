@@ -12,6 +12,19 @@
           <el-descriptions-item :label="t('issue.list.col.issueNo')">{{ detail.issueNo }}</el-descriptions-item>
           <el-descriptions-item :label="t('issue.list.col.title')">{{ detail.title }}</el-descriptions-item>
           <el-descriptions-item :label="t('issue.list.col.type')">{{ detail.typeName || '-' }}</el-descriptions-item>
+          <!-- Phase7 T3：来源（字典项名，i18n 优先，回退后端 sourceDesc） -->
+          <el-descriptions-item :label="t('issue.list.col.source')">{{ sourceText }}</el-descriptions-item>
+          <!-- Phase7 T3：优先级（与严重等级同款 tag 渲染） -->
+          <el-descriptions-item :label="t('issue.list.col.priority')">
+            <el-tag
+              v-if="detail.priority !== null && detail.priority !== undefined"
+              :type="priorityTagType(detail.priority)"
+              effect="light"
+            >
+              {{ priorityLabelI18n(detail.priority) }}
+            </el-tag>
+            <span v-else>-</span>
+          </el-descriptions-item>
           <el-descriptions-item :label="t('issue.list.col.severity')">
             <el-tag :type="severityTagType(detail.severity)" effect="light">
               {{ severityLabelI18n(detail.severity) }}
@@ -74,8 +87,14 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { statusTagType, severityTagType, formatDate } from '@/utils/format'
-import { statusLabelI18n, severityLabelI18n } from '@/utils/i18nEnum'
+import { statusTagType, severityTagType, priorityTagType, formatDate } from '@/utils/format'
+import {
+  statusLabelI18n,
+  severityLabelI18n,
+  priorityLabelI18n,
+  dictCodeLabelI18n,
+  DICT_TYPE
+} from '@/utils/i18nEnum'
 import { getIssue, getHistory } from '@/api/issue'
 import { useUserStore } from '@/store/user'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
@@ -96,6 +115,17 @@ const loading = ref(false)
 const detail = ref(null)
 const history = ref([])
 const attachments = ref([])
+
+/**
+ * 来源展示文案：i18n（dict.value.ISSUE_SOURCE.{code}）优先，
+ * 回退后端 IssueDetailVO.sourceDesc，再回退 '-'。
+ */
+const sourceText = computed(() => {
+  const d = detail.value
+  if (!d) return '-'
+  if (!d.source) return d.sourceDesc || '-'
+  return dictCodeLabelI18n(DICT_TYPE.ISSUE_SOURCE, d.source, d.sourceDesc) || '-'
+})
 
 const userStore = useUserStore()
 /** 关联编辑权限：ADMIN 或提交人本人 */

@@ -18,6 +18,12 @@ export default {
     3: '轻微',
     unknown: '未知'
   },
+  priority: {
+    0: '高',
+    1: '中',
+    2: '低',
+    unknown: '未知'
+  },
   role: {
     SUBMITTER: '提交者',
     DEVELOPER: '开发人员',

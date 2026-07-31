@@ -4,7 +4,8 @@
     <el-card class="page-card" shadow="never">
       <template #header>
         <div class="head">
-          <span>{{ t('menu.admin.issues') }}</span>
+          <!-- Phase7 T4：本页已归属「业务管理」目录下的「问题列表」子菜单，页头随菜单改名对齐 -->
+          <span>{{ t('menu.admin.issueList') }}</span>
         </div>
       </template>
 

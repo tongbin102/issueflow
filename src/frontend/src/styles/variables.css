@@ -23,4 +23,14 @@
 
   /* 布局模式：side | top | mix（store/theme 可切换） */
   --layout-mode: side;
+
+  /* Phase7 T6 / R2.2：基础设施子模块语义变量（后台回落 :root，前台由 themes.css 4 套主题覆盖）
+     - --if-radius：卡片/代码块圆角
+     - --if-stat-card-bg：统计卡片背景（Redis 监控 / 文件配置）
+     - --if-code-bg：等宽文本块背景（配置值预览 / 日志 / cron 表达式）
+     - --if-timeline-line：时间线连接线（任务日志） */
+  --if-radius: 8px;
+  --if-stat-card-bg: #ffffff;
+  --if-code-bg: #f5f7fa;
+  --if-timeline-line: #e4e7ed;
 }

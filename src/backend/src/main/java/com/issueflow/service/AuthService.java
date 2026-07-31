@@ -36,6 +36,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final LoginLogService loginLogService;
 
     /**
      * 登录：校验账号密码 -> BCrypt 校验 -> 签发 token
@@ -56,6 +57,14 @@ public class AuthService {
         vo.setToken(token);
         vo.setUserInfo(userService.getUserVO(user));
         vo.setRoles(role == null ? Collections.emptyList() : Collections.singletonList(roleCode));
+        // 记录登录日志（异步写入，失败不影响登录主流程）
+        try {
+            HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
+            loginLogService.record(user.getId(), user.getUsername(), true, null,
+                    getClientIp(request), request.getHeader("User-Agent"));
+        } catch (Exception ignored) {
+            // 登录日志写入失败不影响主流程
+        }
         return vo;
     }
 
@@ -105,5 +114,25 @@ public class AuthService {
         vo.setUserInfo(userService.getUserVO(user));
         vo.setRoles(roleCode == null ? Collections.emptyList() : Collections.singletonList(roleCode));
         return vo;
+    }
+
+    private String getClientIp(HttpServletRequest request) {
+        if (request == null) {
+            return null;
+        }
+        String ip = request.getHeader("X-Forwarded-For");
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("WL-Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getRemoteAddr();
+        }
+        if (ip != null && ip.contains(",")) {
+            ip = ip.substring(0, ip.indexOf(','));
+        }
+        return ip;
     }
 }

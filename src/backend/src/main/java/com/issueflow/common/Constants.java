@@ -70,4 +70,83 @@ public final class Constants {
 
     /** 内置兜底问题类型 code（存量问题回填 / 禁止删除语义由引用计数天然保证） */
     public static final String ISSUE_TYPE_CODE_OTHER = "OTHER";
+
+    // ======================= Phase 7 =======================
+
+    /** 文件配置键（sys_config 的 file.* 4 键） */
+    public static final String CFG_FILE_STORAGE_ROOT = "file.storage_root";
+    public static final String CFG_FILE_MAX_SIZE_MB = "file.max_size_mb";
+    public static final String CFG_FILE_ALLOWED_EXTS = "file.allowed_exts";
+    public static final String CFG_FILE_STORAGE_TYPE = "file.storage_type";
+
+    /** 文件配置默认值（sys_config 缺键时兜底） */
+    public static final String DEFAULT_FILE_STORAGE_ROOT = "/data/attachments";
+    public static final int DEFAULT_FILE_MAX_SIZE_MB = 10;
+    public static final String DEFAULT_FILE_ALLOWED_EXTS =
+            "jpg,jpeg,png,gif,pdf,zip,rar,doc,docx,xls,xlsx,txt,log";
+    public static final String DEFAULT_FILE_STORAGE_TYPE = "LOCAL";
+
+    /** 文件配置本地缓存有效期（毫秒，30s） */
+    public static final long FILE_CONFIG_CACHE_MILLIS = 30_000L;
+
+    /** 可在线预览的扩展名 */
+    public static final Set<String> PREVIEWABLE_EXTS = Set.of("jpg", "jpeg", "png", "gif", "bmp", "webp");
+
+    /** 头像允许的扩展名 */
+    public static final Set<String> AVATAR_EXTS = Set.of("jpg", "jpeg", "png", "gif", "webp");
+
+    /** 头像单文件上限（字节，2MB） */
+    public static final long MAX_AVATAR_SIZE = 2L * 1024 * 1024;
+
+    /** 文件业务类型 */
+    public static final String BIZ_TYPE_ISSUE = "ISSUE";
+    public static final String BIZ_TYPE_AVATAR = "AVATAR";
+    public static final String BIZ_TYPE_MANUAL = "MANUAL";
+
+    /** 存储类型 */
+    public static final String STORAGE_TYPE_LOCAL = "LOCAL";
+
+    /** 字典类型编码（业务真实使用） */
+    public static final String DICT_TYPE_ISSUE_SOURCE = "ISSUE_SOURCE";
+
+    /** 默认来源项编码（创建问题未指定来源时兜底） */
+    public static final String DICT_ITEM_SOURCE_SYSTEM = "SYSTEM";
+
+    /** 来源项编码：手工录入 */
+    public static final String DICT_ITEM_SOURCE_MANUAL = "MANUAL";
+
+    /** Redis Key：字典项缓存前缀，完整 key = dict:items:{typeCode} */
+    public static final String REDIS_DICT_PREFIX = "dict:items:";
+
+    /** 字典缓存 TTL（秒，1 小时） */
+    public static final long DICT_CACHE_TTL_SECONDS = 3600L;
+
+    /** Redis Key：定时任务执行互斥锁前缀，完整 key = job:running:{taskId} */
+    public static final String REDIS_JOB_RUNNING_PREFIX = "job:running:";
+
+    /** 定时任务互斥锁 TTL（秒，10 分钟） */
+    public static final long JOB_RUNNING_LOCK_SECONDS = 600L;
+
+    /** 登录日志保留天数 */
+    public static final int LOGIN_LOG_KEEP_DAYS = 90;
+
+    /** 任务触发方式 */
+    public static final String TRIGGER_TYPE_CRON = "CRON";
+    public static final String TRIGGER_TYPE_MANUAL = "MANUAL";
+
+    /** 备份：单表游标分页批大小 */
+    public static final int BACKUP_PAGE_SIZE = 2000;
+
+    /** 备份：总行数超过该阈值时在预估结果中给出耗时警告 */
+    public static final long BACKUP_MAX_ROWS = 500_000L;
+
+    /** 备份：生成文件超过该字节数时中断并提示（512MB） */
+    public static final long BACKUP_MAX_BYTES = 512L * 1024 * 1024;
+
+    /** 备份：不导出的日志类表 */
+    public static final Set<String> BACKUP_EXCLUDED_TABLES = Set.of("scheduled_task_log", "login_log");
+
+    /** 配置管理：系统内置配置键前缀（不可删除，仅可改值） */
+    public static final Set<String> BUILTIN_CONFIG_PREFIXES =
+            Set.of("site.", "file.", "flow_", "theme_", "layout", "menu_config");
 }

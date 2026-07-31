@@ -6,7 +6,8 @@ export default {
     admin: 'issueFlow 后台'
   },
   topbar: {
-    profile: '个人设置',
+    profile: '用户设置',
+    profileCenter: '个人中心',
     clearCache: '清理缓存',
     styleSettings: '整体风格设置',
     logout: '退出登录'

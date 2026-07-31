@@ -5,6 +5,8 @@ import com.issueflow.common.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDateTime;
+
 /**
  * 用户表（单角色模型）
  */
@@ -38,4 +40,19 @@ public class User extends BaseEntity {
 
     /** 状态：1 启用 / 0 禁用 */
     private Integer status;
+
+    /** 头像相对路径（相对文件存储根，Phase7 新增） */
+    private String avatar;
+
+    /** 昵称，为空时展示 realName（Phase7 新增） */
+    private String nickname;
+
+    /** 上次改密时间（Phase7 新增） */
+    private LocalDateTime pwdUpdatedAt;
+
+    /** 是否已绑定微信（0 否 / 1 是，Phase7 新增，由绑定流程维护） */
+    private Integer bindWechat;
+
+    /** 是否已绑定钉钉（0 否 / 1 是，Phase7 新增，由绑定流程维护） */
+    private Integer bindDingtalk;
 }

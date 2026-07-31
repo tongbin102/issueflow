@@ -55,4 +55,10 @@ public class IssueCreateReq implements Serializable {
 
     /** 所属模块 id（可空；非空时须属于 projectId 对应项目） */
     private Long moduleId;
+
+    /** 来源编码（dict_item 的 item_code，字典类型 ISSUE_SOURCE；为空时服务端兜底为 SYSTEM） */
+    private String source;
+
+    /** 优先级：0高 1中 2低（为空时服务端兜底为 1=中，见 PriorityEnum） */
+    private Integer priority;
 }

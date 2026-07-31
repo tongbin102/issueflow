@@ -50,6 +50,39 @@
             />
           </el-select>
         </el-form-item>
+        <!-- Phase7 T3：优先级筛选（固定枚举 0高/1中/2低，不走字典） -->
+        <el-form-item :label="t('issue.form.priority')">
+          <el-select
+            v-model="filters.priority"
+            :placeholder="t('common.status.all')"
+            clearable
+            style="width: 130px"
+          >
+            <el-option
+              v-for="p in priorityOptions"
+              :key="p.value"
+              :label="p.label"
+              :value="p.value"
+            />
+          </el-select>
+        </el-form-item>
+        <!-- Phase7 T3：来源筛选（字典 ISSUE_SOURCE，含停用项并追加「（已停用）」后缀） -->
+        <el-form-item :label="t('issue.form.source')">
+          <el-select
+            v-model="filters.source"
+            :placeholder="t('common.status.all')"
+            clearable
+            filterable
+            style="width: 150px"
+          >
+            <el-option
+              v-for="s in sourceFilterOptions"
+              :key="s.value"
+              :label="s.label"
+              :value="s.value"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item :label="t('issue.form.project')">
           <el-select
             v-model="filters.projectId"
@@ -114,6 +147,14 @@
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="fetchData">{{ t('common.action.search') }}</el-button>
           <el-button @click="onResetFilter">{{ t('common.action.reset') }}</el-button>
+          <!-- Phase7 T3：按当前筛选条件导出 Excel（后端上限 5000 行） -->
+          <el-button
+            v-if="exportable"
+            :icon="Download"
+            :loading="exporting"
+            @click="onExport"
+            >{{ t('issue.action.exportExcel') }}</el-button
+          >
         </el-form-item>
       </el-form>
     </el-card>
@@ -126,6 +167,25 @@
       <el-table-column :label="t('issue.list.col.type')" width="110" align="center">
         <template #default="{ row }">
           <span>{{ row.typeName || '-' }}</span>
+        </template>
+      </el-table-column>
+      <!-- Phase7 T3：来源列（字典名，i18n 优先，回退后端 sourceDesc） -->
+      <el-table-column :label="t('issue.list.col.source')" width="110" align="center">
+        <template #default="{ row }">
+          <span>{{ sourceText(row) }}</span>
+        </template>
+      </el-table-column>
+      <!-- Phase7 T3：优先级列（带色 Tag，渲染风格与严重等级一致） -->
+      <el-table-column :label="t('issue.list.col.priority')" width="100" align="center">
+        <template #default="{ row }">
+          <el-tag
+            v-if="row.priority !== null && row.priority !== undefined"
+            :type="priorityTagType(row.priority)"
+            effect="light"
+          >
+            {{ priorityLabelI18n(row.priority) }}
+          </el-tag>
+          <span v-else>-</span>
         </template>
       </el-table-column>
       <el-table-column :label="t('issue.list.col.severity')" width="100" align="center">
@@ -196,24 +256,31 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
-import { statusTagType, severityTagType, formatDate } from '@/utils/format'
+import { Search, Download } from '@element-plus/icons-vue'
+import { statusTagType, severityTagType, priorityTagType, formatDate } from '@/utils/format'
 import {
   statusLabelI18n,
   severityLabelI18n,
+  priorityLabelI18n,
   useStatusOptions,
   useSeverityOptions,
+  usePriorityOptions,
+  useDictCodeOptions,
+  dictCodeLabelI18n,
   issueTypeLabelI18n
 } from '@/utils/i18nEnum'
-import { pageIssues, deleteIssue } from '@/api/issue'
+import { pageIssues, deleteIssue, exportIssues } from '@/api/issue'
 import { listTags } from '@/api/tag'
 import { listProjectOptions } from '@/api/project'
+import { downloadBlob } from '@/utils/exportUtil'
 import { useUserStore } from '@/store/user'
 import { useIssueTypeStore } from '@/store/issueType'
 
 const props = defineProps({
   scope: { type: String, default: 'all' }, // 'mine' | 'all'
-  filters: { type: Object, default: () => ({}) }
+  filters: { type: Object, default: () => ({}) },
+  /** 是否展示「导出 Excel」按钮（默认展示，可由父页面关闭） */
+  exportable: { type: Boolean, default: true }
 })
 const emit = defineEmits(['view', 'edit'])
 
@@ -221,18 +288,27 @@ const { t } = useI18n()
 const userStore = useUserStore()
 const issueTypeStore = useIssueTypeStore()
 const loading = ref(false)
+const exporting = ref(false)
 const list = ref([])
 const total = ref(0)
 const page = ref(1)
 const size = ref(10)
 
+/** 来源字典类型编码（Phase7 种子：SYSTEM / API_IMPORT / EXCEL_IMPORT / EMAIL / OTHER） */
+const SOURCE_DICT_CODE = 'ISSUE_SOURCE'
+
 const statusOptions = useStatusOptions()
 const severityOptions = useSeverityOptions()
+const priorityOptions = usePriorityOptions()
+/** 来源筛选下拉：全量含停用项（value = item_code，与 issue.source 落库口径一致） */
+const sourceFilterOptions = useDictCodeOptions(SOURCE_DICT_CODE, true)
 
 const filters = reactive({
   status: props.filters.status ?? '',
   typeId: props.filters.typeId ?? null,
   severity: props.filters.severity ?? '',
+  priority: props.filters.priority ?? '',
+  source: props.filters.source ?? '',
   projectId: props.filters.projectId ?? '',
   tags: props.filters.tags || [],
   version: props.filters.version || '',
@@ -254,6 +330,17 @@ const typeFilterOptions = computed(() =>
 
 const currentUserId = computed(() => userStore.userInfo && userStore.userInfo.id)
 
+/**
+ * 来源列文案：i18n（dict.value.ISSUE_SOURCE.{code}）优先，
+ * 回退后端 IssueVO.sourceDesc，再回退 '-'。
+ * @param {{source?:string,sourceDesc?:string}} row 列表行
+ * @returns {string}
+ */
+function sourceText(row) {
+  if (!row || !row.source) return row && row.sourceDesc ? row.sourceDesc : '-'
+  return dictCodeLabelI18n(SOURCE_DICT_CODE, row.source, row.sourceDesc) || '-'
+}
+
 function canEdit(row) {
   return userStore.isAdmin || row.reporterId === currentUserId.value
 }
@@ -273,6 +360,16 @@ function buildParams() {
     filters.severity !== undefined
   )
     p.severity = filters.severity
+  // Phase7 T3：优先级为整数 0/1/2，0 是合法值，故只排除空串 / null / undefined
+  if (
+    filters.priority !== '' &&
+    filters.priority !== null &&
+    filters.priority !== undefined
+  )
+    p.priority = filters.priority
+  // Phase7 T3：来源为 dict_item.item_code 字符串
+  if (filters.source !== '' && filters.source !== null && filters.source !== undefined)
+    p.source = filters.source
   if (filters.projectId !== '' && filters.projectId !== null && filters.projectId !== undefined)
     p.projectId = filters.projectId
   if (filters.tags && filters.tags.length) p.tag = filters.tags.join(',')
@@ -303,6 +400,8 @@ function onResetFilter() {
     status: '',
     typeId: null,
     severity: '',
+    priority: '',
+    source: '',
     projectId: '',
     tags: [],
     version: '',
@@ -313,6 +412,28 @@ function onResetFilter() {
   timeRange.value = []
   page.value = 1
   fetchData()
+}
+
+/**
+ * 导出 Excel：沿用当前筛选条件，剔除分页参数（后端按 EXPORT_MAX_ROWS=5000 截断）。
+ * 文件名带日期，便于多次导出区分。
+ */
+async function onExport() {
+  if (exporting.value) return
+  exporting.value = true
+  try {
+    const params = buildParams()
+    delete params.page
+    delete params.size
+    const blob = await exportIssues(params)
+    const stamp = new Date().toISOString().slice(0, 10)
+    downloadBlob(blob, `issues-${stamp}.xlsx`)
+    ElMessage.success(t('issue.msg.exportSuccess'))
+  } catch (e) {
+    ElMessage.error(t('issue.msg.exportFail'))
+  } finally {
+    exporting.value = false
+  }
 }
 
 function onDelete(row) {

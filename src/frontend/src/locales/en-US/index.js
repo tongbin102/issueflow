@@ -22,6 +22,10 @@ import flow from './flow'
 import system from './system'
 import site from './site'
 import chart from './chart'
+import dict from './dict'
+import profile from './profile'
+import infra from './infra'
+import backup from './backup'
 
 export default {
   common,
@@ -43,5 +47,9 @@ export default {
   flow,
   system,
   site,
-  chart
+  chart,
+  dict,
+  profile,
+  infra,
+  backup
 }

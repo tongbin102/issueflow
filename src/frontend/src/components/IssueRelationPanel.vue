@@ -1,11 +1,11 @@
 <template>
   <div class="relation-panel">
-    <el-divider content-position="left">问题关联</el-divider>
+    <el-divider content-position="left">{{ t('issue.relation.title') }}</el-divider>
     <div v-loading="loading" class="relation-body">
       <!-- 展示模式 -->
       <template v-if="!editable">
         <div class="relation-block">
-          <div class="relation-label">前置任务</div>
+          <div class="relation-label">{{ t('issue.relation.predecessor') }}</div>
           <div v-if="predecessors.length" class="relation-list">
             <el-tag
               v-for="p in predecessors"
@@ -15,10 +15,10 @@
               @click="goIssue(p)"
             >{{ p.issueNo }} {{ p.title }}</el-tag>
           </div>
-          <span v-else class="rel-empty">无</span>
+          <span v-else class="rel-empty">{{ t('issue.relation.none') }}</span>
         </div>
         <div class="relation-block">
-          <div class="relation-label">后置任务</div>
+          <div class="relation-label">{{ t('issue.relation.successor') }}</div>
           <div v-if="successors.length" class="relation-list">
             <el-tag
               v-for="s in successors"
@@ -28,7 +28,7 @@
               @click="goIssue(s)"
             >{{ s.issueNo }} {{ s.title }}</el-tag>
           </div>
-          <span v-else class="rel-empty">无</span>
+          <span v-else class="rel-empty">{{ t('issue.relation.none') }}</span>
         </div>
         <el-button
           v-if="canEdit"
@@ -37,18 +37,18 @@
           link
           class="rel-edit-btn"
           @click="enterEdit"
-        >编辑关联</el-button>
+        >{{ t('issue.relation.edit') }}</el-button>
       </template>
 
       <!-- 编辑模式 -->
       <template v-else>
         <el-form label-width="68px" size="small">
-          <el-form-item label="前置任务">
+          <el-form-item :label="t('issue.relation.predecessor')">
             <el-select
               v-model="form.predecessorIds"
               multiple
               filterable
-              placeholder="选择前置问题"
+              :placeholder="t('issue.relation.selectPredecessor')"
               style="width: 100%"
             >
               <el-option
@@ -59,12 +59,12 @@
               />
             </el-select>
           </el-form-item>
-          <el-form-item label="后置任务">
+          <el-form-item :label="t('issue.relation.successor')">
             <el-select
               v-model="form.successorIds"
               multiple
               filterable
-              placeholder="选择后置问题"
+              :placeholder="t('issue.relation.selectSuccessor')"
               style="width: 100%"
             >
               <el-option
@@ -76,8 +76,10 @@
             </el-select>
           </el-form-item>
           <div class="relation-actions">
-            <el-button size="small" @click="cancelEdit">取消</el-button>
-            <el-button size="small" type="primary" :loading="saving" @click="save">保存</el-button>
+            <el-button size="small" @click="cancelEdit">{{ t('common.action.cancel') }}</el-button>
+            <el-button size="small" type="primary" :loading="saving" @click="save">
+              {{ t('common.action.save') }}
+            </el-button>
           </div>
         </el-form>
       </template>
@@ -88,6 +90,7 @@
 <script setup>
 import { ref, reactive, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { getRelations, saveRelations, listIssueOptions } from '@/api/issue'
 
@@ -99,6 +102,7 @@ const props = defineProps({
 const emit = defineEmits(['updated'])
 
 const router = useRouter()
+const { t } = useI18n()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -145,7 +149,7 @@ async function save() {
       predecessorIds: form.predecessorIds,
       successorIds: form.successorIds
     })
-    ElMessage.success('关联已保存')
+    ElMessage.success(t('issue.relation.saveSuccess'))
     editable.value = false
     await load()
     emit('updated')

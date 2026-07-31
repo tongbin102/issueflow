@@ -44,4 +44,10 @@ public class IssueUpdateReq implements Serializable {
      * 传 null 表示清空模块归属。与 {@link #projectId} 的「非空才更新」不同，切勿套用同一模板。</p>
      */
     private Long moduleId;
+
+    /** 来源编码（dict_item 的 item_code，字典类型 ISSUE_SOURCE；非空才更新） */
+    private String source;
+
+    /** 优先级：0高 1中 2低（非空才更新） */
+    private Integer priority;
 }

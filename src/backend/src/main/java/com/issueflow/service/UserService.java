@@ -55,6 +55,44 @@ public class UserService {
     }
 
     /**
+     * 邮箱是否已被其他账号占用（逻辑删除记录不计）。
+     *
+     * @param email          待校验邮箱（为 null 直接返回 false）
+     * @param excludeUserId  排除的当前用户 id（编辑/绑定自身时跳过）
+     * @return 存在其他账号占用则为 true
+     */
+    public boolean existsEmail(String email, Long excludeUserId) {
+        if (email == null || email.isBlank()) {
+            return false;
+        }
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getEmail, email).eq(User::getDeleted, 0);
+        if (excludeUserId != null) {
+            wrapper.ne(User::getId, excludeUserId);
+        }
+        return userMapper.selectCount(wrapper) > 0;
+    }
+
+    /**
+     * 手机号是否已被其他账号占用（逻辑删除记录不计）。
+     *
+     * @param phone          待校验手机号（为 null 直接返回 false）
+     * @param excludeUserId  排除的当前用户 id（编辑/绑定自身时跳过）
+     * @return 存在其他账号占用则为 true
+     */
+    public boolean existsPhone(String phone, Long excludeUserId) {
+        if (phone == null || phone.isBlank()) {
+            return false;
+        }
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getPhone, phone).eq(User::getDeleted, 0);
+        if (excludeUserId != null) {
+            wrapper.ne(User::getId, excludeUserId);
+        }
+        return userMapper.selectCount(wrapper) > 0;
+    }
+
+    /**
      * 将 User 转换为 UserVO（补充角色码/角色名，隐去密码）
      */
     public UserVO getUserVO(User user) {

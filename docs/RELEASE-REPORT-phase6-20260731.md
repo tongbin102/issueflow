@@ -3,7 +3,7 @@
 - **发布日期**：2026-07-31
 - **发布分支**：main（GitHub: tongbin102/issueflow）
 - **发布环境**：23 号应用服务器（10.55.3.23）+ 24 号数据库服务器（10.55.3.24）
-- **发布状态**：✅ 成功，冒烟全通过
+- **发布状态**：✅ 成功，含两处部署后热修复，冒烟全通过
 
 ---
 
@@ -14,6 +14,7 @@
 | `641a7cd` | feat: Phase6 十项需求全量实现（提交弹窗分区化/问题管理菜单/问题类型管理/右滑面板统一/全站 i18n/后台导航优化/前台多主题/网站设置） | 112 文件，+8058 / −636 |
 | `a48a1c1` | fix(sql): V20260803 迁移脚本 sys_config 无 created_at 列修复 | 1 文件 |
 | `9f9d541` | fix(issue): 问题编号生成基于最大序号，修复软删后序号回退撞唯一索引导致创建 500 | 5 文件，+31 / −18 |
+| （本次补丁） | fix(db): 修复 issue_type 软删撞复合唯一索引导致删除 500（生成列方案），同步 ARCH 文档 | 2 SQL + 1 doc |
 
 ### Phase6 功能清单（对应用户 10 条需求）
 
@@ -36,11 +37,18 @@
 - 修复：改为 `MAX(序号)` 且不过滤 deleted（`maxSeqByIssueNoPrefix`）；插入冲突循环重试最多 3 次（每次重新取号），3 次失败抛受控业务异常
 - 涉及文件：`IssueMapper.java`、`IssueNoGenerator.java`、`IssueService.java` + 2 处 README 同步
 
+**问题类型删除 500 Bug**（部署冒烟第 2 轮暴露，本次补丁修复）：
+- 现象：`DELETE /api/issue-types/{id}` 返回 500（`Duplicate entry 'SMOKE_TMP2-1' for key 'issue_type.uk_issue_type_code'`）
+- 根因：`issue_type.uk_issue_type_code` 为复合唯一索引 `(code, deleted)`；MyBatis-Plus 逻辑删除把 `deleteById` 翻译成 `UPDATE SET deleted=1`，索引元组由 `(code,0)` 变 `(code,1)`，与既有软删墓碑 `(code,1)` 撞键
+- 修复：改为**生成列方案**——新增 `code_active = IF(deleted=0, code, NULL) VIRTUAL` + `UNIQUE KEY uk_issue_type_code (code_active)`。唯一索引忽略 NULL，故「同一 code 可有多条墓碑 + 至多一条存活行」，语义与 Java `assertCodeUnique()`（仅校验 deleted=0）逐字对齐
+- ⚠️ 否决方案：`(code, deleted)` 复合（原设计，即本次故障源，ARCH 文档曾错误推荐，已划掉）；单列 `(code)` 会把 500 从 delete 迁到「软删后同名 code 新建」，且需改 Java 才兜得住
+- 涉及文件：`scripts/V20260803_issueflow_phase6.sql`（改建表段）、`scripts/V20260803b_fix_issuetype_unique.sql`（新增，增量修复已部署库，幂等）、`docs/ARCH_phase6.md`（改索引设计 + 划掉错误方案）
+
 ---
 
 ## 二、数据/结构变更（24 号 MySQL：issueflow_db）
 
-脚本：`scripts/V20260803_issueflow_phase6.sql`（幂等，已执行成功）
+脚本：`scripts/V20260803_issueflow_phase6.sql`（幂等，已执行成功）、`scripts/V20260803b_fix_issuetype_unique.sql`（本次补丁增量修复，幂等，已执行成功）
 
 | 类别 | 内容 |
 |------|------|
@@ -71,6 +79,7 @@
 3. 23 号 `docker compose -f docker-compose.23.yml up -d --build` 重建前后端容器
 4. 热修复（9f9d541）：3 个 Java 文件经 /tmp 中转上传（/opt/issueflow 需 sudo），`--no-deps backend` 定向重建
    - ⚠️ 踩坑记录：直接用根目录 `docker-compose.yml` 重建会丢 MYSQL_HOST 环境变量导致崩溃循环，**必须用 `docker-compose.23.yml`**（deploy-23.sh 生成，env 已固化）
+5. 补丁（生成列方案）：本地 `V20260803b_fix_issuetype_unique.sql` 经管道灌入 24 号 `mysql-gihtg`（纯 DDL/DML，后端无需重启）；校验索引变为 `uk_issue_type_code(code_active)`、残留墓碑清零、6 种子完好
 
 ---
 
@@ -87,6 +96,7 @@
 | 类型停用 → 表单不可选（40063 业务拒绝），列表仍可见 | ✅ |
 | 删除被引用类型 → 业务阻断 | ✅ |
 | **回归：同日建→删→再建，编号 0002→0003→0004 递增不复用、零 500** | ✅ |
+| **回归（判别性）：问题类型新建→停用→删除，连跑两遍全绿（编号 0011→0013 递增、删除不再 500）** | ✅ |
 
 回归脚本：`tests/smoke-issueno-regression.sh`（可在 23 号直接执行复测）
 

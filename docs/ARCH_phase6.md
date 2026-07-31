@@ -188,17 +188,22 @@
 | --- | --- | --- | --- |
 | `id` | BIGINT | PK AUTO_INCREMENT | 主键 |
 | `name` | VARCHAR(50) | NOT NULL | 类型名称 |
-| `code` | VARCHAR(50) | NOT NULL, UNIQUE(`uk_issue_type_code`) | 类型编码，供程序判断与 i18n key 拼接 |
+| `code` | VARCHAR(50) | NOT NULL（唯一性由 `code_active` 承担） | 类型编码，供程序判断与 i18n key 拼接 |
 | `description` | VARCHAR(200) | NULL | 描述 |
 | `sort` | INT | NOT NULL DEFAULT 0 | 升序展示 |
 | `enabled` | TINYINT | NOT NULL DEFAULT 1 | 1 启用 / 0 停用 |
 | `created_at` | DATETIME | NULL | BaseEntity |
 | `updated_at` | DATETIME | NULL | BaseEntity |
 | `deleted` | TINYINT | NOT NULL DEFAULT 0 | 逻辑删除 |
+| `code_active` | VARCHAR(50) | GENERATED ALWAYS AS (`IF(deleted=0, code, NULL)`) VIRTUAL，UNIQUE(`uk_issue_type_code`) | 条件唯一辅助列，仅供唯一索引使用；Java 实体不映射该列 |
 
-索引：`PRIMARY(id)`、`UNIQUE uk_issue_type_code(code)`、`KEY idx_issue_type_sort(sort)`。
+索引：`PRIMARY(id)`、`UNIQUE uk_issue_type_code(code_active)`、`KEY idx_issue_type_sort(sort)`。
 
-> **注意**：`code` 唯一索引与逻辑删除并存时，被逻辑删除的行仍占用 code。约定**删除走物理判断前置**（引用为 0 才允许 `deleted=1`），且 Service 的 code 唯一校验只查 `deleted=0`；若唯一索引冲突则由 Service 先校验拦截，不依赖 DB 报错。**建议唯一索引改为 `uk_issue_type_code(code, deleted)`**，规避「删了再建同 code」失败。
+> **注意（2026-08-03 修订，勿回退）**：`code` 唯一性用**生成列 + 条件唯一索引**实现。唯一索引忽略 NULL，故「存活行同 code 至多一条 + 墓碑行任意多条」，与 Service 的 `assertCodeUnique`（只查 `deleted=0`）语义完全一致，且软删后可复用同一 code。
+>
+> **两个已被否决的写法**：
+> 1. ~~`uk_issue_type_code(code, deleted)`~~ —— MyBatis-Plus 逻辑删除把 `deleteById` 翻译成 `UPDATE SET deleted=1`，索引元组由 `(code,0)` 变 `(code,1)`，撞既有墓碑 → `DELETE /api/issue-types/{id}` 返回 500（Phase 6 线上实际故障，修复见 `scripts/V20260803b_fix_issuetype_unique.sql`）。
+> 2. ~~`uk_issue_type_code(code)`~~ 单列 —— 墓碑行对 Java 不可见、对 DB 可见，只是把 500 从 delete 迁移到「软删后同 code 新建」，且需改 Java 才能兜住。
 
 ### 3.2 `issue` 表增量
 
@@ -796,7 +801,7 @@ sequenceDiagram
 
 | 节 | 内容 | 关键写法 |
 | --- | --- | --- |
-| 1 | `issue_type` 建表 | `CREATE TABLE IF NOT EXISTS`；唯一索引建议 `uk_issue_type_code(code, deleted)` |
+| 1 | `issue_type` 建表 | `CREATE TABLE IF NOT EXISTS`；唯一索引必须为 `uk_issue_type_code(code_active)`（生成列 `code_active = IF(deleted=0, code, NULL)`）。**禁止用 `(code, deleted)` 复合唯一**，见 §3.1 注意事项 |
 | 2 | 6 条类型种子 | `INSERT ... SELECT ... WHERE NOT EXISTS (SELECT 1 FROM issue_type WHERE code='BUG')`，逐条 |
 | 3 | `issue` 加 `type_id` | `information_schema.COLUMNS` 判断 + `PREPARE/EXECUTE`（照抄 Phase5 写法） |
 | 4 | `issue` 加索引 `idx_issue_type` | `information_schema.STATISTICS` 判断 |

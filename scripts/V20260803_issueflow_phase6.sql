@@ -8,6 +8,9 @@
 -- 约定：建表 CREATE TABLE IF NOT EXISTS；加列/加索引用 information_schema 动态防重复；
 --       种子 INSERT ... SELECT ... WHERE NOT EXISTS；父 id 用派生表子查询解析。
 --       全部语句可重复执行（幂等）。role_permission 表无 updated_at 列，种子不得携带。
+--       issue_type.code 唯一性用「生成列 code_active + 单列唯一索引」实现（见第 1 节注释），
+--       禁止改回 (code, deleted) 复合唯一——会导致软删 UPDATE 撞唯一键、DELETE 接口 500。
+-- 补丁：已部署库请另行执行 V20260803b_fix_issuetype_unique.sql（本文件的建表段对存量库不生效）。
 -- 前置：目标库须已执行 Phase 1-5 脚本（不可在空库上首次运行本脚本）。
 -- 部署顺序硬约束：先执行本脚本、再重启后端（StateMachine @PostConstruct 读 flow 表）。
 -- 日期：2026-08-03
@@ -27,8 +30,14 @@ CREATE TABLE IF NOT EXISTS `issue_type` (
   `created_at`  DATETIME     DEFAULT NULL,
   `updated_at`  DATETIME     DEFAULT NULL,
   `deleted`     TINYINT      NOT NULL DEFAULT 0,
+  -- 条件唯一辅助列：未删除行取 code，软删行取 NULL；唯一索引忽略 NULL，
+  -- 故「同一 code 可存在任意多条墓碑行 + 至多一条存活行」。
+  -- 不可用 (code, deleted) 复合唯一：MyBatis-Plus 逻辑删除把 deleteById 翻译成
+  -- UPDATE SET deleted=1，元组由 (code,0) 变 (code,1)，与既有墓碑撞唯一键 → 删除报 500。
+  `code_active` VARCHAR(50) GENERATED ALWAYS AS (IF(`deleted` = 0, `code`, NULL)) VIRTUAL
+                COMMENT '条件唯一辅助列（deleted=0 时为 code，否则 NULL），仅供 uk_issue_type_code 使用',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_issue_type_code` (`code`, `deleted`),
+  UNIQUE KEY `uk_issue_type_code` (`code_active`),
   KEY `idx_issue_type_sort` (`sort`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='问题类型';
 

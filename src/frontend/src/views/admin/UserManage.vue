@@ -15,6 +15,10 @@
         <el-table-column :label="t('user.col.role')" width="120">
           <template #default="{ row }">{{ roleName(row.roleId) }}</template>
         </el-table-column>
+        <!-- Phase8 W2 #9：所属组织（UserVO.orgName，未归属时展示 -） -->
+        <el-table-column :label="t('user.col.org')" width="140" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.orgName || '-' }}</template>
+        </el-table-column>
         <el-table-column :label="t('user.col.leader')" width="120">
           <template #default="{ row }">{{ row.leaderName || '-' }}</template>
         </el-table-column>
@@ -77,6 +81,18 @@
             <el-option v-for="r in roles" :key="r.id" :label="r.name" :value="r.id" />
           </el-select>
         </el-form-item>
+        <!-- Phase8 W2 #9：所属组织（可空，平铺下拉，来源 GET /api/organizations） -->
+        <el-form-item :label="t('user.form.org')">
+          <el-select
+            v-model="form.orgId"
+            filterable
+            clearable
+            :placeholder="t('user.placeholder.selectOrg')"
+            style="width: 100%"
+          >
+            <el-option v-for="o in orgOptions" :key="o.id" :label="o.name" :value="o.id" />
+          </el-select>
+        </el-form-item>
         <!-- R5 上级领导：复用 /api/users/options，排除自己 -->
         <el-form-item :label="t('user.form.leader')">
           <el-select
@@ -107,9 +123,7 @@
             :inactive-text="t('common.status.disabled')"
           />
         </el-form-item>
-        <el-form-item v-if="!form.id" :label="t('user.form.password')" prop="password">
-          <el-input v-model="form.password" type="password" show-password />
-        </el-form-item>
+        <!-- Phase8 W2 #7：新增用户不再录入密码，服务端自动取「系统设置」的默认密码 -->
       </el-form>
     </FormDrawer>
   </div>
@@ -123,6 +137,7 @@ import { useI18n } from 'vue-i18n'
 import { formatDate } from '@/utils/format'
 import { pageUsers, createUser, updateUser, deleteUser, listUserOptions } from '@/api/user'
 import { listRoles } from '@/api/user'
+import { listOrganizations } from '@/api/organization'
 import FormDrawer from '@/components/FormDrawer.vue'
 
 const { t } = useI18n()
@@ -135,6 +150,8 @@ const page = ref(1)
 const size = ref(10)
 const roles = ref([])
 const roleMap = ref({})
+/** Phase8 W2 #9：组织下拉（平铺列表，来源 GET /api/organizations） */
+const orgOptions = ref([])
 const drawerVisible = ref(false)
 const formRef = ref(null)
 
@@ -145,16 +162,16 @@ const emptyForm = () => ({
   email: '',
   phone: '',
   roleId: null,
+  orgId: null,
   leaderId: null,
-  status: 1,
-  password: ''
+  status: 1
 })
 const form = reactive(emptyForm())
 
+// Phase8 W2 #7：密码字段已从新增弹窗移除，故不再有 password 校验规则
 const rules = computed(() => ({
   username: [{ required: true, message: t('login.msg.usernameRequired'), trigger: 'blur' }],
-  roleId: [{ required: true, message: t('user.placeholder.selectRole'), trigger: 'change' }],
-  password: [{ required: true, message: t('login.msg.passwordRequired'), trigger: 'blur' }]
+  roleId: [{ required: true, message: t('user.placeholder.selectRole'), trigger: 'change' }]
 }))
 
 function roleName(roleId) {
@@ -172,6 +189,16 @@ async function loadRoles() {
     roleMap.value = m
   } catch (e) {
     roles.value = []
+  }
+}
+
+/** 组织下拉：平铺全量启用组织，供「所属组织」选择（Phase8 W2 #9） */
+async function loadOrganizations() {
+  try {
+    const data = await listOrganizations({ status: 1 })
+    orgOptions.value = (data || []).map((o) => ({ id: o.id, name: o.name }))
+  } catch (e) {
+    orgOptions.value = []
   }
 }
 
@@ -226,9 +253,9 @@ function openEdit(row) {
     email: row.email || '',
     phone: row.phone || '',
     roleId: row.roleId,
+    orgId: row.orgId ?? null,
     leaderId: row.leaderId ?? null,
-    status: row.status === 0 ? 0 : 1,
-    password: ''
+    status: row.status === 0 ? 0 : 1
   })
   // 预填上级领导下拉，保证回显
   leaderOptions.value =
@@ -255,10 +282,12 @@ function onSubmit() {
       email: form.email,
       phone: form.phone,
       roleId: form.roleId,
+      // Phase8 W2 #9：所属组织，未选择时下发 null 表示解除归属
+      orgId: form.orgId ?? null,
       leaderId: form.leaderId ?? null,
       status: form.status
     }
-    if (!form.id) payload.password = form.password
+    // Phase8 W2 #7：不再下发 password —— 新增时由服务端取 site.default_password
     try {
       if (form.id) {
         await updateUser(form.id, payload)
@@ -288,6 +317,7 @@ function onDelete(row) {
 
 onMounted(async () => {
   await loadRoles()
+  await loadOrganizations()
   fetchData()
 })
 </script>

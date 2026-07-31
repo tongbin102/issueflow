@@ -13,10 +13,12 @@ import com.issueflow.dto.resp.ActivityVO;
 import com.issueflow.dto.resp.ProfileVO;
 import com.issueflow.entity.FileRecord;
 import com.issueflow.entity.LoginLog;
+import com.issueflow.entity.Organization;
 import com.issueflow.entity.Role;
 import com.issueflow.entity.User;
 import com.issueflow.enums.HistoryActionEnum;
 import com.issueflow.mapper.IssueHistoryMapper;
+import com.issueflow.mapper.OrganizationMapper;
 import com.issueflow.mapper.RoleMapper;
 import com.issueflow.mapper.UserMapper;
 import com.issueflow.security.JwtUtil;
@@ -66,6 +68,8 @@ public class ProfileService {
 
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
+    /** Phase8 W2 #9：user.org_id 落库后用于回填组织名称 */
+    private final OrganizationMapper organizationMapper;
     private final UserService userService;
     private final FileRecordService fileRecordService;
     private final FileConfigService fileConfigService;
@@ -94,9 +98,14 @@ public class ProfileService {
         vo.setPhone(MaskUtils.maskPhone(user.getPhone()));
         vo.setEmailRaw(user.getEmail());
         vo.setPhoneRaw(user.getPhone());
-        // 说明：本期 user 表未建立组织外键（V20260731 未加 org_id），orgName 恒为空，
-        // 待组织归属落库后在此回填，不做假数据。
-        vo.setOrgName(null);
+        // Phase8 W2 #9：user.org_id 已落库（V20260802），据此回填组织名称。
+        // 未归属组织、或组织已被删除时保持 null，不做假数据。
+        if (user.getOrgId() != null) {
+            Organization org = organizationMapper.selectById(user.getOrgId());
+            vo.setOrgName(org == null ? null : org.getName());
+        } else {
+            vo.setOrgName(null);
+        }
         if (user.getRoleId() != null) {
             Role role = roleMapper.selectById(user.getRoleId());
             if (role != null) {

@@ -159,6 +159,11 @@ bash tests/api/test-api.sh
 - `GET /api/admin/site/config`：需登录 + `site:config:update` 权限，返回全部 8 键，供「系统设置」页回填表单。
 - `PUT /api/admin/site/config`：需 `site:config:update` 权限，整表提交保存。
 
+> **生效范围（Phase8 W2 #7）**：后台「用户管理 → 新建用户」已**移除密码输入框**，
+> `POST /api/users` 的 `password` 可省略——省略时服务端读取 `site.default_password`
+> 并 BCrypt 加密落库。明文默认密码只在服务端与管理端配置接口内流转，前端不持有。
+> 编辑用户时密码留空仍表示「保持原密码不变」。
+
 ### 4.7 后台菜单结构（`menu` 表驱动）
 
 后台菜单由数据库 `menu` 表驱动（非前端静态路由表），前端按 `path` 映射 i18n 词条渲染，支持中英双语：
@@ -179,6 +184,32 @@ bash tests/api/test-api.sh
 > 命名说明（Phase8 W1）：`/admin/system/site` 由「网站设置」更名为「**系统设置**」（站点基础配置 + 安全设置）；
 > `/admin/system/settings` 由「系统设置」更名为「**备份设置**」（数据初始化 / 数据维护）。路由 `path` 与页面组件均未变更。
 > 原独立页「模块配置」（`/admin/modules`）已下线，模块维护统一在「项目配置」页的模块抽屉中完成。
+
+### 4.8 关键字段约定（Phase8 W2）
+
+| 字段 | 表 / DTO | 约束 | 说明 |
+|---|---|---|---|
+| `org_id` / `orgId` | `user`、`UserReq`、`UserVO` | **可空** | 用户所属组织，关联 `organization.id`；不加外键（组织走逻辑删除）。`UserVO` 额外返回 `orgName`，未归属或组织已删时为 `null`。「存在即覆盖」：编辑时传 `null` 解除归属。 |
+| `project_id` / `projectId` | `issue`、`IssueCreateReq`、`IssueUpdateReq` | **必填**（`NOT NULL` + `@NotNull`） | 问题所属项目。自 Phase8 W2 起必填，前端下拉标红星且不可清空。 |
+
+> **破坏性变更提示**：`POST /api/issues` 与 `PUT /api/issues/{id}` 缺少 `projectId` 时将返回 `VALID_ERROR`，
+> 历史接口调用方（含 `tests/api/` 下的 Postman 集合与 `test-api.sh`）需补齐该字段。
+>
+> 存量数据由 `scripts/V20260802_issueflow_phase8_wave2.sql` 回填：
+> 未关联项目的问题统一挂到 `MIN(project.id)`（`deleted=0`），回填后才把列收紧为 `NOT NULL`。
+> **若 `project` 表无有效行，脚本会自动跳过 `NOT NULL` 改造**（不报错），
+> 需先在「项目配置」建至少 1 个项目再重跑脚本。
+
+### 4.9 问题弹窗交互（Phase8 W2 #12）
+
+问题的**提交 / 编辑 / 查看**弹窗统一使用左侧竖形标签页（`components/IssueFormSections.vue`），5 个标签：
+
+`基本信息` · `问题描述` · `附件上传` · `关联信息` · `操作历史`
+
+- 从「基本信息」切走前会校验其必填项（标题 / 类型 / 来源 / 严重等级 / 优先级 / 所属项目），不通过则阻止切换。
+- 「问题描述」**非必填**；环境信息四字段（操作系统 / 浏览器 / 应用版本 / 设备型号）并入该标签。
+- 窗口宽度 < 768px 时标签自动由左侧竖排切为顶部水平排列。
+- 表单组件 `components/IssueForm.vue` 通过 `mode` prop 区分 `submit` / `edit` / `view`（`view` 为只读）。
 
 ---
 

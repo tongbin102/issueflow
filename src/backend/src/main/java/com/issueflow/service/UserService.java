@@ -8,8 +8,10 @@ import com.issueflow.common.ResultCode;
 import com.issueflow.dto.req.UserReq;
 import com.issueflow.dto.resp.UserBriefVO;
 import com.issueflow.dto.resp.UserVO;
+import com.issueflow.entity.Organization;
 import com.issueflow.entity.Role;
 import com.issueflow.entity.User;
+import com.issueflow.mapper.OrganizationMapper;
 import com.issueflow.mapper.RoleMapper;
 import com.issueflow.mapper.UserMapper;
 import com.issueflow.service.PermissionService;
@@ -34,8 +36,12 @@ public class UserService {
 
     private final UserMapper userMapper;
     private final RoleMapper roleMapper;
+    /** Phase8 W2 #9：组织名称反查。注入 Mapper 而非 OrganizationService，避免与其反向依赖成环 */
+    private final OrganizationMapper organizationMapper;
     private final PasswordEncoder passwordEncoder;
     private final PermissionService permissionService;
+    /** Phase8 W2 #7：新增用户密码留空时读取 site.default_password */
+    private final SiteConfigService siteConfigService;
 
     /**
      * 根据用户名查询用户（不存在返回 null）
@@ -106,6 +112,14 @@ public class UserService {
         vo.setEmail(user.getEmail());
         vo.setPhone(user.getPhone());
         vo.setRoleId(user.getRoleId());
+        // Phase8 W2 #9：所属组织（可空，组织已被删除时仅回填 id，名称留空）
+        vo.setOrgId(user.getOrgId());
+        if (user.getOrgId() != null) {
+            Organization org = organizationMapper.selectById(user.getOrgId());
+            if (org != null) {
+                vo.setOrgName(org.getName());
+            }
+        }
         vo.setLeaderId(user.getLeaderId());
         if (user.getLeaderId() != null) {
             User leader = userMapper.selectById(user.getLeaderId());
@@ -143,7 +157,11 @@ public class UserService {
     }
 
     /**
-     * 新增用户（密码 BCrypt 加密）
+     * 新增用户（密码 BCrypt 加密）。
+     *
+     * <p>Phase8 W2 #7：密码不再由前端录入——请求里 password 为空/空白时，
+     * 取「系统设置」中的 {@code site.default_password} 作为初始密码，再 BCrypt 加密落库。
+     * 明文默认密码只在服务端内部流转，绝不回传给前端。</p>
      */
     @Transactional
     public UserVO createUser(UserReq req) {
@@ -151,18 +169,25 @@ public class UserService {
         if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getUsername, req.getUsername())) > 0) {
             throw new BizException(ResultCode.VALID_ERROR, "用户名已存在");
         }
-        if (req.getPassword() == null || req.getPassword().isBlank()) {
+        String rawPassword = req.getPassword();
+        if (rawPassword == null || rawPassword.isBlank()) {
+            rawPassword = siteConfigService.getDefaultUserPassword();
+        }
+        if (rawPassword == null || rawPassword.isBlank()) {
+            // 兜底：配置被清空且常量缺省时不允许创建空密码账号
             throw new BizException(ResultCode.VALID_ERROR, "密码不能为空");
         }
         User user = new User();
         user.setUsername(req.getUsername());
-        user.setPassword(passwordEncoder.encode(req.getPassword()));
+        user.setPassword(passwordEncoder.encode(rawPassword));
         user.setRealName(req.getRealName());
         user.setEmail(req.getEmail());
         user.setPhone(req.getPhone());
         user.setAvatar(req.getAvatar());
         user.setNickname(req.getNickname());
         user.setRoleId(req.getRoleId());
+        // Phase8 W2 #9：所属组织（可空）
+        user.setOrgId(req.getOrgId());
         user.setLeaderId(req.getLeaderId());
         user.setStatus(req.getStatus() == null ? 1 : req.getStatus());
         userMapper.insert(user);
@@ -198,6 +223,8 @@ public class UserService {
             user.setNickname(req.getNickname());
         }
         user.setRoleId(req.getRoleId());
+        // Phase8 W2 #9：所属组织「存在即覆盖」——传 null 表示解除组织归属
+        user.setOrgId(req.getOrgId());
         if (req.getLeaderId() != null && Objects.equals(req.getLeaderId(), id)) {
             throw new BizException(ResultCode.USER_LEADER_CYCLE);
         }

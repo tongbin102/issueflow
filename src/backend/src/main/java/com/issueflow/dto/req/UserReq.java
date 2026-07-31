@@ -18,7 +18,12 @@ public class UserReq implements Serializable {
     @NotBlank(message = "用户名不能为空")
     private String username;
 
-    /** 密码（新增必填；编辑时为空则保持原密码） */
+    /**
+     * 密码（非必填）。
+     * <p>Phase8 W2 #7：新增用户时前端不再提供密码输入框——为空则由服务端取
+     * {@code site.default_password}（SiteConfigService#getDefaultUserPassword）作为初始密码；
+     * 编辑时为空表示保持原密码不变。</p>
+     */
     private String password;
 
     /** 真实姓名 */
@@ -33,6 +38,9 @@ public class UserReq implements Serializable {
     /** 角色 id（关联 role.id） */
     @NotNull(message = "角色不能为空")
     private Long roleId;
+
+    /** 所属组织 id（关联 organization.id，可空；Phase8 W2 #9 新增） */
+    private Long orgId;
 
     /** 上级领导 user.id（可空，不允许指向自己） */
     private Long leaderId;

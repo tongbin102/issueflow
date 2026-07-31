@@ -38,7 +38,7 @@
       @confirm="onCreateConfirm"
       @closed="onCreateClosed"
     >
-      <IssueForm v-if="createMounted" ref="createFormRef" @submit="onCreateSubmit" />
+      <IssueForm v-if="createMounted" ref="createFormRef" mode="submit" @submit="onCreateSubmit" />
     </FormDrawer>
 
     <!-- 编辑抽屉（T7：el-dialog → FormDrawer） -->
@@ -54,6 +54,7 @@
       <IssueForm
         v-if="editVisible && editRow"
         ref="editFormRef"
+        mode="edit"
         :initial="editRow"
         @submit="onEditSubmit"
       />

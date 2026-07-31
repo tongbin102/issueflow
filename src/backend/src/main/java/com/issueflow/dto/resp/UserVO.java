@@ -33,6 +33,12 @@ public class UserVO implements Serializable {
     /** 角色名 */
     private String roleName;
 
+    /** 所属组织 id（可空，Phase8 W2 #9 新增） */
+    private Long orgId;
+
+    /** 所属组织名称（由 organization.name 反查，无归属时为 null；Phase8 W2 #9 新增） */
+    private String orgName;
+
     /** 上级领导 user.id */
     private Long leaderId;
 

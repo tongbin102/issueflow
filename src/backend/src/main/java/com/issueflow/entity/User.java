@@ -35,6 +35,9 @@ public class User extends BaseEntity {
     /** 角色 id，关联 role.id */
     private Long roleId;
 
+    /** 所属组织 id，关联 organization.id（可空：并非所有用户都归属组织，Phase8 W2 #9 新增） */
+    private Long orgId;
+
     /** 上级领导 user.id（可空，不允许指向自己） */
     private Long leaderId;
 

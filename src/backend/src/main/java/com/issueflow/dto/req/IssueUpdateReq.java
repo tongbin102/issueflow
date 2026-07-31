@@ -1,5 +1,6 @@
 package com.issueflow.dto.req;
 
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -35,7 +36,11 @@ public class IssueUpdateReq implements Serializable {
 
     private Long assigneeId;
 
-    /** 关联项目 id（非空才更新） */
+    /**
+     * 所属项目 id（Phase8 W2 #6 起必填）。
+     * <p>校验层保证非空后，Service 内「非空才更新」的分支等价于始终更新，语义不变。</p>
+     */
+    @NotNull(message = "所属项目不能为空")
     private Long projectId;
 
     /**

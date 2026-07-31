@@ -50,7 +50,8 @@ public class IssueCreateReq implements Serializable {
     /** 处理人/认领人 id（可空，由开发人员认领） */
     private Long assigneeId;
 
-    /** 关联项目 id（可空） */
+    /** 所属项目 id（Phase8 W2 #6 起必填） */
+    @NotNull(message = "所属项目不能为空")
     private Long projectId;
 
     /** 所属模块 id（可空；非空时须属于 projectId 对应项目） */

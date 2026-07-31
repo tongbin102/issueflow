@@ -17,7 +17,7 @@
         style="margin-bottom: 16px"
       />
 
-      <IssueForm @submit="onSubmit" />
+      <IssueForm mode="submit" @submit="onSubmit" />
     </el-card>
 
     <!-- 创建成功后打开详情抽屉 -->

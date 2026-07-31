@@ -37,6 +37,7 @@
       <IssueForm
         v-if="editVisible && editRow"
         ref="editFormRef"
+        mode="edit"
         :initial="editRow"
         @submit="onEditSubmit"
       />

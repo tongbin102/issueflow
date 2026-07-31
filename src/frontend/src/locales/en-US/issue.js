@@ -48,12 +48,28 @@ export default {
     severityRequired: 'Please select the severity',
     priorityRequired: 'Please select the priority',
     sourceRequired: 'Please select the source',
+    // Phase8 W2 #6: project is now mandatory
+    projectRequired: 'Please select the project',
+    // Kept for backward compatibility: description is optional since Phase8 W2 #12
     descriptionRequired: 'Please enter the description'
   },
   section: {
     basic: 'Basic Info',
     detail: 'Details',
     attachment: 'Attachments'
+  },
+  // Phase8 W2 #12: vertical (left) tabs inside the issue dialog
+  tab: {
+    basic: 'Basic Info',
+    description: 'Description',
+    attachment: 'Attachments',
+    relation: 'Relations',
+    history: 'History'
+  },
+  tabTip: {
+    basicInvalid: 'Please complete the required fields in "Basic Info" first',
+    relationPending: 'Relations can be managed after the issue is submitted',
+    historyPending: 'History will be recorded after the issue is submitted'
   },
   list: {
     title: 'Issue List',

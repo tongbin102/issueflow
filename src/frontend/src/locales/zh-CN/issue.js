@@ -48,12 +48,28 @@ export default {
     severityRequired: '请选择严重等级',
     priorityRequired: '请选择优先级',
     sourceRequired: '请选择来源',
+    // Phase8 W2 #6：所属项目必填
+    projectRequired: '请选择所属项目',
+    // 保留词条：Phase8 W2 #12 起问题描述改为非必填，此 key 供历史引用兜底
     descriptionRequired: '请输入问题描述'
   },
   section: {
     basic: '基本信息',
     detail: '详细描述',
     attachment: '附件与备注'
+  },
+  // Phase8 W2 #12：问题弹窗左侧竖形标签页
+  tab: {
+    basic: '基本信息',
+    description: '问题描述',
+    attachment: '附件上传',
+    relation: '关联信息',
+    history: '操作历史'
+  },
+  tabTip: {
+    basicInvalid: '请先完善「基本信息」中的必填项',
+    relationPending: '问题提交后可维护关联信息',
+    historyPending: '问题提交后将自动记录操作历史'
   },
   list: {
     title: '问题列表',

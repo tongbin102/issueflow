@@ -170,9 +170,9 @@ bash tests/api/test-api.sh
 
 ```
 概览 /admin/index
-业务管理 /admin/business ├ 问题列表 /admin/issues  ├ 字典配置 /admin/dicts
+业务管理 /admin/business ├ 问题列表 /admin/issues  ├ 项目配置 /admin/projects  └ 字典配置 /admin/dicts
+                         （「项目配置」页内含模块抽屉，模块维护在此完成）
 问题类型 /admin/issue-types
-项目管理 /admin/project   └ 项目配置 /admin/projects（模块维护内置于本页的模块抽屉）
 流程管理 └ 流程监控 /admin/flow-monitor  └ 流程配置 /admin/flow-config
 系统管理 /admin/system
         ├ 组织管理 /admin/system/organizations   ├ 菜单管理 /admin/system/menus
@@ -184,6 +184,12 @@ bash tests/api/test-api.sh
 > 命名说明（Phase8 W1）：`/admin/system/site` 由「网站设置」更名为「**系统设置**」（站点基础配置 + 安全设置）；
 > `/admin/system/settings` 由「系统设置」更名为「**备份设置**」（数据初始化 / 数据维护）。路由 `path` 与页面组件均未变更。
 > 原独立页「模块配置」（`/admin/modules`）已下线，模块维护统一在「项目配置」页的模块抽屉中完成。
+>
+> 图标与排序（Phase8 W4）：`menu.icon` 存 **Element Plus 图标组件名**（PascalCase，如 `FolderOpened`）；
+> `main.js` 已全量全局注册 `@element-plus/icons-vue`，`SideMenu.vue` 的 `resolveIcon()` 对不存在的名字兜底为 `Grid`，
+> 因此在「菜单管理」页填写图标时必须使用真实导出名。W4 已统一全部菜单图标语义并消除 `Grid` 占位；
+> 同时将「基础设施」`sort` 调整为 `8`，使其在**根级与「系统管理」平级且排在其下方**（不嵌套）；
+> 并清理了两行历史残留菜单墓碑行（id=7 系统设置 `/admin/settings`、id=18 模块配置 `/admin/modules`，均 `deleted=1` 软删、线上不渲染、无用户可见变化）；本次唯二可见改动为 #1（基础设施排序）与 #3（图标统一）。
 
 ### 4.8 关键字段约定（Phase8 W2）
 

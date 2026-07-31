@@ -30,6 +30,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Setting, HomeFilled } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
@@ -47,6 +48,7 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const appStore = useAppStore()
+const { t } = useI18n()
 
 /**
  * 当前是否处于后台上下文：以路由前缀 /admin 推断，
@@ -69,8 +71,10 @@ const visible = computed(() =>
 /** 跳转目标：后台→普通端 '/user'，普通端→后台 '/admin/index'。 */
 const target = computed(() => (isAdminContext.value ? '/user' : '/admin/index'))
 
-/** 按钮文案。 */
-const label = computed(() => (isAdminContext.value ? '返回前台' : '管理后台'))
+/** 按钮文案（i18n，随语言切换响应式更新）。 */
+const label = computed(() =>
+  isAdminContext.value ? t('layout.switch.toUser') : t('layout.switch.toAdmin')
+)
 
 /** 图标：普通端用设置图标，后台用首页实心图标。 */
 const entryIcon = computed(() => (isAdminContext.value ? HomeFilled : Setting))
@@ -91,33 +95,16 @@ function handleClick() {
   align-items: center;
 }
 
-/* R1 侧栏底部形态：position:fixed 钉在视口左下（侧栏贴左边缘，视觉即钉在侧栏底部）。
-   即使 --if-sidebar-position:static（侧栏随页面滚动），fixed 相对视口仍不受影响。 */
+/* T7 侧栏底部形态：改为普通文档流 + margin-top:auto，
+   依赖父级侧栏的 flex 纵向布局（100vh）自然吸底；
+   相比旧 position:fixed 方案：不再遮挡菜单末项、宽度天然跟随侧栏折叠、移动端抽屉内随动。 */
 .if-switch-entry--sidebar {
-  position: fixed;
-  left: 0;
-  bottom: 0;
-  z-index: 10;
-  width: var(--sidebar-width);
+  position: static;
+  margin-top: auto;
+  width: 100%;
   padding: 12px;
+  flex-shrink: 0;
   background: var(--admin-sidebar-bg, var(--if-sidebar-bg, var(--bg-container)));
-  transition: width 0.2s ease;
-}
-
-/* 折叠态：宽度跟随侧栏 64px */
-.if-sidebar.is-collapsed .if-switch-entry--sidebar {
-  width: var(--sidebar-collapsed-width);
-}
-
-/* 移动端（<=768px）：侧栏自身是 fixed+transform 抽屉（transform 构建包含块），
-   降级为 absolute 钉在抽屉底部，随抽屉一起滑入滑出 */
-@media (max-width: 768px) {
-  .if-switch-entry--sidebar {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-  }
 }
 
 .if-switch-entry__btn--sidebar {

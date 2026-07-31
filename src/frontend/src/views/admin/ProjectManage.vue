@@ -3,40 +3,40 @@
     <el-card class="page-card" shadow="never">
       <template #header>
         <div class="head">
-          <span>项目配置</span>
+          <span>{{ t('project.page.title') }}</span>
           <div class="head-right">
             <el-popover placement="bottom-end" :width="220" trigger="click">
               <template #reference>
-                <el-button text :icon="Setting">列设置</el-button>
+                <el-button text :icon="Setting">{{ t('project.colSettings.title') }}</el-button>
               </template>
               <div class="col-settings">
                 <div class="col-settings__actions">
-                  <el-button link type="primary" size="small" @click="selectAllColumns">全选</el-button>
-                  <el-button link type="primary" size="small" @click="clearAllColumns">全不选</el-button>
-                  <el-button link type="primary" size="small" @click="resetColumns">重置默认</el-button>
+                  <el-button link type="primary" size="small" @click="selectAllColumns">{{ t('project.colSettings.selectAll') }}</el-button>
+                  <el-button link type="primary" size="small" @click="clearAllColumns">{{ t('project.colSettings.clearAll') }}</el-button>
+                  <el-button link type="primary" size="small" @click="resetColumns">{{ t('project.colSettings.resetDefault') }}</el-button>
                 </div>
                 <el-divider style="margin: 8px 0" />
                 <div class="col-settings__list">
                   <el-checkbox
-                    v-for="col in ALL_COLUMNS"
+                    v-for="col in allColumns"
                     :key="col.key"
                     v-model="columnVisible[col.key]"
                     @change="saveColumns"
                   >{{ col.label }}</el-checkbox>
                 </div>
-                <div class="col-settings__tip">操作列始终显示</div>
+                <div class="col-settings__tip">{{ t('project.colSettings.tip') }}</div>
               </div>
             </el-popover>
-            <el-button type="primary" :icon="Plus" @click="openCreate">新建项目</el-button>
+            <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('project.action.create') }}</el-button>
           </div>
         </div>
       </template>
 
       <el-table v-loading="loading" :data="list" border stripe>
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column v-if="columnVisible.name" prop="name" label="项目名称" min-width="140" show-overflow-tooltip />
-        <el-table-column v-if="columnVisible.description" prop="description" label="描述" min-width="200" show-overflow-tooltip />
-        <el-table-column v-if="columnVisible.status" label="状态" width="110" align="center">
+        <el-table-column v-if="columnVisible.name" prop="name" :label="t('project.col.name')" min-width="140" show-overflow-tooltip />
+        <el-table-column v-if="columnVisible.description" prop="description" :label="t('project.col.description')" min-width="200" show-overflow-tooltip />
+        <el-table-column v-if="columnVisible.status" :label="t('project.col.status')" width="110" align="center">
           <template #default="{ row }">
             <el-switch
               v-model="row.status"
@@ -45,23 +45,23 @@
               :disabled="!isAdmin"
               @change="(val) => onToggleStatus(row, val)"
             />
-            <span class="status-text">{{ row.status === 1 ? '启用' : '停用' }}</span>
+            <span class="status-text">{{ row.status === 1 ? t('common.status.enabled') : t('common.status.disabled') }}</span>
           </template>
         </el-table-column>
-        <el-table-column v-if="columnVisible.leader" label="负责人" min-width="110">
+        <el-table-column v-if="columnVisible.leader" :label="t('project.col.leader')" min-width="110">
           <template #default="{ row }">{{ row.leaderName || '-' }}</template>
         </el-table-column>
-        <el-table-column v-if="columnVisible.members" label="项目成员" min-width="180" show-overflow-tooltip>
+        <el-table-column v-if="columnVisible.members" :label="t('project.col.members')" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">{{ formatMembers(row) }}</template>
         </el-table-column>
-        <el-table-column v-if="columnVisible.createdAt" label="创建时间" width="170">
+        <el-table-column v-if="columnVisible.createdAt" :label="t('common.field.createdAt')" width="170">
           <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column :label="t('common.action.operation')" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openModuleDrawer(row)">模块</el-button>
-            <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="danger" size="small" @click="onDelete(row)">删除</el-button>
+            <el-button link type="primary" size="small" @click="openModuleDrawer(row)">{{ t('project.action.module') }}</el-button>
+            <el-button link type="primary" size="small" @click="openEdit(row)">{{ t('common.action.edit') }}</el-button>
+            <el-button link type="danger" size="small" @click="onDelete(row)">{{ t('common.action.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -83,17 +83,17 @@
     <!-- 新增 / 编辑项目（R3 统一抽屉） -->
     <FormDrawer
       v-model="dialogVisible"
-      :title="form.id ? '编辑项目' : '新增项目'"
+      :title="form.id ? t('project.drawer.editTitle') : t('project.drawer.createTitle')"
       size="md"
       :loading="saving"
       @confirm="onSubmit"
       @closed="onDrawerClosed"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="名称" prop="name">
+        <el-form-item :label="t('common.field.name')" prop="name">
           <el-input v-model="form.name" maxlength="100" show-word-limit />
         </el-form-item>
-        <el-form-item label="描述">
+        <el-form-item :label="t('common.field.description')">
           <el-input
             v-model="form.description"
             type="textarea"
@@ -102,7 +102,7 @@
             show-word-limit
           />
         </el-form-item>
-        <el-form-item label="负责人">
+        <el-form-item :label="t('project.col.leader')">
           <el-select
             v-model="form.leaderId"
             filterable
@@ -111,7 +111,7 @@
             reserve-keyword
             :remote-method="searchUsers"
             :loading="userLoading"
-            placeholder="搜索并选择负责人"
+            :placeholder="t('project.placeholder.selectLeader')"
             style="width: 100%"
           >
             <el-option
@@ -122,7 +122,7 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="项目成员">
+        <el-form-item :label="t('project.col.members')">
           <el-select
             v-model="form.memberIdsArray"
             multiple
@@ -132,7 +132,7 @@
             reserve-keyword
             :remote-method="searchUsers"
             :loading="userLoading"
-            placeholder="搜索并选择成员"
+            :placeholder="t('project.placeholder.selectMembers')"
             style="width: 100%"
           >
             <el-option
@@ -143,13 +143,13 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态">
+        <el-form-item :label="t('project.col.status')">
           <el-switch
             v-model="form.status"
             :active-value="1"
             :inactive-value="0"
-            active-text="启用"
-            inactive-text="停用"
+            :active-text="t('common.status.enabled')"
+            :inactive-text="t('common.status.disabled')"
           />
         </el-form-item>
       </el-form>
@@ -169,6 +169,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Setting } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { formatDate } from '@/utils/format'
 import {
   pageProjects,
@@ -180,6 +181,8 @@ import { listUserOptions } from '@/api/user'
 import { useUserStore } from '@/store/user'
 import ModuleTreeDrawer from '@/components/ModuleTreeDrawer.vue'
 import FormDrawer from '@/components/FormDrawer.vue'
+
+const { t } = useI18n()
 
 const userStore = useUserStore()
 const isAdmin = computed(() => userStore.isAdmin)
@@ -208,14 +211,15 @@ const userLoading = ref(false)
 
 // 列设置
 const COLUMN_KEY = 'if_project_columns'
-const ALL_COLUMNS = [
-  { key: 'name', label: '项目名称' },
-  { key: 'description', label: '描述' },
-  { key: 'status', label: '状态' },
-  { key: 'leader', label: '负责人' },
-  { key: 'members', label: '项目成员' },
-  { key: 'createdAt', label: '创建时间' }
-]
+const COLUMN_KEYS = ['name', 'description', 'status', 'leader', 'members', 'createdAt']
+const allColumns = computed(() => [
+  { key: 'name', label: t('project.col.name') },
+  { key: 'description', label: t('project.col.description') },
+  { key: 'status', label: t('project.col.status') },
+  { key: 'leader', label: t('project.col.leader') },
+  { key: 'members', label: t('project.col.members') },
+  { key: 'createdAt', label: t('common.field.createdAt') }
+])
 const columnVisible = reactive({
   name: true,
   description: true,
@@ -235,9 +239,9 @@ const emptyForm = () => ({
 })
 const form = reactive(emptyForm())
 
-const rules = {
-  name: [{ required: true, message: '请输入项目名称', trigger: 'blur' }]
-}
+const rules = computed(() => ({
+  name: [{ required: true, message: t('project.msg.nameRequired'), trigger: 'blur' }]
+}))
 
 /* ---------------- 列设置 ---------------- */
 function loadColumns() {
@@ -248,22 +252,22 @@ function loadColumns() {
   } catch (e) {
     saved = []
   }
-  const keySet = new Set(ALL_COLUMNS.map((c) => c.key))
-  ALL_COLUMNS.forEach((c) => {
-    columnVisible[c.key] = false
+  const keySet = new Set(COLUMN_KEYS)
+  COLUMN_KEYS.forEach((k) => {
+    columnVisible[k] = false
   })
   if (Array.isArray(saved) && saved.length) {
     saved.forEach((k) => {
       if (keySet.has(k)) columnVisible[k] = true
     })
   } else {
-    ALL_COLUMNS.forEach((c) => {
-      columnVisible[c.key] = true
+    COLUMN_KEYS.forEach((k) => {
+      columnVisible[k] = true
     })
   }
 }
 function saveColumns() {
-  const visible = ALL_COLUMNS.filter((c) => columnVisible[c.key]).map((c) => c.key)
+  const visible = COLUMN_KEYS.filter((k) => columnVisible[k])
   try {
     localStorage.setItem(COLUMN_KEY, JSON.stringify(visible))
   } catch (e) {
@@ -271,20 +275,20 @@ function saveColumns() {
   }
 }
 function selectAllColumns() {
-  ALL_COLUMNS.forEach((c) => {
-    columnVisible[c.key] = true
+  COLUMN_KEYS.forEach((k) => {
+    columnVisible[k] = true
   })
   saveColumns()
 }
 function clearAllColumns() {
-  ALL_COLUMNS.forEach((c) => {
-    columnVisible[c.key] = false
+  COLUMN_KEYS.forEach((k) => {
+    columnVisible[k] = false
   })
   saveColumns()
 }
 function resetColumns() {
-  ALL_COLUMNS.forEach((c) => {
-    columnVisible[c.key] = true
+  COLUMN_KEYS.forEach((k) => {
+    columnVisible[k] = true
   })
   saveColumns()
 }
@@ -318,7 +322,9 @@ function formatMembers(row) {
   const members = row.members || []
   if (!members.length) return '-'
   const names = members.slice(0, 3).map((m) => m.realName || m.username)
-  if (members.length > 3) return `${names.join('、')} 等 ${members.length} 人`
+  if (members.length > 3) {
+    return t('project.members.more', { names: names.join('、'), count: members.length })
+  }
   return names.join('、')
 }
 
@@ -402,7 +408,7 @@ async function onToggleStatus(row, val) {
       leaderId: row.leaderId ?? null,
       memberIds: row.memberIds || ''
     })
-    ElMessage.success('状态已更新')
+    ElMessage.success(t('project.msg.statusUpdated'))
   } catch (e) {
     row.status = prev
   }
@@ -423,10 +429,10 @@ function onSubmit() {
     try {
       if (form.id) {
         await updateProject(form.id, payload)
-        ElMessage.success('已更新')
+        ElMessage.success(t('project.msg.updateSuccess'))
       } else {
         await createProject(payload)
-        ElMessage.success('已创建')
+        ElMessage.success(t('project.msg.createSuccess'))
       }
       dialogVisible.value = false
       fetchData()
@@ -438,10 +444,10 @@ function onSubmit() {
 }
 
 function onDelete(row) {
-  ElMessageBox.confirm(`确认删除项目 ${row.name}？`, '提示', { type: 'warning' })
+  ElMessageBox.confirm(t('project.msg.deleteConfirm', { name: row.name }), t('common.msg.tip'), { type: 'warning' })
     .then(async () => {
       await deleteProject(row.id)
-      ElMessage.success('已删除')
+      ElMessage.success(t('project.msg.deleteSuccess'))
       fetchData()
     })
     .catch(() => {})

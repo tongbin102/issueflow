@@ -1,8 +1,8 @@
 <template>
   <el-card class="login-card" shadow="always">
     <div class="login-header">
-      <h2 class="login-title">issueFlow</h2>
-      <p class="login-subtitle">缺陷记录与验证管理平台</p>
+      <h2 class="login-title">{{ appStore.siteName }}</h2>
+      <p class="login-subtitle">{{ appStore.siteSubtitle || t('login.subtitle') }}</p>
     </div>
     <el-form
       ref="formRef"
@@ -14,7 +14,7 @@
       <el-form-item prop="username">
         <el-input
           v-model="form.username"
-          placeholder="账号"
+          :placeholder="t('login.field.username')"
           :prefix-icon="User"
           clearable
         />
@@ -23,14 +23,15 @@
         <el-input
           v-model="form.password"
           type="password"
-          placeholder="密码"
+          :placeholder="t('login.field.password')"
           :prefix-icon="Lock"
           show-password
           @keyup.enter="handleSubmit"
         />
       </el-form-item>
       <div class="login-options">
-        <el-checkbox v-model="remember">记住我</el-checkbox>
+        <el-checkbox v-model="remember">{{ t('login.field.remember') }}</el-checkbox>
+        <LocaleSwitch />
       </div>
       <el-button
         type="primary"
@@ -38,33 +39,38 @@
         :loading="loading"
         @click="handleSubmit"
       >
-        登 录
+        {{ t('login.action.submit') }}
       </el-button>
     </el-form>
-    <p class="login-tip">默认管理员：admin / admin123</p>
+    <p class="login-tip">{{ t('login.tip') }}</p>
   </el-card>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/store/user'
+import { useAppStore } from '@/store/app'
+import LocaleSwitch from '@/components/LocaleSwitch.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
+const appStore = useAppStore()
 
 const formRef = ref()
 const loading = ref(false)
 const remember = ref(true)
 const form = reactive({ username: '', password: '' })
 
-const rules = {
-  username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
-}
+const rules = computed(() => ({
+  username: [{ required: true, message: t('login.msg.usernameRequired'), trigger: 'blur' }],
+  password: [{ required: true, message: t('login.msg.passwordRequired'), trigger: 'blur' }]
+}))
 
 async function handleSubmit() {
   if (!formRef.value) return
@@ -73,7 +79,7 @@ async function handleSubmit() {
     loading.value = true
     try {
       await userStore.login(form.username, form.password)
-      ElMessage.success('登录成功')
+      ElMessage.success(t('login.msg.success'))
       const redirect = route.query.redirect
       if (redirect) {
         router.replace(redirect)
@@ -81,7 +87,7 @@ async function handleSubmit() {
         router.replace(userStore.defaultHomePath())
       }
     } catch (e) {
-      ElMessage.error((e && e.message) || '登录失败')
+      ElMessage.error((e && e.message) || t('login.msg.failed'))
     } finally {
       loading.value = false
     }
@@ -113,6 +119,7 @@ async function handleSubmit() {
 .login-options {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 12px;
 }
 .login-btn {

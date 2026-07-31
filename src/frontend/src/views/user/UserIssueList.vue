@@ -3,8 +3,11 @@
     <el-card class="page-card" shadow="never">
       <template #header>
         <div class="head">
-          <span>我的问题</span>
-          <el-button type="primary" :icon="Plus" @click="goCreate">提交新问题</el-button>
+          <span>{{ t('issue.list.myTitle') }}</span>
+          <!-- Phase6：提交入口收敛为本页抽屉（原 /user/submit-issue 已 redirect） -->
+          <el-button type="primary" :icon="Plus" @click="openCreate">{{
+            t('issue.action.submitNew')
+          }}</el-button>
         </div>
       </template>
 
@@ -24,29 +27,66 @@
       @updated="refresh"
     />
 
-    <!-- 编辑对话框 -->
-    <el-dialog v-model="editVisible" title="编辑问题" width="680px" append-to-body>
-      <IssueForm :initial="editRow" @submit="onEditSubmit" />
-    </el-dialog>
+    <!-- 新建抽屉（T4/T7：FormDrawer + 全屏图标按钮 + 4 分区折叠表单） -->
+    <FormDrawer
+      v-model="createVisible"
+      :title="t('issue.drawer.createTitle')"
+      size="lg"
+      fullscreenable
+      :loading="createLoading"
+      :confirm-text="t('common.action.submit')"
+      @confirm="onCreateConfirm"
+      @closed="onCreateClosed"
+    >
+      <IssueForm v-if="createMounted" ref="createFormRef" @submit="onCreateSubmit" />
+    </FormDrawer>
+
+    <!-- 编辑抽屉（T7：el-dialog → FormDrawer） -->
+    <FormDrawer
+      v-model="editVisible"
+      :title="t('issue.drawer.editTitle')"
+      size="lg"
+      fullscreenable
+      :loading="editLoading"
+      @confirm="onEditConfirm"
+      @closed="editRow = null"
+    >
+      <IssueForm
+        v-if="editVisible && editRow"
+        ref="editFormRef"
+        :initial="editRow"
+        @submit="onEditSubmit"
+      />
+    </FormDrawer>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import IssueTable from '@/components/IssueTable.vue'
 import IssueDetailDrawer from '@/components/IssueDetailDrawer.vue'
 import IssueForm from '@/components/IssueForm.vue'
-import { updateIssue } from '@/api/issue'
+import FormDrawer from '@/components/FormDrawer.vue'
+import { createIssue, updateIssue } from '@/api/issue'
 
-const router = useRouter()
+const { t } = useI18n()
 const tableRef = ref(null)
 const drawerVisible = ref(false)
 const currentId = ref(null)
+
+const createVisible = ref(false)
+const createMounted = ref(false)
+const createLoading = ref(false)
+const createFormRef = ref(null)
+
 const editVisible = ref(false)
+const editLoading = ref(false)
 const editRow = ref(null)
+const editFormRef = ref(null)
+
 const flowConfig = ref({ rejectEnabled: true, reopenEnabled: true })
 
 function openDetail(row) {
@@ -60,17 +100,55 @@ function openEdit(row) {
 function refresh() {
   if (tableRef.value) tableRef.value.fetchData()
 }
-function goCreate() {
-  router.push('/user/submit-issue')
+
+/* ---------------- 新建 ---------------- */
+function openCreate() {
+  createMounted.value = true
+  createVisible.value = true
+}
+function onCreateConfirm() {
+  if (createFormRef.value) createFormRef.value.submit()
+}
+function onCreateClosed() {
+  // 关闭后销毁重建表单，保证下次打开为全新空表单
+  createMounted.value = false
+}
+async function onCreateSubmit({ data, files }) {
+  createLoading.value = true
+  try {
+    const fd = new FormData()
+    Object.keys(data).forEach((k) => {
+      if (data[k] !== null && data[k] !== undefined) fd.append(k, data[k])
+    })
+    ;(files || []).forEach((f) => fd.append('files', f))
+    const res = await createIssue(fd)
+    ElMessage.success(`${t('issue.msg.createSuccess')} ${res && res.issueNo ? res.issueNo : ''}`)
+    createVisible.value = false
+    refresh()
+  } catch (e) {
+    // 错误提示由 request 拦截器统一处理
+  } finally {
+    createLoading.value = false
+  }
+}
+
+/* ---------------- 编辑 ---------------- */
+function onEditConfirm() {
+  if (editFormRef.value) editFormRef.value.submit()
 }
 async function onEditSubmit({ data }) {
   if (!editRow.value) return
+  editLoading.value = true
   try {
     await updateIssue(editRow.value.id, data)
-    ElMessage.success('保存成功')
+    ElMessage.success(t('issue.msg.updateSuccess'))
     editVisible.value = false
     refresh()
-  } catch (e) {}
+  } catch (e) {
+    // 错误提示由 request 拦截器统一处理
+  } finally {
+    editLoading.value = false
+  }
 }
 </script>
 

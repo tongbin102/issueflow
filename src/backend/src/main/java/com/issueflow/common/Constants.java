@@ -52,4 +52,22 @@ public final class Constants {
     public static final String CFG_THEME_COLOR = "theme_color";
     public static final String CFG_LAYOUT = "layout";
     public static final String CFG_MENU_CONFIG = "menu_config";
+
+    /** 网站设置配置键（Phase6，site.* 七键） */
+    public static final String CFG_SITE_NAME = "site.name";
+    public static final String CFG_SITE_SHORT_NAME = "site.short_name";
+    public static final String CFG_SITE_SUBTITLE = "site.subtitle";
+    public static final String CFG_SITE_DEFAULT_THEME = "site.default_theme";
+    public static final String CFG_SITE_DEFAULT_LOCALE = "site.default_locale";
+    public static final String CFG_SITE_COPYRIGHT = "site.copyright";
+    public static final String CFG_SITE_ICP = "site.icp";
+
+    /** 前台主题合法值（Q2：4 套主题） */
+    public static final Set<String> SITE_THEMES = Set.of("light", "dark", "blue", "green");
+
+    /** 站点语言合法值（Q4：中英双语） */
+    public static final Set<String> SITE_LOCALES = Set.of("zh-CN", "en-US");
+
+    /** 内置兜底问题类型 code（存量问题回填 / 禁止删除语义由引用计数天然保证） */
+    public static final String ISSUE_TYPE_CODE_OTHER = "OTHER";
 }

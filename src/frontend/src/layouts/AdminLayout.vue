@@ -1,6 +1,6 @@
 <template>
   <div class="if-layout if-layout--admin">
-    <!-- 侧边栏：桌面常驻 / 移动端抽屉 -->
+    <!-- 侧边栏：桌面常驻 / 移动端抽屉；T7：100vh flex 列布局，切换入口 margin-top:auto 吸底 -->
     <aside
       class="if-sidebar"
       :class="{
@@ -9,14 +9,14 @@
       }"
     >
       <div class="if-logo">
-        <span v-if="!collapsed">issueFlow 后台</span>
-        <span v-else>IF</span>
+        <span v-if="!collapsed">{{ t('layout.logo.admin') }}</span>
+        <span v-else>{{ appStore.siteShortName }}</span>
       </div>
-      <!-- R1：菜单内滚动容器（flex:1 + overflow-y:auto），底部预留固定入口高度 -->
+      <!-- R1：菜单内滚动容器（flex:1 + overflow-y:auto） -->
       <div class="if-sidebar__menu">
         <SideMenu :type="2" />
       </div>
-      <!-- 侧栏底部「切换区域」入口：position:fixed 钉底（折叠态降级为纯图标） -->
+      <!-- 侧栏底部「返回前台」入口：普通文档流 + margin-top:auto 吸底（T7，不再 fixed） -->
       <LayoutSwitchEntry variant="sidebar" />
     </aside>
 
@@ -34,6 +34,8 @@
           <span class="topbar-title">{{ pageTitle }}</span>
         </div>
         <div class="topbar-right">
+          <!-- Phase6：后台语言切换（后台不提供前台主题切换） -->
+          <LocaleSwitch />
           <el-dropdown @command="onCommand">
             <span class="user-dropdown">
               <el-avatar :size="28">{{ avatarText }}</el-avatar>
@@ -43,16 +45,16 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="styleSettings">
-                  <el-icon><Brush /></el-icon><span class="dd-text">整体风格设置</span>
+                  <el-icon><Brush /></el-icon><span class="dd-text">{{ t('layout.topbar.styleSettings') }}</span>
                 </el-dropdown-item>
                 <el-dropdown-item command="clearCache">
-                  <el-icon><Refresh /></el-icon><span class="dd-text">清理缓存</span>
+                  <el-icon><Refresh /></el-icon><span class="dd-text">{{ t('layout.topbar.clearCache') }}</span>
                 </el-dropdown-item>
                 <el-dropdown-item command="profile">
-                  <el-icon><User /></el-icon><span class="dd-text">个人设置</span>
+                  <el-icon><User /></el-icon><span class="dd-text">{{ t('layout.topbar.profile') }}</span>
                 </el-dropdown-item>
                 <el-dropdown-item command="logout" divided>
-                  <el-icon><SwitchButton /></el-icon><span class="dd-text">退出登录</span>
+                  <el-icon><SwitchButton /></el-icon><span class="dd-text">{{ t('layout.topbar.logout') }}</span>
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -66,17 +68,23 @@
       </main>
     </div>
 
-    <!-- 个人设置：只读信息 -->
-    <el-dialog v-model="profileVisible" title="个人设置" width="420px" append-to-body>
+    <!-- 个人设置：只读信息（T7：弹窗 → 统一 FormDrawer 抽屉） -->
+    <FormDrawer
+      v-model="profileVisible"
+      :title="t('layout.topbar.profile')"
+      size="sm"
+    >
       <el-descriptions :column="1" border>
-        <el-descriptions-item label="姓名">{{ realName || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="账号">{{ userStore.userInfo.username || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="角色">{{ roleText }}</el-descriptions-item>
+        <el-descriptions-item :label="t('layout.profile.realName')">{{ realName || '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('layout.profile.username')">{{ userStore.userInfo.username || '-' }}</el-descriptions-item>
+        <el-descriptions-item :label="t('layout.profile.role')">{{ roleText }}</el-descriptions-item>
       </el-descriptions>
       <template #footer>
-        <el-button @click="profileVisible = false">关闭</el-button>
+        <div class="profile-footer">
+          <el-button @click="profileVisible = false">{{ t('common.action.close') }}</el-button>
+        </div>
       </template>
-    </el-dialog>
+    </FormDrawer>
 
     <!-- R7 整体风格设置抽屉（仅作用于后台） -->
     <AdminStyleDrawer
@@ -90,26 +98,34 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Menu, ArrowDown, User, Refresh, SwitchButton, Brush } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
-import { roleLabel } from '@/utils/format'
+import { useThemeStore } from '@/store/theme'
+import { roleLabelI18n } from '@/utils/i18nEnum'
 import { applyAdminStyleVars } from '@/utils/theme'
 import { loadAdminStyle } from '@/utils/adminStyle'
 import LayoutSwitchEntry from '@/components/LayoutSwitchEntry.vue'
 import SideMenu from '@/components/SideMenu.vue'
 import AdminStyleDrawer from '@/components/AdminStyleDrawer.vue'
+import FormDrawer from '@/components/FormDrawer.vue'
+import LocaleSwitch from '@/components/LocaleSwitch.vue'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const appStore = useAppStore()
+const themeStore = useThemeStore()
+const { t, te } = useI18n()
 
 const drawerOpen = ref(false)
 const profileVisible = ref(false)
 const styleDrawerVisible = ref(false)
 const styleState = ref(loadAdminStyle())
+
+const collapsed = computed(() => appStore.sidebarCollapsed && !appStore.isMobile)
 
 /** 将当前后台风格应用到 AdminLayout 根元素（仅作用域，不污染前台）。 */
 function applyStyle() {
@@ -121,12 +137,17 @@ function onStyleChange(next) {
   applyStyle()
 }
 
-const pageTitle = computed(() => route.meta.title || '管理后台')
+/** 顶栏标题：meta.title 存 i18n key，命中翻译 / 未命中回退原值 */
+const pageTitle = computed(() => {
+  const key = route.meta.title
+  if (key && te(key)) return t(key)
+  return key || t('layout.logo.admin')
+})
 const realName = computed(() => userStore.realName)
 const avatarText = computed(() => (realName.value || 'A').charAt(0).toUpperCase())
 const roleText = computed(() => {
   const roles = userStore.roles || []
-  return roles.length ? roles.map((r) => roleLabel(r)).join('、') : '-'
+  return roles.length ? roles.map((r) => roleLabelI18n(r)).join(' / ') : '-'
 })
 
 function toggleMenu() {
@@ -139,18 +160,18 @@ function toggleMenu() {
 
 function onCommand(cmd) {
   if (cmd === 'logout') {
-    ElMessageBox.confirm('确认退出登录？', '提示', { type: 'warning' })
+    ElMessageBox.confirm(t('layout.msg.logoutConfirm'), t('common.msg.tip'), { type: 'warning' })
       .then(() => {
         userStore.logout()
         router.replace('/login')
-        ElMessage.success('已退出登录')
+        ElMessage.success(t('layout.msg.logoutSuccess'))
       })
       .catch(() => {})
   } else if (cmd === 'styleSettings') {
     styleDrawerVisible.value = true
   } else if (cmd === 'clearCache') {
     localStorage.clear()
-    ElMessage.success('缓存已清理，即将刷新页面')
+    ElMessage.success(t('layout.msg.cacheCleared'))
     setTimeout(() => window.location.reload(), 600)
   } else if (cmd === 'profile') {
     profileVisible.value = true
@@ -163,6 +184,8 @@ function handleResize() {
 }
 
 onMounted(() => {
+  // Phase6：后台强制移除前台主题属性（ARCH §七.3，双保险；UserLayout 卸载时也会移除）
+  themeStore.removeFrontTheme()
   handleResize()
   window.addEventListener('resize', handleResize)
   applyStyle()
@@ -181,11 +204,12 @@ onBeforeUnmount(() => {
   --if-radius: 4px;
 }
 
+/* T7：侧栏 100vh flex 列布局，切换入口靠 margin-top:auto 吸底，
+   移除旧 fixed 方案的 padding-bottom 预留 */
 .if-layout--admin .if-sidebar {
   display: flex;
   flex-direction: column;
-  /* R1：底部预留 fixed「返回前台」入口高度，避免菜单末项被遮挡 */
-  padding-bottom: var(--if-switch-entry-height, 56px);
+  height: 100vh;
   /* 背景跟随 R7 侧栏类型变量（深色/浅色），不污染全局 :root */
   background: var(--admin-sidebar-bg);
   /* 仅在本作用域内覆盖 Element Plus 菜单变量，不污染全局 */
@@ -213,5 +237,10 @@ onBeforeUnmount(() => {
 /* 下拉项图标与文字间距 */
 .dd-text {
   margin-left: 6px;
+}
+
+.profile-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 </style>

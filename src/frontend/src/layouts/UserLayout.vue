@@ -9,11 +9,11 @@
       }"
     >
       <div class="if-logo">
-        <span v-if="!collapsed">issueFlow</span>
-        <span v-else>IF</span>
+        <span v-if="!collapsed">{{ appStore.siteName }}</span>
+        <span v-else>{{ appStore.siteShortName }}</span>
       </div>
       <SideMenu :type="1" />
-      <!-- 侧栏底部「切换区域」次级入口（折叠态降级为纯图标） -->
+      <!-- 侧栏底部「切换区域」次级入口（flex 吸底，折叠态降级为纯图标） -->
       <LayoutSwitchEntry variant="sidebar" />
     </aside>
 
@@ -31,7 +31,9 @@
           <span class="topbar-title">{{ pageTitle }}</span>
         </div>
         <div class="topbar-right">
-          <!-- R3：移除顶栏「切换后台」按钮与样式定制取色器，仅保留侧栏底部入口（见侧栏 LayoutSwitchEntry variant=sidebar） -->
+          <!-- Phase6：前台主题切换（4 主题）+ 语言切换 -->
+          <ThemeSwitch />
+          <LocaleSwitch />
           <el-dropdown @command="onCommand">
             <span class="user-dropdown">
               <el-avatar :size="28">{{ avatarText }}</el-avatar>
@@ -41,10 +43,10 @@
             <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="clearCache">
-                <el-icon><Refresh /></el-icon><span class="dd-text">清理缓存</span>
+                <el-icon><Refresh /></el-icon><span class="dd-text">{{ t('layout.topbar.clearCache') }}</span>
               </el-dropdown-item>
               <el-dropdown-item command="logout" divided>
-                <el-icon><SwitchButton /></el-icon><span class="dd-text">退出登录</span>
+                <el-icon><SwitchButton /></el-icon><span class="dd-text">{{ t('layout.topbar.logout') }}</span>
               </el-dropdown-item>
             </el-dropdown-menu>
             </template>
@@ -61,25 +63,53 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Menu, ArrowDown, Refresh, SwitchButton } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
+import { useThemeStore } from '@/store/theme'
 import LayoutSwitchEntry from '@/components/LayoutSwitchEntry.vue'
 import SideMenu from '@/components/SideMenu.vue'
+import LocaleSwitch from '@/components/LocaleSwitch.vue'
+import ThemeSwitch from '@/components/ThemeSwitch.vue'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 const appStore = useAppStore()
+const themeStore = useThemeStore()
+const { t, te } = useI18n()
 
 const drawerOpen = ref(false)
 
-const pageTitle = computed(() => route.meta.title || 'issueFlow')
+const collapsed = computed(() => appStore.sidebarCollapsed && !appStore.isMobile)
+
+/** 顶栏标题：meta.title 存 i18n key，命中翻译 / 未命中回退原值 */
+const pageTitle = computed(() => {
+  const key = route.meta.title
+  if (key && te(key)) return t(key)
+  return key || appStore.siteName
+})
 const realName = computed(() => userStore.realName)
 const avatarText = computed(() => (realName.value || 'U').charAt(0).toUpperCase())
+
+// ===== Phase6 前台主题挂载（ARCH §七.3）=====
+// 仅写 body[data-if-theme]，严禁写 document.documentElement；
+// 离开前台布局时移除属性，与后台天然互斥。
+onMounted(() => {
+  themeStore.applyFrontTheme()
+})
+onBeforeUnmount(() => {
+  themeStore.removeFrontTheme()
+})
+// 防御：主题值被外部（如网站设置默认值）变更时同步到 body
+watch(
+  () => themeStore.frontTheme,
+  () => themeStore.applyFrontTheme()
+)
 
 function toggleMenu() {
   if (appStore.isMobile) {
@@ -91,16 +121,16 @@ function toggleMenu() {
 
 function onCommand(cmd) {
   if (cmd === 'logout') {
-    ElMessageBox.confirm('确认退出登录？', '提示', { type: 'warning' })
+    ElMessageBox.confirm(t('layout.msg.logoutConfirm'), t('common.msg.tip'), { type: 'warning' })
       .then(() => {
         userStore.logout()
         router.replace('/login')
-        ElMessage.success('已退出登录')
+        ElMessage.success(t('layout.msg.logoutSuccess'))
       })
       .catch(() => {})
   } else if (cmd === 'clearCache') {
     localStorage.clear()
-    ElMessage.success('缓存已清理，即将刷新页面')
+    ElMessage.success(t('layout.msg.cacheCleared'))
     setTimeout(() => window.location.reload(), 600)
   }
 }
@@ -120,17 +150,18 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* 普通端：浅色侧栏 / 内容居中定宽 / 大圆角柔和风格 */
+/* 普通端：浅色侧栏 / 内容居中定宽 / 大圆角柔和风格
+   Phase6：--if-sidebar-bg 不再硬编码，跟随 themes.css 的主题变量 */
 .if-layout--user {
-  --if-sidebar-bg: #ffffff;
   --if-content-max: 1200px;
   --if-radius: 16px;
 }
 
-/* 侧栏改为 flex 列布局，便于底部入口 margin-top:auto 推到底 */
+/* 侧栏 flex 列布局 + 100vh，底部入口 margin-top:auto 吸底（T7） */
 .if-layout--user .if-sidebar {
   display: flex;
   flex-direction: column;
+  height: 100vh;
 }
 
 .dd-text {

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import routes from './routes'
+import { t } from '@/locales'
 import { useUserStore } from '@/store/user'
 
 const router = createRouter({
@@ -48,7 +49,7 @@ router.beforeEach(async (to, from, next) => {
   if (Array.isArray(requiredRoles) && requiredRoles.length > 0) {
     const ok = (userStore.roles || []).some((r) => requiredRoles.includes(r))
     if (!ok) {
-      ElMessage.error('无权限访问该页面')
+      ElMessage.error(t('error.msg.noPermission'))
       next({ path: '/403' })
       return
     }

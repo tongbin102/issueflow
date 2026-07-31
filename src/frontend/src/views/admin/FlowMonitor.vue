@@ -16,27 +16,27 @@
 
     <el-card class="page-card" shadow="never" style="margin-top: 16px">
       <template #header>
-        <span>最近流转（按更新时间）</span>
+        <span>{{ t('flow.monitor.recent') }}</span>
       </template>
       <el-table v-loading="loading" :data="recent" border stripe>
-        <el-table-column prop="issueNo" label="编号" width="150" />
-        <el-table-column prop="title" label="标题" min-width="200" show-overflow-tooltip />
-        <el-table-column label="状态" width="100" align="center">
+        <el-table-column prop="issueNo" :label="t('issue.list.col.issueNo')" width="150" />
+        <el-table-column prop="title" :label="t('issue.list.col.title')" min-width="200" show-overflow-tooltip />
+        <el-table-column :label="t('issue.list.col.status')" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTagType(row.status)" effect="light">
-              {{ statusLabel(row.status) }}
+              {{ statusLabelI18n(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="reporterName" label="提交人" width="110" />
-        <el-table-column prop="assigneeName" label="处理人" width="110" />
-        <el-table-column label="更新时间" width="170">
+        <el-table-column prop="reporterName" :label="t('issue.list.col.reporter')" width="110" />
+        <el-table-column prop="assigneeName" :label="t('issue.list.col.assignee')" width="110" />
+        <el-table-column :label="t('common.field.updatedAt')" width="170">
           <template #default="{ row }">{{ formatDate(row.updatedAt || row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="90">
+        <el-table-column :label="t('common.action.operation')" width="90">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="openDetail(row)"
-              >详情</el-button
+              >{{ t('common.action.detail') }}</el-button
             >
           </template>
         </el-table-column>
@@ -52,20 +52,25 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import {
-  STATUS_OPTIONS,
-  statusColor,
-  statusLabel,
-  statusTagType,
-  formatDate
-} from '@/utils/format'
+import { ref, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { statusColor, statusTagType, formatDate } from '@/utils/format'
+import { statusLabelI18n, useStatusOptions } from '@/utils/i18nEnum'
 import { overview } from '@/api/dashboard'
 import { pageIssues } from '@/api/issue'
 import IssueDetailDrawer from '@/components/IssueDetailDrawer.vue'
 
-const cards = ref(STATUS_OPTIONS.map((s) => ({ status: s.value, label: s.label, count: 0 })))
+const { t } = useI18n()
+const statusOptions = useStatusOptions()
+
+const countMap = ref({})
+const cards = computed(() =>
+  statusOptions.value.map((s) => ({
+    status: s.value,
+    label: s.label,
+    count: countMap.value[s.value] || 0
+  }))
+)
 const recent = ref([])
 const loading = ref(false)
 const drawerVisible = ref(false)
@@ -80,12 +85,10 @@ async function load() {
     dist.forEach((d) => {
       map[Number(d.status)] = Number(d.count) || 0
     })
-    cards.value = STATUS_OPTIONS.map((s) => ({
-      status: s.value,
-      label: s.label,
-      count: map[s.value] || 0
-    }))
-  } catch (e) {}
+    countMap.value = map
+  } catch (e) {
+    countMap.value = {}
+  }
   loading.value = true
   try {
     const res = await pageIssues({ page: 1, size: 15 })

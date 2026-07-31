@@ -3,7 +3,7 @@
     <el-card class="page-card" shadow="never">
       <template #header>
         <div class="head">
-          <span>系统设置</span>
+          <span>{{ t('system.title') }}</span>
         </div>
       </template>
 
@@ -11,29 +11,26 @@
       <el-card shadow="never" class="setting-item">
         <div class="setting-item__body">
           <div class="setting-item__info">
-            <div class="setting-item__title">数据初始化</div>
-            <div class="setting-item__desc">
-              清空所有业务数据（问题、项目、模块、组织、非 admin 用户等），保留角色、权限、菜单、
-              系统配置与流程定义。适用于试运行结束后正式上线前的一次性清库。该操作不可撤销，请谨慎执行。
-            </div>
+            <div class="setting-item__title">{{ t('system.reset.title') }}</div>
+            <div class="setting-item__desc">{{ t('system.reset.desc') }}</div>
           </div>
           <el-button
             v-perm="'system:reset'"
             v-permission="'ADMIN'"
             type="danger"
             @click="resetVisible = true"
-          >初始化数据</el-button>
+          >{{ t('system.reset.button') }}</el-button>
         </div>
 
         <!-- 初始化结果：各表清理条数 -->
         <div v-if="resetCounts" class="reset-result">
-          <el-alert type="success" :closable="false" show-icon title="数据初始化已完成，各表清理条数如下：" />
+          <el-alert type="success" :closable="false" show-icon :title="t('system.reset.doneTitle')" />
           <el-descriptions :column="2" border size="small" class="reset-result__table">
             <el-descriptions-item
               v-for="(count, table) in resetCounts"
               :key="table"
-              :label="TABLE_LABELS[table] || table"
-            >{{ count }} 条</el-descriptions-item>
+              :label="tableLabel(table)"
+            >{{ t('system.reset.countUnit', { count }) }}</el-descriptions-item>
           </el-descriptions>
         </div>
       </el-card>
@@ -46,24 +43,22 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import DataResetDrawer from '@/components/DataResetDrawer.vue'
+
+const { t, te } = useI18n()
 
 /** R7 系统设置页：目前仅数据初始化入口，后续设置项可平级追加 el-card */
 const resetVisible = ref(false)
 /** 最近一次初始化结果（Map<表名, 条数>），null 表示未执行过 */
 const resetCounts = ref(null)
 
-const TABLE_LABELS = {
-  issue_attachment: '问题附件',
-  issue_history: '问题历史',
-  issue_relation: '问题关联',
-  issue: '问题',
-  tag: '标签',
-  module_dependency: '模块依赖',
-  module: '模块',
-  project: '项目',
-  organization: '组织',
-  user: '用户（除 admin）'
+/**
+ * 表名 → 文案：优先取 system.reset.table.{table} key，缺失时回退原始表名
+ */
+function tableLabel(table) {
+  const key = `system.reset.table.${table}`
+  return te(key) ? t(key) : table
 }
 
 function onResetSuccess(counts) {

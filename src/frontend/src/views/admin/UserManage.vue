@@ -3,35 +3,35 @@
     <el-card class="page-card" shadow="never">
       <template #header>
         <div class="head">
-          <span>用户管理</span>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新建用户</el-button>
+          <span>{{ t('user.page.title') }}</span>
+          <el-button type="primary" :icon="Plus" @click="openCreate">{{ t('user.action.create') }}</el-button>
         </div>
       </template>
 
       <el-table v-loading="loading" :data="list" border stripe>
-        <el-table-column prop="username" label="账号" width="140" />
-        <el-table-column prop="realName" label="姓名" width="120" />
-        <el-table-column prop="email" label="邮箱" min-width="160" show-overflow-tooltip />
-        <el-table-column label="角色" width="120">
+        <el-table-column prop="username" :label="t('user.col.username')" width="140" />
+        <el-table-column prop="realName" :label="t('user.col.realName')" width="120" />
+        <el-table-column prop="email" :label="t('user.col.email')" min-width="160" show-overflow-tooltip />
+        <el-table-column :label="t('user.col.role')" width="120">
           <template #default="{ row }">{{ roleName(row.roleId) }}</template>
         </el-table-column>
-        <el-table-column label="上级领导" width="120">
+        <el-table-column :label="t('user.col.leader')" width="120">
           <template #default="{ row }">{{ row.leaderName || '-' }}</template>
         </el-table-column>
-        <el-table-column label="状态" width="100" align="center">
+        <el-table-column :label="t('user.col.status')" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'info'" effect="light">
-              {{ row.status === 1 ? '启用' : '禁用' }}
+              {{ row.status === 1 ? t('common.status.enabled') : t('common.status.disabled') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" width="170">
+        <el-table-column :label="t('common.field.createdAt')" width="170">
           <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column :label="t('common.action.operation')" width="160" fixed="right">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button link type="danger" size="small" @click="onDelete(row)">删除</el-button>
+            <el-button link type="primary" size="small" @click="openEdit(row)">{{ t('common.action.edit') }}</el-button>
+            <el-button link type="danger" size="small" @click="onDelete(row)">{{ t('common.action.delete') }}</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -53,32 +53,32 @@
     <!-- 新建 / 编辑抽屉（R3 FormDrawer 规范） -->
     <FormDrawer
       v-model="drawerVisible"
-      :title="form.id ? '编辑用户' : '新增用户'"
+      :title="form.id ? t('user.drawer.editTitle') : t('user.drawer.createTitle')"
       size="sm"
       :loading="saving"
       @confirm="onSubmit"
       @closed="onDrawerClosed"
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
-        <el-form-item label="账号" prop="username">
+        <el-form-item :label="t('user.form.username')" prop="username">
           <el-input v-model="form.username" :disabled="!!form.id" />
         </el-form-item>
-        <el-form-item label="姓名">
+        <el-form-item :label="t('user.form.realName')">
           <el-input v-model="form.realName" />
         </el-form-item>
-        <el-form-item label="邮箱">
+        <el-form-item :label="t('user.col.email')">
           <el-input v-model="form.email" />
         </el-form-item>
-        <el-form-item label="手机">
+        <el-form-item :label="t('user.col.phone')">
           <el-input v-model="form.phone" />
         </el-form-item>
-        <el-form-item label="角色" prop="roleId">
-          <el-select v-model="form.roleId" placeholder="选择角色" style="width: 100%">
+        <el-form-item :label="t('user.form.role')" prop="roleId">
+          <el-select v-model="form.roleId" :placeholder="t('user.placeholder.selectRole')" style="width: 100%">
             <el-option v-for="r in roles" :key="r.id" :label="r.name" :value="r.id" />
           </el-select>
         </el-form-item>
         <!-- R5 上级领导：复用 /api/users/options，排除自己 -->
-        <el-form-item label="上级领导">
+        <el-form-item :label="t('user.form.leader')">
           <el-select
             v-model="form.leaderId"
             filterable
@@ -87,7 +87,7 @@
             reserve-keyword
             :remote-method="searchLeaders"
             :loading="leaderLoading"
-            placeholder="搜索并选择上级领导（可空）"
+            :placeholder="t('user.placeholder.selectLeader')"
             style="width: 100%"
           >
             <el-option
@@ -98,16 +98,16 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="状态">
+        <el-form-item :label="t('user.form.status')">
           <el-switch
             v-model="form.status"
             :active-value="1"
             :inactive-value="0"
-            active-text="启用"
-            inactive-text="禁用"
+            :active-text="t('common.status.enabled')"
+            :inactive-text="t('common.status.disabled')"
           />
         </el-form-item>
-        <el-form-item v-if="!form.id" label="密码" prop="password">
+        <el-form-item v-if="!form.id" :label="t('user.form.password')" prop="password">
           <el-input v-model="form.password" type="password" show-password />
         </el-form-item>
       </el-form>
@@ -116,13 +116,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { formatDate } from '@/utils/format'
 import { pageUsers, createUser, updateUser, deleteUser, listUserOptions } from '@/api/user'
 import { listRoles } from '@/api/user'
 import FormDrawer from '@/components/FormDrawer.vue'
+
+const { t } = useI18n()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -148,11 +151,11 @@ const emptyForm = () => ({
 })
 const form = reactive(emptyForm())
 
-const rules = {
-  username: [{ required: true, message: '请输入账号', trigger: 'blur' }],
-  roleId: [{ required: true, message: '请选择角色', trigger: 'change' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
-}
+const rules = computed(() => ({
+  username: [{ required: true, message: t('login.msg.usernameRequired'), trigger: 'blur' }],
+  roleId: [{ required: true, message: t('user.placeholder.selectRole'), trigger: 'change' }],
+  password: [{ required: true, message: t('login.msg.passwordRequired'), trigger: 'blur' }]
+}))
 
 function roleName(roleId) {
   return roleMap.value[roleId] || '-'
@@ -242,7 +245,7 @@ function onSubmit() {
   formRef.value.validate(async (valid) => {
     if (!valid) return
     if (form.id && form.leaderId === form.id) {
-      ElMessage.warning('上级领导不能设置为自己')
+      ElMessage.warning(t('user.msg.leaderSelf'))
       return
     }
     saving.value = true
@@ -259,10 +262,10 @@ function onSubmit() {
     try {
       if (form.id) {
         await updateUser(form.id, payload)
-        ElMessage.success('已更新')
+        ElMessage.success(t('user.msg.updateSuccess'))
       } else {
         await createUser(payload)
-        ElMessage.success('已创建')
+        ElMessage.success(t('user.msg.createSuccess'))
       }
       drawerVisible.value = false
       fetchData()
@@ -274,10 +277,10 @@ function onSubmit() {
 }
 
 function onDelete(row) {
-  ElMessageBox.confirm(`确认删除用户 ${row.username}？`, '提示', { type: 'warning' })
+  ElMessageBox.confirm(t('user.msg.deleteConfirm', { name: row.username }), t('common.msg.tip'), { type: 'warning' })
     .then(async () => {
       await deleteUser(row.id)
-      ElMessage.success('已删除')
+      ElMessage.success(t('user.msg.deleteSuccess'))
       fetchData()
     })
     .catch(() => {})

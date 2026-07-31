@@ -14,6 +14,9 @@ public class IssueUpdateReq implements Serializable {
 
     private String title;
 
+    /** 问题类型 id（非空才更新；更新时校验类型必须启用） */
+    private Long typeId;
+
     private String description;
 
     private Integer severity;

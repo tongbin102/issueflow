@@ -62,6 +62,9 @@ public class Issue extends BaseEntity {
     /** 所属模块 id（关联 module.id，可空；必须与 projectId 同项目） */
     private Long moduleId;
 
+    /** 问题类型 id（关联 issue_type.id；Phase6 起新建必填，存量已回填 OTHER） */
+    private Long typeId;
+
     /** 关闭时间（解决周期计算） */
     private LocalDateTime closedAt;
 }

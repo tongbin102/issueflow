@@ -1,6 +1,7 @@
 package com.issueflow.dto.req;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -17,6 +18,10 @@ public class IssueCreateReq implements Serializable {
     /** 标题 */
     @NotBlank(message = "标题不能为空")
     private String title;
+
+    /** 问题类型 id（Phase6 起必填，且必须为启用状态的类型） */
+    @NotNull(message = "问题类型不能为空")
+    private Long typeId;
 
     /** 详细描述 */
     private String description;

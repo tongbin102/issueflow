@@ -21,8 +21,8 @@
   <template v-else>
     <el-sub-menu v-if="hasChildren(node)" :index="resolveIndex(node)">
       <template #title>
-        <el-icon v-if="node.icon"><component :is="node.icon" /></el-icon>
-        <span>{{ node.name }}</span>
+        <el-icon v-if="node.icon"><component :is="resolveIcon(node.icon)" /></el-icon>
+        <span>{{ menuLabelI18n(node) }}</span>
       </template>
       <SideMenu
         v-for="child in node.children"
@@ -32,8 +32,8 @@
       />
     </el-sub-menu>
     <el-menu-item v-else :index="resolveIndex(node)">
-      <el-icon v-if="node.icon"><component :is="node.icon" /></el-icon>
-      <template #title>{{ node.name }}</template>
+      <el-icon v-if="node.icon"><component :is="resolveIcon(node.icon)" /></el-icon>
+      <template #title>{{ menuLabelI18n(node) }}</template>
     </el-menu-item>
   </template>
 </template>
@@ -41,9 +41,11 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { getSidebarMenus } from '@/api/menu'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
+import { menuLabelI18n } from '@/utils/i18nEnum'
 
 // 允许组件在模板中递归调用自身
 defineOptions({ name: 'SideMenu' })
@@ -78,6 +80,15 @@ function hasChildren(n) {
 
 function resolveIndex(n) {
   return n && n.path ? n.path : `menu-${n && n.id}`
+}
+
+/**
+ * 图标兜底（T7）：数据库存的 icon 必须是 Element Plus 真实图标名；
+ * 无效 / 拼错时回退 Grid，避免 <component :is> 渲染警告或空白。
+ */
+function resolveIcon(iconName) {
+  if (iconName && ElementPlusIconsVue[iconName]) return iconName
+  return 'Grid'
 }
 
 // 按权限码过滤：未加载权限时（避免误隐藏）默认全部可见

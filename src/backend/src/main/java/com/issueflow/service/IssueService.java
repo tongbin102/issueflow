@@ -16,6 +16,7 @@ import com.issueflow.dto.resp.IssueHistoryVO;
 import com.issueflow.dto.resp.IssueVO;
 import com.issueflow.entity.Issue;
 import com.issueflow.entity.IssueAttachment;
+import com.issueflow.entity.IssueType;
 import com.issueflow.enums.HistoryActionEnum;
 import com.issueflow.enums.IssueStatusEnum;
 import com.issueflow.enums.SeverityEnum;
@@ -52,6 +53,7 @@ public class IssueService {
     private final ProjectService projectService;
     private final ModuleService moduleService;
     private final PermissionService permissionService;
+    private final IssueTypeService issueTypeService;
 
     /**
      * 新建问题（生成编号、reporter=当前用户、status=OPEN、写 CREATE 历史）
@@ -59,9 +61,12 @@ public class IssueService {
     @Transactional
     public IssueVO createIssue(IssueCreateReq req, Long currentUser) {
         permissionService.requirePermission("issue:create");
+        // Phase6：类型必填且必须启用（停用类型仅存量展示，不可新选）
+        issueTypeService.requireEnabled(req.getTypeId());
         String issueNo = issueNoGenerator.nextIssueNo();
         Issue issue = new Issue();
         issue.setIssueNo(issueNo);
+        issue.setTypeId(req.getTypeId());
         issue.setTitle(req.getTitle());
         issue.setDescription(req.getDescription());
         issue.setSeverity(req.getSeverity() == null ? SeverityEnum.NORMAL.getCode() : req.getSeverity());
@@ -91,7 +96,8 @@ public class IssueService {
         historyService.record(issue.getId(), HistoryActionEnum.CREATE.getCode(),
                 null, IssueStatusEnum.OPEN.getCode(), currentUser, null);
         return toIssueVO(issue, userService.userNameMap(), projectService.nameMap(),
-                moduleService.pathMap(Collections.singletonList(issue.getModuleId())));
+                moduleService.pathMap(Collections.singletonList(issue.getModuleId())),
+                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())));
     }
 
     /**
@@ -109,6 +115,11 @@ public class IssueService {
         }
         if (req.getTitle() != null) {
             issue.setTitle(req.getTitle());
+        }
+        // 类型：非空才更新；变更时同样要求目标类型处于启用状态
+        if (req.getTypeId() != null) {
+            issueTypeService.requireEnabled(req.getTypeId());
+            issue.setTypeId(req.getTypeId());
         }
         if (req.getDescription() != null) {
             issue.setDescription(req.getDescription());
@@ -153,7 +164,8 @@ public class IssueService {
                 .set(Issue::getModuleId, req.getModuleId()));
         historyService.record(id, HistoryActionEnum.EDIT.getCode(), null, null, currentUser, null);
         return toIssueVO(issue, userService.userNameMap(), projectService.nameMap(),
-                moduleService.pathMap(Collections.singletonList(issue.getModuleId())));
+                moduleService.pathMap(Collections.singletonList(issue.getModuleId())),
+                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())));
     }
 
     /**
@@ -190,6 +202,9 @@ public class IssueService {
         }
         if (req.getSeverity() != null) {
             wrapper.eq(Issue::getSeverity, req.getSeverity());
+        }
+        if (req.getTypeId() != null) {
+            wrapper.eq(Issue::getTypeId, req.getTypeId());
         }
         if (req.getTag() != null && !req.getTag().isBlank()) {
             wrapper.like(Issue::getTags, req.getTag());
@@ -232,16 +247,21 @@ public class IssueService {
         issueMapper.selectPage(page, wrapper);
         Map<Long, String> userNameMap = userService.userNameMap();
         Map<Long, String> projectNameMap = projectService.nameMap();
-        // 批量回填铁律：当页汇总 moduleId → 一次批查 → Map 回填，禁止行内单查（N+1）
+        // 批量回填铁律：当页汇总 moduleId/typeId → 一次批查 → Map 回填，禁止行内单查（N+1）
         Set<Long> moduleIds = new HashSet<>();
+        Set<Long> typeIds = new HashSet<>();
         for (Issue i : page.getRecords()) {
             if (i.getModuleId() != null) {
                 moduleIds.add(i.getModuleId());
             }
+            if (i.getTypeId() != null) {
+                typeIds.add(i.getTypeId());
+            }
         }
         Map<Long, String> modulePathMap = moduleService.pathMap(moduleIds);
+        Map<Long, IssueType> typeMap = issueTypeService.nameMap(typeIds);
         List<IssueVO> list = page.getRecords().stream()
-                .map(i -> toIssueVO(i, userNameMap, projectNameMap, modulePathMap))
+                .map(i -> toIssueVO(i, userNameMap, projectNameMap, modulePathMap, typeMap))
                 .collect(Collectors.toList());
         return PageResult.of(list, page.getTotal(), (long) pageNum, (long) size);
     }
@@ -260,7 +280,8 @@ public class IssueService {
         }
         Map<Long, String> userNameMap = userService.userNameMap();
         IssueDetailVO vo = toDetailVO(issue, userNameMap,
-                moduleService.pathMap(Collections.singletonList(issue.getModuleId())));
+                moduleService.pathMap(Collections.singletonList(issue.getModuleId())),
+                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())));
 
         List<IssueAttachment> attachments = attachmentMapper.selectList(
                 new LambdaQueryWrapper<IssueAttachment>()
@@ -277,7 +298,8 @@ public class IssueService {
     }
 
     private IssueVO toIssueVO(Issue issue, Map<Long, String> userNameMap,
-                              Map<Long, String> projectNameMap, Map<Long, String> modulePathMap) {
+                              Map<Long, String> projectNameMap, Map<Long, String> modulePathMap,
+                              Map<Long, IssueType> typeMap) {
         IssueVO vo = new IssueVO();
         vo.setId(issue.getId());
         vo.setIssueNo(issue.getIssueNo());
@@ -286,6 +308,7 @@ public class IssueService {
         vo.setSeverityDesc(descOf(SeverityEnum.getByCode(issue.getSeverity())));
         vo.setStatus(issue.getStatus());
         vo.setStatusDesc(descOf(IssueStatusEnum.getByCode(issue.getStatus())));
+        fillTypeFields(vo, issue, typeMap);
         vo.setTags(issue.getTags());
         vo.setEnvAppVersion(issue.getEnvAppVersion());
         vo.setReporterId(issue.getReporterId());
@@ -303,7 +326,8 @@ public class IssueService {
     }
 
     private IssueDetailVO toDetailVO(Issue issue, Map<Long, String> userNameMap,
-                                     Map<Long, String> modulePathMap) {
+                                     Map<Long, String> modulePathMap,
+                                     Map<Long, IssueType> typeMap) {
         IssueDetailVO vo = new IssueDetailVO();
         vo.setId(issue.getId());
         vo.setIssueNo(issue.getIssueNo());
@@ -313,6 +337,7 @@ public class IssueService {
         vo.setSeverityDesc(descOf(SeverityEnum.getByCode(issue.getSeverity())));
         vo.setStatus(issue.getStatus());
         vo.setStatusDesc(descOf(IssueStatusEnum.getByCode(issue.getStatus())));
+        fillTypeFields(vo, issue, typeMap);
         vo.setTags(issue.getTags());
         vo.setReproduceSteps(issue.getReproduceSteps());
         vo.setEnvOs(issue.getEnvOs());
@@ -349,6 +374,20 @@ public class IssueService {
         vo.setPreviewUrl("/api/attachments/" + a.getId() + "/preview");
         vo.setCreatedAt(a.getCreatedAt());
         return vo;
+    }
+
+    /**
+     * 类型三字段回填（typeId/typeName/typeCode）；停用/已删类型查不到时仅回 id，前端显「—」
+     */
+    private void fillTypeFields(IssueVO vo, Issue issue, Map<Long, IssueType> typeMap) {
+        vo.setTypeId(issue.getTypeId());
+        if (issue.getTypeId() != null && typeMap != null) {
+            IssueType type = typeMap.get(issue.getTypeId());
+            if (type != null) {
+                vo.setTypeName(type.getName());
+                vo.setTypeCode(type.getCode());
+            }
+        }
     }
 
     private String descOf(com.issueflow.enums.IssueStatusEnum e) {

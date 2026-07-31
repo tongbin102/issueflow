@@ -1,9 +1,10 @@
 <template>
+  <!-- Q5 决策：本页 0 功能改动，仅 T7 弹窗→抽屉 与 T8 i18n 替换 -->
   <div class="admin-issue-list">
     <el-card class="page-card" shadow="never">
       <template #header>
         <div class="head">
-          <span>问题管理</span>
+          <span>{{ t('menu.admin.issues') }}</span>
         </div>
       </template>
 
@@ -22,25 +23,44 @@
       @updated="refresh"
     />
 
-    <el-dialog v-model="editVisible" title="编辑问题" width="680px" append-to-body>
-      <IssueForm :initial="editRow" @submit="onEditSubmit" />
-    </el-dialog>
+    <!-- 编辑抽屉（T7：el-dialog → FormDrawer，支持全屏图标切换） -->
+    <FormDrawer
+      v-model="editVisible"
+      :title="t('issue.drawer.editTitle')"
+      size="lg"
+      fullscreenable
+      :loading="editLoading"
+      @confirm="onEditConfirm"
+      @closed="editRow = null"
+    >
+      <IssueForm
+        v-if="editVisible && editRow"
+        ref="editFormRef"
+        :initial="editRow"
+        @submit="onEditSubmit"
+      />
+    </FormDrawer>
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import IssueTable from '@/components/IssueTable.vue'
 import IssueDetailDrawer from '@/components/IssueDetailDrawer.vue'
 import IssueForm from '@/components/IssueForm.vue'
+import FormDrawer from '@/components/FormDrawer.vue'
 import { updateIssue } from '@/api/issue'
 
+const { t } = useI18n()
 const tableRef = ref(null)
 const drawerVisible = ref(false)
 const currentId = ref(null)
 const editVisible = ref(false)
+const editLoading = ref(false)
 const editRow = ref(null)
+const editFormRef = ref(null)
 const flowConfig = ref({ rejectEnabled: true, reopenEnabled: true })
 
 function openDetail(row) {
@@ -54,14 +74,22 @@ function openEdit(row) {
 function refresh() {
   if (tableRef.value) tableRef.value.fetchData()
 }
+function onEditConfirm() {
+  if (editFormRef.value) editFormRef.value.submit()
+}
 async function onEditSubmit({ data }) {
   if (!editRow.value) return
+  editLoading.value = true
   try {
     await updateIssue(editRow.value.id, data)
-    ElMessage.success('保存成功')
+    ElMessage.success(t('issue.msg.updateSuccess'))
     editVisible.value = false
     refresh()
-  } catch (e) {}
+  } catch (e) {
+    // 错误提示由 request 拦截器统一处理
+  } finally {
+    editLoading.value = false
+  }
 }
 </script>
 

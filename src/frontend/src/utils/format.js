@@ -20,7 +20,11 @@ export function formatDate(value, fmt = 'YYYY-MM-DD HH:mm:ss') {
   return fmt.replace(/YYYY|MM|DD|HH|mm|ss/g, (k) => map[k])
 }
 
-// 角色码 → 中文名
+/**
+ * 角色码 → 中文名。
+ * @deprecated Phase6 起页面展示请改用 utils/i18nEnum.js 的 roleLabelI18n（支持中英切换）；
+ *             此常量仅保留给非展示逻辑（比较 / 兜底），后续版本移除。
+ */
 export const ROLE_LABELS = {
   SUBMITTER: '提交者',
   DEVELOPER: '开发人员',
@@ -28,7 +32,11 @@ export const ROLE_LABELS = {
   ADMIN: '管理员'
 }
 
-// 状态枚举（code → label）
+/**
+ * 状态枚举（code → label）。
+ * @deprecated Phase6 起下拉选项请改用 utils/i18nEnum.js 的 useStatusOptions()（响应式 i18n）；
+ *             文案请用 statusLabelI18n。此常量仅保留 value 枚举参照。
+ */
 export const STATUS_OPTIONS = [
   { value: 0, label: '待处理' },
   { value: 1, label: '处理中' },
@@ -37,7 +45,10 @@ export const STATUS_OPTIONS = [
   { value: 4, label: '已关闭' }
 ]
 
-// 严重等级枚举
+/**
+ * 严重等级枚举。
+ * @deprecated Phase6 起请改用 utils/i18nEnum.js 的 useSeverityOptions() / severityLabelI18n。
+ */
 export const SEVERITY_OPTIONS = [
   { value: 0, label: '致命' },
   { value: 1, label: '严重' },
@@ -45,16 +56,19 @@ export const SEVERITY_OPTIONS = [
   { value: 3, label: '轻微' }
 ]
 
+/** @deprecated Phase6 起请改用 utils/i18nEnum.js 的 statusLabelI18n。 */
 export function statusLabel(code) {
   const item = STATUS_OPTIONS.find((s) => s.value === Number(code))
   return item ? item.label : '未知'
 }
 
+/** @deprecated Phase6 起请改用 utils/i18nEnum.js 的 severityLabelI18n。 */
 export function severityLabel(code) {
   const item = SEVERITY_OPTIONS.find((s) => s.value === Number(code))
   return item ? item.label : '未知'
 }
 
+/** @deprecated Phase6 起请改用 utils/i18nEnum.js 的 roleLabelI18n。 */
 export function roleLabel(code) {
   return ROLE_LABELS[code] || code || '未知'
 }
@@ -109,7 +123,10 @@ export function severityColor(code) {
   return SEVERITY_COLORS[Number(code)] || '#909399'
 }
 
-// 操作历史动作 → 中文
+/**
+ * 操作历史动作 → 中文。
+ * @deprecated Phase6 起请改用 utils/i18nEnum.js 的 actionLabelI18n（支持中英切换）。
+ */
 export const ACTION_LABELS = {
   CREATE: '新建',
   CLAIM: '认领',
@@ -121,6 +138,7 @@ export const ACTION_LABELS = {
   EDIT: '编辑'
 }
 
+/** @deprecated Phase6 起请改用 utils/i18nEnum.js 的 actionLabelI18n。 */
 export function actionLabel(action) {
   return ACTION_LABELS[action] || action || '未知'
 }

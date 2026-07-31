@@ -1,0 +1,144 @@
+/**
+ * Phase6 前台多主题变量包（Q2 决策：light / dark / blue / green 共 4 套）。
+ *
+ * 挂载方式（ARCH §七.3，严格约定）：
+ *   - 仅写 document.body 的 data-if-theme 属性：body[data-if-theme="light|dark|blue|green"]
+ *   - 由 UserLayout 挂载时调用 themeStore.applyFrontTheme() 写入；
+ *   - AdminLayout 挂载时调用 themeStore.removeFrontTheme() 移除该属性，
+ *     后台自动回落 :root 默认变量，天然与前台主题互斥。
+ *   - 严禁写 document.documentElement，避免污染后台。
+ *
+ * 变量分两层：
+ *   1) 项目自有变量（variables.css 定义）：--theme-color / --bg-page / --bg-container /
+ *      --text-* / --border-color / --if-sidebar-bg
+ *   2) Element Plus 变量（--el-*）：保证 teleport 到 body 的抽屉 / 下拉 / 弹层同步换肤
+ */
+
+/* ===== 1. light（清爽浅色，默认）===== */
+body[data-if-theme='light'] {
+  --theme-color: #409eff;
+  --theme-color-light: #79bbff;
+
+  --bg-page: #f5f7fa;
+  --bg-container: #ffffff;
+  --if-sidebar-bg: #ffffff;
+
+  --text-primary: #303133;
+  --text-regular: #606266;
+  --text-secondary: #909399;
+
+  --border-color: #e4e7ed;
+
+  --el-color-primary: #409eff;
+  --el-color-primary-light-3: #79bbff;
+  --el-color-primary-light-5: #a0cfff;
+  --el-color-primary-light-7: #c6e2ff;
+  --el-color-primary-light-8: #d9ecff;
+  --el-color-primary-light-9: #ecf5ff;
+  --el-color-primary-dark-2: #337ecc;
+}
+
+/* ===== 2. dark（暗黑）===== */
+body[data-if-theme='dark'] {
+  --theme-color: #409eff;
+  --theme-color-light: #337ecc;
+
+  --bg-page: #141414;
+  --bg-container: #1e1e20;
+  --if-sidebar-bg: #1e1e20;
+
+  --text-primary: #e5eaf3;
+  --text-regular: #cfd3dc;
+  --text-secondary: #8d9095;
+
+  --border-color: #414243;
+
+  /* Element Plus 暗黑变量包（覆盖 teleport 弹层） */
+  --el-bg-color: #1e1e20;
+  --el-bg-color-page: #141414;
+  --el-bg-color-overlay: #242426;
+  --el-text-color-primary: #e5eaf3;
+  --el-text-color-regular: #cfd3dc;
+  --el-text-color-secondary: #a3a6ad;
+  --el-text-color-placeholder: #8d9095;
+  --el-text-color-disabled: #6c6e72;
+  --el-border-color: #4c4d4f;
+  --el-border-color-light: #414243;
+  --el-border-color-lighter: #363637;
+  --el-border-color-extra-light: #2b2b2c;
+  --el-border-color-dark: #58585b;
+  --el-fill-color: #303030;
+  --el-fill-color-light: #262727;
+  --el-fill-color-lighter: #1d1d1d;
+  --el-fill-color-extra-light: #191919;
+  --el-fill-color-blank: #1e1e20;
+  --el-fill-color-dark: #39393a;
+  --el-fill-color-darker: #424243;
+  --el-mask-color: rgba(0, 0, 0, 0.8);
+  --el-mask-color-extra-light: rgba(0, 0, 0, 0.3);
+  --el-box-shadow: 0 12px 32px 4px rgba(0, 0, 0, 0.36), 0 8px 20px rgba(0, 0, 0, 0.72);
+  --el-box-shadow-light: 0 0 12px rgba(0, 0, 0, 0.72);
+  --el-box-shadow-lighter: 0 0 6px rgba(0, 0, 0, 0.72);
+  --el-disabled-bg-color: #2b2b2c;
+  --el-disabled-border-color: #414243;
+  --el-color-primary: #409eff;
+  --el-color-primary-light-3: #3375b9;
+  --el-color-primary-light-5: #2a598a;
+  --el-color-primary-light-7: #213d5b;
+  --el-color-primary-light-8: #1d3043;
+  --el-color-primary-light-9: #18222c;
+  --el-color-primary-dark-2: #66b1ff;
+}
+
+/* ===== 3. blue（商务蓝）===== */
+body[data-if-theme='blue'] {
+  --theme-color: #1e6fff;
+  --theme-color-light: #6ba2ff;
+
+  --bg-page: #eef4fe;
+  --bg-container: #ffffff;
+  --if-sidebar-bg: #f3f8ff;
+
+  --text-primary: #1f2d3d;
+  --text-regular: #46586e;
+  --text-secondary: #7d8fa5;
+
+  --border-color: #d6e4f7;
+
+  --el-color-primary: #1e6fff;
+  --el-color-primary-light-3: #6ba2ff;
+  --el-color-primary-light-5: #97beff;
+  --el-color-primary-light-7: #c3daff;
+  --el-color-primary-light-8: #d8e7ff;
+  --el-color-primary-light-9: #ecf3ff;
+  --el-color-primary-dark-2: #1859cc;
+}
+
+/* ===== 4. green（护眼绿）===== */
+body[data-if-theme='green'] {
+  --theme-color: #17a97c;
+  --theme-color-light: #5cc4a3;
+
+  --bg-page: #f0f7f3;
+  --bg-container: #ffffff;
+  --if-sidebar-bg: #f2faf6;
+
+  --text-primary: #22302a;
+  --text-regular: #4a5a52;
+  --text-secondary: #86968e;
+
+  --border-color: #d8e8df;
+
+  --el-color-primary: #17a97c;
+  --el-color-primary-light-3: #5cc4a3;
+  --el-color-primary-light-5: #8bd4bd;
+  --el-color-primary-light-7: #b9e5d7;
+  --el-color-primary-light-8: #d1eee4;
+  --el-color-primary-light-9: #e8f6f1;
+  --el-color-primary-dark-2: #128763;
+}
+
+/* 主题切换时的平滑过渡（仅前台生效，避免后台闪烁） */
+body[data-if-theme] {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}

@@ -3,7 +3,7 @@
     <el-card class="page-card" shadow="never">
       <template #header>
         <div class="head">
-          <span>全局看板</span>
+          <span>{{ t('dashboard.admin.title') }}</span>
           <DashboardFilters :versions="versions" @search="load" />
         </div>
       </template>
@@ -11,19 +11,19 @@
       <el-row :gutter="16" class="kpi-row">
         <el-col :span="8">
           <el-card shadow="hover" :body-style="{ padding: '16px' }">
-            <div class="kpi-label">平均解决周期(小时)</div>
+            <div class="kpi-label">{{ t('dashboard.admin.avgCycle') }}</div>
             <div class="kpi-value">{{ avgCycle }}</div>
           </el-card>
         </el-col>
         <el-col :span="8">
           <el-card shadow="hover" :body-style="{ padding: '16px' }">
-            <div class="kpi-label">解决率</div>
+            <div class="kpi-label">{{ t('dashboard.admin.resolveRate') }}</div>
             <div class="kpi-value">{{ resolveRateText }}</div>
           </el-card>
         </el-col>
         <el-col :span="8">
           <el-card shadow="hover" :body-style="{ padding: '16px' }">
-            <div class="kpi-label">问题总数</div>
+            <div class="kpi-label">{{ t('dashboard.card.total') }}</div>
             <div class="kpi-value">{{ total }}</div>
           </el-card>
         </el-col>
@@ -31,21 +31,21 @@
 
       <el-row :gutter="16" style="margin-top: 16px">
         <el-col :span="12">
-          <el-card shadow="never" header="趋势">
-            <TrendChart ref="trendRef" :data="trend" title="提交/解决趋势" />
+          <el-card shadow="never" :header="t('dashboard.admin.trend')">
+            <TrendChart ref="trendRef" :data="trend" :title="t('dashboard.admin.trendTitle')" />
           </el-card>
         </el-col>
         <el-col :span="12">
-          <el-card shadow="never" header="分布">
+          <el-card shadow="never" :header="t('dashboard.admin.distribution')">
             <DistributionChart ref="distRef" :data="distribution" />
           </el-card>
         </el-col>
       </el-row>
 
       <div class="export-row">
-        <el-button :icon="Picture" @click="exportPng">导出 PNG</el-button>
+        <el-button :icon="Picture" @click="exportPng">{{ t('dashboard.admin.exportPng') }}</el-button>
         <el-button :icon="Download" :loading="excelLoading" @click="exportExcelFile"
-          >导出 Excel</el-button
+          >{{ t('dashboard.admin.exportExcel') }}</el-button
         >
       </div>
     </el-card>
@@ -56,11 +56,14 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Picture, Download } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import DashboardFilters from '@/components/DashboardFilters.vue'
 import TrendChart from '@/components/charts/TrendChart.vue'
 import DistributionChart from '@/components/charts/DistributionChart.vue'
 import { overview, exportExcel } from '@/api/dashboard'
 import { downloadBlob } from '@/utils/exportUtil'
+
+const { t } = useI18n()
 
 const versions = ref([])
 const avgCycle = ref('-')
@@ -93,7 +96,7 @@ async function load(query = {}) {
       ) || 0
     if (data && data.versions) versions.value = data.versions
   } catch (e) {
-    ElMessage.error('看板加载失败')
+    ElMessage.error(t('dashboard.admin.loadFailed'))
   }
 }
 

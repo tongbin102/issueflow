@@ -24,6 +24,9 @@ public class IssuePageReq implements Serializable {
     /** 严重等级筛选 */
     private Integer severity;
 
+    /** 问题类型 id 筛选（Q6：筛选下拉含停用项，停用项由前端追加「(已停用)」标记） */
+    private Long typeId;
+
     /** 标签名称筛选（模糊匹配逗号分隔串） */
     private String tag;
 

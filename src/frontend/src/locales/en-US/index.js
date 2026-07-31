@@ -1,0 +1,47 @@
+/**
+ * en-US message aggregation (mirrors zh-CN structure exactly)
+ */
+import common from './common'
+import enumDict from './enum'
+import menu from './menu'
+import menuManage from './menuManage'
+import layout from './layout'
+import locale from './locale'
+import theme from './theme'
+import login from './login'
+import error from './error'
+import issue from './issue'
+import issueType from './issueType'
+import dashboard from './dashboard'
+import project from './project'
+import moduleDict from './module'
+import org from './org'
+import user from './user'
+import role from './role'
+import flow from './flow'
+import system from './system'
+import site from './site'
+import chart from './chart'
+
+export default {
+  common,
+  enum: enumDict,
+  menu: { ...menu, ...menuManage },
+  layout,
+  locale,
+  theme,
+  login,
+  error,
+  issue,
+  issueType,
+  dashboard,
+  project,
+  module: moduleDict,
+  org,
+  user,
+  role,
+  flow,
+  system,
+  site,
+  chart
+}

@@ -3,17 +3,17 @@
     <el-card class="page-card" shadow="never">
       <template #header>
         <div class="head">
-          <span>模块配置</span>
+          <span>{{ t('module.page.title') }}</span>
         </div>
       </template>
 
       <!-- 项目选择：记住上次选择（localStorage） -->
       <div v-if="projects.length" class="project-bar">
-        <span class="project-bar__label">项目：</span>
+        <span class="project-bar__label">{{ t('module.col.project') }}：</span>
         <el-select
           v-model="currentProjectId"
           filterable
-          placeholder="请选择项目"
+          :placeholder="t('module.placeholder.selectProject')"
           style="width: 280px"
           @change="onProjectChange"
         >
@@ -32,7 +32,7 @@
       </div>
       <el-empty
         v-else
-        :description="projects.length ? '请选择一个项目以管理其模块' : '暂无可选项目，请先在「项目配置」中创建项目'"
+        :description="projects.length ? t('module.empty.selectProject') : t('module.empty.noProject')"
       />
     </el-card>
   </div>
@@ -40,8 +40,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { listProjectOptions } from '@/api/project'
 import ModuleTreePanel from '@/components/ModuleTreePanel.vue'
+
+const { t } = useI18n()
 
 /** R6 模块配置页：项目下拉 + 复用模块树面板 */
 const LAST_PROJECT_KEY = 'if_module_last_project'

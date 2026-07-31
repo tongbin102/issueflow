@@ -14,7 +14,7 @@
       </el-col>
       <el-col :xs="12" :sm="8" :md="4">
         <el-card class="stat-card total" shadow="hover" :body-style="{ padding: '16px' }">
-          <div class="stat-label">我提交总计</div>
+          <div class="stat-label">{{ t('dashboard.user.submittedTotal') }}</div>
           <div class="stat-value">{{ total }}</div>
         </el-card>
       </el-col>
@@ -23,25 +23,37 @@
     <el-card class="page-card" shadow="never" style="margin-top: 16px">
       <template #header>
         <div class="card-head">
-          <span>我的趋势</span>
-          <el-button text type="primary" @click="goList">查看我的问题 →</el-button>
+          <span>{{ t('dashboard.user.myTrend') }}</span>
+          <el-button text type="primary" @click="goList">{{ t('dashboard.user.viewMy') }}</el-button>
         </div>
       </template>
-      <TrendChart :data="trend" title="提交趋势" />
+      <TrendChart :data="trend" :title="t('dashboard.user.submitTrend')" />
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { STATUS_OPTIONS, statusColor } from '@/utils/format'
+import { useI18n } from 'vue-i18n'
+import { statusColor } from '@/utils/format'
+import { useStatusOptions } from '@/utils/i18nEnum'
 import { overview } from '@/api/dashboard'
 import TrendChart from '@/components/charts/TrendChart.vue'
 
+const { t } = useI18n()
 const router = useRouter()
-const cards = ref(STATUS_OPTIONS.map((s) => ({ status: s.value, label: s.label, count: 0 })))
+const statusOptions = useStatusOptions()
+
+const countMap = ref({})
+const cards = computed(() =>
+  statusOptions.value.map((s) => ({
+    status: s.value,
+    label: s.label,
+    count: countMap.value[s.value] || 0
+  }))
+)
 const total = ref(0)
 const trend = ref([])
 
@@ -57,15 +69,11 @@ async function load() {
     dist.forEach((d) => {
       map[Number(d.status)] = Number(d.count) || 0
     })
-    cards.value = STATUS_OPTIONS.map((s) => ({
-      status: s.value,
-      label: s.label,
-      count: map[s.value] || 0
-    }))
+    countMap.value = map
     total.value = Object.values(map).reduce((a, b) => a + b, 0)
     trend.value = (data && (data.trendByDay || data.trend)) || []
   } catch (e) {
-    ElMessage.error('看板数据加载失败')
+    ElMessage.error(t('dashboard.admin.loadFailed'))
   }
 }
 

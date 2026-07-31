@@ -11,38 +11,39 @@
     </el-button>
     <el-empty
       v-if="!buttons.length"
-      description="当前状态无可执行流转"
+      :description="t('issue.flowBtn.noAction')"
       :image-size="40"
     />
 
-    <!-- 备注弹框 -->
-    <el-dialog
-      v-model="dialogVisible"
-      :title="`${activeBtn ? activeBtn.label : ''} - 填写备注`"
-      width="420px"
-      append-to-body
+    <!-- 备注抽屉（T7：el-dialog → 统一 FormDrawer） -->
+    <FormDrawer
+      v-model="remarkVisible"
+      :title="`${activeBtn ? activeBtn.label : ''} - ${t('issue.action.remark')}`"
+      size="sm"
+      :loading="submitting"
+      :confirm-text="t('common.action.confirm')"
+      @confirm="confirm"
+      @closed="remark = ''"
     >
       <el-input
         v-model="remark"
         type="textarea"
-        :rows="3"
-        :placeholder="remarkRequired ? '请填写原因（必填）' : '可选备注'"
+        :rows="4"
+        :placeholder="
+          remarkRequired ? t('issue.flowBtn.remarkRequiredPh') : t('issue.flowBtn.remarkOptional')
+        "
       />
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="confirm"
-          >确定</el-button
-        >
-      </template>
-    </el-dialog>
+    </FormDrawer>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
 import { changeStatus, reopenIssue } from '@/api/issue'
+import FormDrawer from '@/components/FormDrawer.vue'
 
 const props = defineProps({
   // 当前状态数值
@@ -53,8 +54,9 @@ const props = defineProps({
 })
 const emit = defineEmits(['changed'])
 
+const { t } = useI18n()
 const userStore = useUserStore()
-const dialogVisible = ref(false)
+const remarkVisible = ref(false)
 const activeBtn = ref(null)
 const remark = ref('')
 const submitting = ref(false)
@@ -64,7 +66,9 @@ const isDev = computed(() => roles.value.includes('DEVELOPER'))
 const isTester = computed(() => roles.value.includes('TESTER'))
 const isAdmin = computed(() => roles.value.includes('ADMIN'))
 
-// 依据 当前状态 + 角色 + 流程开关 计算可用按钮
+const remarkRequired = computed(() => !!(activeBtn.value && activeBtn.value.requireRemark))
+
+// 依据 当前状态 + 角色 + 流程开关 计算可用按钮（label 走 i18n，语言切换响应式更新）
 const buttons = computed(() => {
   const s = Number(props.status)
   const list = []
@@ -73,7 +77,7 @@ const buttons = computed(() => {
     if (isDev.value || isAdmin.value) {
       list.push({
         key: 'claim',
-        label: '认领 / 处理中',
+        label: t('issue.flowBtn.claim'),
         type: 'primary',
         toStatus: 1,
         requireRemark: false,
@@ -85,7 +89,7 @@ const buttons = computed(() => {
     if (isDev.value || isAdmin.value) {
       list.push({
         key: 'submitFix',
-        label: '提交修复',
+        label: t('issue.flowBtn.submitFix'),
         type: 'primary',
         toStatus: 2,
         requireRemark: false,
@@ -97,7 +101,7 @@ const buttons = computed(() => {
     if (isTester.value || isAdmin.value) {
       list.push({
         key: 'verifyPass',
-        label: '验证通过',
+        label: t('issue.flowBtn.verifyPass'),
         type: 'success',
         toStatus: 3,
         requireRemark: false,
@@ -108,7 +112,7 @@ const buttons = computed(() => {
     if ((isTester.value || isAdmin.value) && props.flowConfig.rejectEnabled) {
       list.push({
         key: 'reject',
-        label: '回退',
+        label: t('issue.flowBtn.reject'),
         type: 'warning',
         plain: true,
         toStatus: 1,
@@ -121,7 +125,7 @@ const buttons = computed(() => {
     if (isTester.value || isAdmin.value) {
       list.push({
         key: 'close',
-        label: '关闭',
+        label: t('issue.flowBtn.close'),
         type: 'info',
         toStatus: 4,
         requireRemark: true,
@@ -133,7 +137,7 @@ const buttons = computed(() => {
     if (isAdmin.value && props.flowConfig.reopenEnabled) {
       list.push({
         key: 'reopen',
-        label: '重开',
+        label: t('issue.flowBtn.reopen'),
         type: 'warning',
         toStatus: 0,
         requireRemark: false,
@@ -148,7 +152,7 @@ function onClick(btn) {
   activeBtn.value = btn
   remark.value = ''
   if (btn.requireRemark) {
-    dialogVisible.value = true
+    remarkVisible.value = true
   } else {
     confirm()
   }
@@ -158,7 +162,7 @@ function confirm() {
   const btn = activeBtn.value
   if (!btn) return
   if (btn.requireRemark && !remark.value.trim()) {
-    ElMessage.warning('请填写原因')
+    ElMessage.warning(t('issue.flowBtn.remarkWarn'))
     return
   }
   submitting.value = true
@@ -167,8 +171,8 @@ function confirm() {
     : changeStatus(props.issueId, { toStatus: btn.toStatus, remark: remark.value })
   run
     .then(() => {
-      ElMessage.success('操作成功')
-      dialogVisible.value = false
+      ElMessage.success(t('issue.flowBtn.success'))
+      remarkVisible.value = false
       emit('changed')
     })
     .catch(() => {})

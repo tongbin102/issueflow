@@ -1,26 +1,45 @@
 <template>
   <!-- R3 统一表单抽屉：rtl + append-to-body；size sm/md/lg = 480/620/800；
-       标题 {动作}{对象}；底部左取消右保存（带 loading）；@closed 由父级重置表单 -->
+       标题 {动作}{对象}；底部左取消右保存（带 loading）；@closed 由父级重置表单。
+       Phase6：新增 fullscreenable（默认 false），为 true 时头部渲染纯图标全屏切换按钮 -->
   <el-drawer
     :model-value="modelValue"
-    :title="title"
     direction="rtl"
     append-to-body
     :size="drawerSize"
     :close-on-click-modal="false"
     class="if-form-drawer"
+    :class="{ 'is-fullscreen': isFullscreen }"
     @update:model-value="onVisibleChange"
-    @closed="emit('closed')"
+    @closed="onClosed"
   >
+    <template #header="{ titleId, titleClass }">
+      <div class="if-form-drawer__header">
+        <span :id="titleId" :class="titleClass" class="if-form-drawer__title">{{ title }}</span>
+        <!-- 全屏切换：纯图标按钮（无文字，title 提示），仅 fullscreenable=true 时渲染 -->
+        <el-button
+          v-if="fullscreenable"
+          link
+          class="if-form-drawer__fullscreen-btn"
+          :title="isFullscreen ? t('common.action.exitFullscreen') : t('common.action.fullscreen')"
+          @click="toggleFullscreen"
+        >
+          <el-icon :size="16">
+            <Aim v-if="isFullscreen" />
+            <FullScreen v-else />
+          </el-icon>
+        </el-button>
+      </div>
+    </template>
     <div class="if-form-drawer__body">
       <slot />
     </div>
     <template #footer>
       <slot name="footer">
         <div class="if-form-drawer__footer">
-          <el-button @click="onCancel">{{ cancelText }}</el-button>
+          <el-button @click="onCancel">{{ cancelLabel }}</el-button>
           <el-button type="primary" :loading="loading" @click="emit('confirm')">
-            {{ confirmText }}
+            {{ confirmLabel }}
           </el-button>
         </div>
       </slot>
@@ -29,7 +48,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { FullScreen, Aim } from '@element-plus/icons-vue'
 
 const props = defineProps({
   /** v-model 显隐 */
@@ -44,24 +65,42 @@ const props = defineProps({
   },
   /** 保存按钮 loading */
   loading: { type: Boolean, default: false },
-  /** 保存按钮文案 */
-  confirmText: { type: String, default: '保存' },
-  /** 取消按钮文案 */
-  cancelText: { type: String, default: '取消' }
+  /** 保存按钮文案（不传时走 i18n：common.action.save） */
+  confirmText: { type: String, default: '' },
+  /** 取消按钮文案（不传时走 i18n：common.action.cancel） */
+  cancelText: { type: String, default: '' },
+  /** Phase6：是否允许全屏切换（默认 false，不渲染图标按钮，存量调用零影响） */
+  fullscreenable: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update:modelValue', 'confirm', 'cancel', 'closed'])
 
+const { t } = useI18n()
+
 const SIZE_MAP = { sm: 480, md: 620, lg: 800 }
 
-/** 移动端（<=768px）降级为满宽，桌面按档位取宽 */
+/** 全屏态：仅 fullscreenable=true 时可进入；抽屉完全关闭后自动复位 */
+const isFullscreen = ref(false)
+
+/** 默认按钮文案走 i18n，显式传入 confirmText/cancelText 时优先 */
+const confirmLabel = computed(() => props.confirmText || t('common.action.save'))
+const cancelLabel = computed(() => props.cancelText || t('common.action.cancel'))
+
+/** 全屏 100%；移动端（<=768px）降级为满宽；桌面按档位取宽 */
 const drawerSize = computed(() => {
+  if (props.fullscreenable && isFullscreen.value) {
+    return '100%'
+  }
   const width = SIZE_MAP[props.size] || SIZE_MAP.md
   if (typeof window !== 'undefined' && window.innerWidth <= 768) {
     return '100%'
   }
   return `${width}px`
 })
+
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value
+}
 
 function onVisibleChange(value) {
   emit('update:modelValue', value)
@@ -71,9 +110,37 @@ function onCancel() {
   emit('cancel')
   emit('update:modelValue', false)
 }
+
+function onClosed() {
+  // 关闭动画结束后复位全屏态，下次打开恢复常规宽度
+  isFullscreen.value = false
+  emit('closed')
+}
 </script>
 
 <style scoped>
+.if-form-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-right: 8px;
+}
+
+.if-form-drawer__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.if-form-drawer__fullscreen-btn {
+  flex-shrink: 0;
+  margin-left: 8px;
+  padding: 4px;
+}
+
 .if-form-drawer__body {
   padding: 0 4px;
 }

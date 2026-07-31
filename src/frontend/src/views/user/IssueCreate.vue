@@ -63,7 +63,9 @@ async function onSubmit({ data, files }) {
     createdId.value = res.id || null
     ElMessage.success(t('issue.msg.createSuccessWithNo', { no: createdNo.value }))
     drawerVisible.value = true
-  } catch (e) {}
+  } catch (e) {
+    console.error('[IssueCreate] createIssue failed:', e)
+  }
 }
 </script>
 

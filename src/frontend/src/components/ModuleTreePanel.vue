@@ -423,7 +423,9 @@ async function onDeleteNode() {
     ElMessage.success('已删除')
     await loadTree()
     emit('saved')
-  } catch (e) {}
+  } catch (e) {
+    console.error('[ModuleTreePanel] deleteModule failed:', e)
+  }
 }
 
 /* ---------------- 批量 ---------------- */
@@ -448,7 +450,9 @@ async function onBatchDelete() {
     ElMessage.success('已删除')
     await loadTree()
     emit('saved')
-  } catch (e) {}
+  } catch (e) {
+    console.error('[ModuleTreePanel] batchDeleteModule failed:', e)
+  }
 }
 
 const moveVisible = ref(false)

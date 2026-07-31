@@ -21,6 +21,33 @@
 
 ---
 
+## Code Review & 清理（2026-08-01）
+
+基于 Code Review 报告执行的一轮**安全、最小变更**清理，属纯工程整洁度整理，
+**不涉及任何功能、接口、数据或行为变化，对线上功能零影响（纯清理）**。
+
+### Removed
+- **移除死依赖 `hutool-all`**（`src/backend/pom.xml`）：全代码库 `import cn.hutool` 计 0 处引用，
+  确认为未使用依赖，删除其 `<dependency>` 声明及配套的 `<hutool.version>` 属性；其余 14 个依赖保持不动。
+- **清理 gitignored 临时文件**：删除 `src/frontend/install.log`、`src/frontend/install2.log`
+  与 `scripts/.p7a.sql`、`scripts/.p7bc.sql`（均已被 `.gitignore` 忽略、从未入库，删除无版本风险）。
+  另：`src/frontend/dist-qa-*`（9 个历史构建产物目录）因单目录约 88 文件、超出 sandbox 批量删除守卫阈值 50
+  而被拦截，未强行绕过，移交主理人统一清理；**未触碰** `node_modules` / `dist` / `target` 等正常可再生构建缓存。
+
+### Fixed
+- **填充 3 个文件共 7 处空 `catch` 块**（低风险整洁度）：为静默吞异常的 `catch (e) {}` 空块补充
+  `console.error('[组件] 上下文 failed:', e)` 错误日志，便于线上排障；仅新增日志，**成功逻辑与既有行为零改动**。
+  - `src/frontend/src/components/ModuleTreePanel.vue`：2 处（`deleteModule` / `batchDeleteModule`）
+  - `src/frontend/src/views/admin/FlowConfig.vue`：4 处（`loadFlowConfig` / `deleteFlowNode` /
+    `deleteFlowTransition` / `resetFlowDefault`）
+  - `src/frontend/src/views/user/IssueCreate.vue`：1 处（`createIssue`）
+  - 另有 `catch (e) {} finally { ... }` 型（`finally` 内含状态复位）非本轮范围，保持原样不动。
+
+> **范围说明**：本轮为纯清理，未改动任何生产安全配置（JWT 密钥兜底 / SQL 日志 / `sql.init.mode` 等留作后续专项决策），
+> 未做鉴权 AOP 重构 / 权限缓存改造 / 大文件拆分等较大重构；README 无对外变化，未改。
+
+---
+
 ## [Phase8-Wave5] - 2026-08-05
 
 UI / 数据优化三项：**#1** 头像下拉顺序调整、**#2** 前台侧边菜单默认展开且刷新保持、

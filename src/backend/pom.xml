@@ -26,7 +26,6 @@
         <jjwt.version>0.12.5</jjwt.version>
         <knife4j.version>4.4.0</knife4j.version>
         <easyexcel.version>3.3.4</easyexcel.version>
-        <hutool.version>5.8.27</hutool.version>
     </properties>
 
     <dependencies>
@@ -100,11 +99,6 @@
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>cn.hutool</groupId>
-            <artifactId>hutool-all</artifactId>
-            <version>${hutool.version}</version>
         </dependency>
 
         <dependency>

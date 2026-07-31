@@ -249,7 +249,9 @@ async function loadSwitch() {
       rejectEnabled.value = data.rejectEnabled !== undefined ? !!data.rejectEnabled : true
       reopenEnabled.value = data.reopenEnabled !== undefined ? !!data.reopenEnabled : true
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[FlowConfig] loadFlowConfig failed:', e)
+  }
 }
 function saveSwitch() {
   if (switchSaving.value) return
@@ -500,7 +502,9 @@ function onDeleteNode(row) {
         await deleteFlowNode(row.id)
         ElMessage.success('已删除')
         loadGraph()
-      } catch (e) {}
+      } catch (e) {
+        console.error('[FlowConfig] deleteFlowNode failed:', e)
+      }
     })
     .catch(() => {})
 }
@@ -596,7 +600,9 @@ function onDeleteTransition(row) {
         await deleteFlowTransition(row.id)
         ElMessage.success('已删除')
         loadGraph()
-      } catch (e) {}
+      } catch (e) {
+        console.error('[FlowConfig] deleteFlowTransition failed:', e)
+      }
     })
     .catch(() => {})
 }
@@ -613,7 +619,9 @@ function onResetDefault() {
         await resetFlowDefault()
         ElMessage.success('已恢复默认流程')
         loadGraph()
-      } catch (e) {}
+      } catch (e) {
+        console.error('[FlowConfig] resetFlowDefault failed:', e)
+      }
     })
     .catch(() => {})
 }

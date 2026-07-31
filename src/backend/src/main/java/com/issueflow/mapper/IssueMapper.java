@@ -18,13 +18,17 @@ import java.util.Map;
 public interface IssueMapper extends BaseMapper<Issue> {
 
     /**
-     * 统计当日已生成的问题编号数量（用于编号生成重试兜底）
+     * 取当日已使用的最大问题编号序号。
+     * <p>关键：<b>不过滤 deleted</b>。逻辑删除行仍占用唯一索引 uk_issue_no，
+     * 若只统计未删除行会使序号回退、生成已被软删行占用的编号而触发 DuplicateKeyException。
+     * 故软删行必须参与计算，以保证序号单调自增。</p>
      *
      * @param prefix 形如 IS-YYYYMMDD-
-     * @return 数量
+     * @return 最大序号（无匹配行时返回 0）
      */
-    @Select("SELECT COUNT(*) FROM issue WHERE deleted = 0 AND issue_no LIKE CONCAT(#{prefix}, '%')")
-    Long countByIssueNoPrefix(@Param("prefix") String prefix);
+    @Select("SELECT COALESCE(MAX(CAST(SUBSTRING(issue_no, CHAR_LENGTH(#{prefix}) + 1) AS UNSIGNED)), 0) "
+            + "FROM issue WHERE issue_no LIKE CONCAT(#{prefix}, '%')")
+    Long maxSeqByIssueNoPrefix(@Param("prefix") String prefix);
 
     /**
      * 状态分布

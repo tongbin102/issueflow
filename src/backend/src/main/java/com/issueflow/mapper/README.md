@@ -13,7 +13,7 @@
 | `IssueAttachmentMapper` | `IssueAttachment` | 附件 CRUD |
 
 ## IssueMapper（含自定义 `@Select` 聚合查询）
-- `Long countByIssueNoPrefix(@Param("prefix") String)` — 统计当日编号数量（编号生成重试兜底）；`WHERE deleted=0 AND issue_no LIKE CONCAT(#{prefix},'%')`
+- `Long maxSeqByIssueNoPrefix(@Param("prefix") String)` — 取当日最大编号序号（含逻辑删除行，避免软删导致序号回退）；`WHERE issue_no LIKE CONCAT(#{prefix},'%')`，取 SUBSTRING 序号段的 MAX（COALESCE 空为 0）
 - `List<Map<String,Object>> statusDistribution(reporterId, version, start, end)` — 状态分布 `GROUP BY status`
 - `List<Map<String,Object>> trendByDay(reporterId, version, start, end)` — 每日创建趋势 `GROUP BY DATE(created_at)`
 - `BigDecimal avgResolveCycle(reporterId, version, start, end)` — 平均解决周期（小时，仅 `status=4` 且 `closed_at` 非空）

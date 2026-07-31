@@ -84,13 +84,20 @@ public class IssueService {
         moduleService.assertModuleBelongsToProject(req.getModuleId(), req.getProjectId());
         issue.setModuleId(req.getModuleId());
 
-        // 插入冲突（唯一索引兜底）重试一次
-        try {
-            issueMapper.insert(issue);
-        } catch (DuplicateKeyException e) {
-            issue.setId(null);
-            issue.setIssueNo(issueNoGenerator.nextIssueNo());
-            issueMapper.insert(issue);
+        // 插入冲突（唯一索引兜底）最多重试 3 次；每次重新生成编号，
+        // 因 maxSeq 随并发插入自增，重试才真正有效。3 次仍失败则抛受控业务异常，避免裸奔成 500。
+        boolean inserted = false;
+        for (int attempt = 0; attempt < 3 && !inserted; attempt++) {
+            try {
+                issueMapper.insert(issue);
+                inserted = true;
+            } catch (DuplicateKeyException e) {
+                issue.setId(null);
+                issue.setIssueNo(issueNoGenerator.nextIssueNo());
+            }
+        }
+        if (!inserted) {
+            throw new BizException(ResultCode.SYSTEM_ERROR);
         }
 
         historyService.record(issue.getId(), HistoryActionEnum.CREATE.getCode(),

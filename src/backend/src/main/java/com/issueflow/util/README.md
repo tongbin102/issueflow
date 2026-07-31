@@ -4,8 +4,8 @@
 
 ## IssueNoGenerator（`@Component`）
 - 用途：生成问题编号 `IS-YYYYMMDD-序号`（每日 0001 起，序号补零 4 位）
-- `String nextIssueNo()` — 取当日日期 → 调 `IssueMapper.countByIssueNoPrefix("IS-日期-")` → 计数+1 格式化
-- 并发兜底：唯一索引由 DB 保证，Service 层捕获 `DuplicateKeyException` 重试一次
+- `String nextIssueNo()` — 取当日日期 → 调 `IssueMapper.maxSeqByIssueNoPrefix("IS-日期-")` → 最大序号+1 格式化（含逻辑删除行，避免序号回退）
+- 并发与软删兜底：唯一索引由 DB 保证；Service 层捕获 `DuplicateKeyException` 循环重试最多 3 次（每次重新生成编号）
 
 ## FileUtil（`@Component`）
 - 用途：附件落盘（`/data/attachments/{yyyyMM}/{uuid}.ext`）、校验大小与类型

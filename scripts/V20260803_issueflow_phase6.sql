@@ -185,30 +185,30 @@ WHERE p.`code` IN ('issue:type:list','issue:type:create','issue:type:update','is
 -- ---------------------------------------------------------------------------
 -- 14. sys_config：site.* 七键默认值（已存在则不覆盖，避免二次执行冲掉管理员配置）
 -- ---------------------------------------------------------------------------
-INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`created_at`,`updated_at`)
-SELECT 'site.name', 'issueFlow', '站点名称', NOW(), NOW()
+INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`updated_at`)
+SELECT 'site.name', 'issueFlow', '站点名称', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key`='site.name');
 
-INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`created_at`,`updated_at`)
-SELECT 'site.short_name', 'IF', '站点简称', NOW(), NOW()
+INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`updated_at`)
+SELECT 'site.short_name', 'IF', '站点简称', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key`='site.short_name');
 
-INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`created_at`,`updated_at`)
-SELECT 'site.subtitle', '问题跟踪与流程管理平台', '站点副标题', NOW(), NOW()
+INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`updated_at`)
+SELECT 'site.subtitle', '问题跟踪与流程管理平台', '站点副标题', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key`='site.subtitle');
 
-INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`created_at`,`updated_at`)
-SELECT 'site.default_theme', 'light', '前台默认主题 light/dark/blue/green', NOW(), NOW()
+INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`updated_at`)
+SELECT 'site.default_theme', 'light', '前台默认主题 light/dark/blue/green', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key`='site.default_theme');
 
-INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`created_at`,`updated_at`)
-SELECT 'site.default_locale', 'zh-CN', '默认语言 zh-CN/en-US', NOW(), NOW()
+INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`updated_at`)
+SELECT 'site.default_locale', 'zh-CN', '默认语言 zh-CN/en-US', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key`='site.default_locale');
 
-INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`created_at`,`updated_at`)
-SELECT 'site.copyright', '(c) 2026 issueFlow', '版权信息', NOW(), NOW()
+INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`updated_at`)
+SELECT 'site.copyright', '(c) 2026 issueFlow', '版权信息', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key`='site.copyright');
 
-INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`created_at`,`updated_at`)
-SELECT 'site.icp', '', 'ICP 备案号', NOW(), NOW()
+INSERT INTO `sys_config` (`config_key`,`config_value`,`description`,`updated_at`)
+SELECT 'site.icp', '', 'ICP 备案号', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key`='site.icp');

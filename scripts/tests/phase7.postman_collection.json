@@ -1,0 +1,364 @@
+{
+  "info": {
+    "_postman_id": "b7e1f4c2-9a3d-4f6e-8c11-phase7issueflow",
+    "name": "issueFlow Phase 7 API Suite",
+    "description": "Phase 7 接口测试套件（菜单重构 / 基础设施菜单 / 来源·优先级字典 / 个人中心三 Tab）。\n\n运行前置：\n1. 变量 baseUrl 默认 http://10.55.3.23:18082/api，可在环境中覆盖。\n2. T1 登录会自动把 data.token 写入集合变量 token，后续用例统一使用 Bearer 鉴权。\n3. 注意 @RequestParam 参数名必须准确：侧边菜单是 `type`，字典选项是 `typeCode`，传错会返回 400/500。\n\n实跑观察（2026-07-31，非 Phase 7 阻塞项，仅记录）：\n- 缺失/写错必填 @RequestParam 时（如 GET /menus/sidebar 不带 type、GET /dicts/options?type=xxx），线上返回 `{code:500, message:\"系统错误\"}`，而非 400 参数校验错误。建议后续在全局异常处理器补 MissingServletRequestParameterException → 400 的映射（P2 健壮性优化，非本期缺陷）。\n- GET /dicts/options?typeCode=NOT_EXIST 返回 200 + 空数组，行为合理。\n- T6 脱敏取值断言在 admin 未绑定邮箱/手机时无数据可验证，脚本按 SKIP 处理；待有绑定数据的账号后补充验证。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://10.55.3.23:18082/api", "type": "string" },
+    { "key": "username", "value": "admin", "type": "string" },
+    { "key": "password", "value": "admin123", "type": "string" },
+    { "key": "token", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "T1 登录 - POST /auth/login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 断言：HTTP 200 / code=200 / data.token 非空，并写入集合变量供后续用例复用",
+              "pm.test('T1-1 HTTP 200', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('T1-2 业务 code = 200', function () { pm.expect(body.code).to.eql(200); });",
+              "pm.test('T1-3 data.token 非空', function () {",
+              "    pm.expect(body.data).to.have.property('token');",
+              "    pm.expect(body.data.token).to.be.a('string').and.to.have.length.above(0);",
+              "});",
+              "pm.collectionVariables.set('token', body.data.token);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"] },
+        "description": "预期：200，data.token 非空字符串。"
+      }
+    },
+    {
+      "name": "T2 管理后台侧边菜单 - GET /menus/sidebar?type=2",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 断言：菜单树（任意层级）必须包含 Phase 7 要求的 8 个菜单名",
+              "pm.test('T2-1 HTTP 200', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('T2-2 业务 code = 200', function () { pm.expect(body.code).to.eql(200); });",
+              "",
+              "function flatten(nodes, acc) {",
+              "    (nodes || []).forEach(function (n) {",
+              "        acc.push(n.name);",
+              "        if (n.children && n.children.length) { flatten(n.children, acc); }",
+              "    });",
+              "    return acc;",
+              "}",
+              "var names = flatten(body.data, []);",
+              "var required = ['业务管理', '基础设施', '字典配置', '文件管理', '文件列表', '配置管理', 'Redis监控', '定时任务'];",
+              "required.forEach(function (name) {",
+              "    pm.test('T2-3 菜单树包含【' + name + '】', function () {",
+              "        pm.expect(names).to.include(name);",
+              "    });",
+              "});",
+              "",
+              "// 结构性断言：项目配置 / 模块配置 / 字典配置 必须挂在【业务管理】之下",
+              "var biz = (body.data || []).filter(function (n) { return n.name === '业务管理'; })[0];",
+              "pm.test('T2-4 业务管理下含 项目配置/模块配置/字典配置', function () {",
+              "    pm.expect(biz, '业务管理一级菜单存在').to.be.an('object');",
+              "    var kids = (biz.children || []).map(function (c) { return c.name; });",
+              "    pm.expect(kids).to.include.members(['项目配置', '模块配置', '字典配置']);",
+              "});",
+              "",
+              "// 结构性断言：文件配置/文件列表 挂在【文件管理】之下，文件管理挂在【基础设施】之下",
+              "var infra = (body.data || []).filter(function (n) { return n.name === '基础设施'; })[0];",
+              "pm.test('T2-5 基础设施 > 文件管理 > (文件配置, 文件列表)', function () {",
+              "    pm.expect(infra, '基础设施一级菜单存在').to.be.an('object');",
+              "    var fileMgr = (infra.children || []).filter(function (c) { return c.name === '文件管理'; })[0];",
+              "    pm.expect(fileMgr, '文件管理存在于基础设施下').to.be.an('object');",
+              "    var kids = (fileMgr.children || []).map(function (c) { return c.name; });",
+              "    pm.expect(kids).to.include.members(['文件配置', '文件列表']);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/menus/sidebar?type=2",
+          "host": ["{{baseUrl}}"],
+          "path": ["menus", "sidebar"],
+          "query": [{ "key": "type", "value": "2", "description": "参数名必须是 type（后台菜单=2），传错会 400/500" }]
+        },
+        "description": "预期：200，菜单树含 业务管理/基础设施/字典配置/文件管理/文件列表/配置管理/Redis监控/定时任务。"
+      }
+    },
+    {
+      "name": "T3 字典-来源 - GET /dicts/options?typeCode=ISSUE_SOURCE",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 断言：200 / 共 5 项 / code 集合完全匹配",
+              "pm.test('T3-1 HTTP 200', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('T3-2 业务 code = 200', function () { pm.expect(body.code).to.eql(200); });",
+              "pm.test('T3-3 选项数量 = 5', function () { pm.expect(body.data).to.be.an('array').with.lengthOf(5); });",
+              "var codes = (body.data || []).map(function (d) { return d.code; });",
+              "pm.test('T3-4 含 SYSTEM/API_IMPORT/EXCEL_IMPORT/EMAIL/OTHER', function () {",
+              "    pm.expect(codes).to.have.members(['SYSTEM', 'API_IMPORT', 'EXCEL_IMPORT', 'EMAIL', 'OTHER']);",
+              "});",
+              "pm.test('T3-5 选项均为启用态', function () {",
+              "    (body.data || []).forEach(function (d) { pm.expect(d.enabled, d.code).to.eql(true); });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/dicts/options?typeCode=ISSUE_SOURCE",
+          "host": ["{{baseUrl}}"],
+          "path": ["dicts", "options"],
+          "query": [{ "key": "typeCode", "value": "ISSUE_SOURCE", "description": "参数名必须是 typeCode" }]
+        },
+        "description": "预期：200，count=5，含 SYSTEM/API_IMPORT/EXCEL_IMPORT/EMAIL/OTHER。"
+      }
+    },
+    {
+      "name": "T4 字典-优先级 - GET /dicts/options?typeCode=ISSUE_PRIORITY",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('T4-1 HTTP 200', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('T4-2 业务 code = 200', function () { pm.expect(body.code).to.eql(200); });",
+              "pm.test('T4-3 选项数量 = 3', function () { pm.expect(body.data).to.be.an('array').with.lengthOf(3); });",
+              "var codes = (body.data || []).map(function (d) { return d.code; });",
+              "pm.test('T4-4 含 HIGH/MEDIUM/LOW', function () {",
+              "    pm.expect(codes).to.have.members(['HIGH', 'MEDIUM', 'LOW']);",
+              "});",
+              "var names = (body.data || []).map(function (d) { return d.name; });",
+              "pm.test('T4-5 中文名为 高/中/低', function () {",
+              "    pm.expect(names).to.have.members(['高', '中', '低']);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/dicts/options?typeCode=ISSUE_PRIORITY",
+          "host": ["{{baseUrl}}"],
+          "path": ["dicts", "options"],
+          "query": [{ "key": "typeCode", "value": "ISSUE_PRIORITY" }]
+        },
+        "description": "预期：200，count=3，含 HIGH/MEDIUM/LOW（高/中/低）。"
+      }
+    },
+    {
+      "name": "T5a 回归-严重程度 - GET /dicts/options?typeCode=ISSUE_SEVERITY",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 回归：Phase 7 新增字典不得污染既有字典项",
+              "pm.test('T5a-1 HTTP 200', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('T5a-2 业务 code = 200', function () { pm.expect(body.code).to.eql(200); });",
+              "pm.test('T5a-3 选项数量 = 4', function () { pm.expect(body.data).to.be.an('array').with.lengthOf(4); });",
+              "var codes = (body.data || []).map(function (d) { return d.code; });",
+              "pm.test('T5a-4 含 FATAL/SERIOUS/NORMAL/MINOR', function () {",
+              "    pm.expect(codes).to.have.members(['FATAL', 'SERIOUS', 'NORMAL', 'MINOR']);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/dicts/options?typeCode=ISSUE_SEVERITY",
+          "host": ["{{baseUrl}}"],
+          "path": ["dicts", "options"],
+          "query": [{ "key": "typeCode", "value": "ISSUE_SEVERITY" }]
+        },
+        "description": "回归预期：200，count=4。"
+      }
+    },
+    {
+      "name": "T5b 回归-问题状态 - GET /dicts/options?typeCode=ISSUE_STATUS",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('T5b-1 HTTP 200', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('T5b-2 业务 code = 200', function () { pm.expect(body.code).to.eql(200); });",
+              "pm.test('T5b-3 选项数量 = 5', function () { pm.expect(body.data).to.be.an('array').with.lengthOf(5); });",
+              "var codes = (body.data || []).map(function (d) { return d.code; });",
+              "pm.test('T5b-4 含 OPEN/IN_PROGRESS/PENDING_VERIFY/VERIFIED/CLOSED', function () {",
+              "    pm.expect(codes).to.have.members(['OPEN', 'IN_PROGRESS', 'PENDING_VERIFY', 'VERIFIED', 'CLOSED']);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/dicts/options?typeCode=ISSUE_STATUS",
+          "host": ["{{baseUrl}}"],
+          "path": ["dicts", "options"],
+          "query": [{ "key": "typeCode", "value": "ISSUE_STATUS" }]
+        },
+        "description": "回归预期：200，count=5。"
+      }
+    },
+    {
+      "name": "T6 个人中心资料 - GET /profile",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 契约断言：ProfileVO 必须同时暴露脱敏展示值(email/phone)与原值(emailRaw/phoneRaw)",
+              "pm.test('T6-1 HTTP 200', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('T6-2 业务 code = 200', function () { pm.expect(body.code).to.eql(200); });",
+              "var d = body.data || {};",
+              "pm.test('T6-3 契约字段齐备', function () {",
+              "    ['id', 'username', 'realName', 'email', 'phone', 'emailRaw', 'phoneRaw', 'roleName', 'roleCode', 'createdAt']",
+              "        .forEach(function (k) { pm.expect(d, '缺少字段 ' + k).to.have.property(k); });",
+              "});",
+              "",
+              "// 值语义断言：仅在存在原值时校验脱敏规则，否则视为数据前置不足（不判失败）",
+              "pm.test('T6-4 邮箱脱敏规则 x***@domain（有原值时才校验）', function () {",
+              "    if (d.emailRaw) { pm.expect(d.email).to.match(/^.\\*\\*\\*@/); }",
+              "    else { pm.expect(d.email, '无原值时脱敏值应为空').to.satisfy(function (v) { return v === null || v === '' || v === undefined; }); }",
+              "});",
+              "pm.test('T6-5 手机脱敏规则 前3****后4（有原值时才校验）', function () {",
+              "    if (d.phoneRaw) { pm.expect(d.phone).to.match(/^\\d{3}\\*{4}\\d{4}$/); }",
+              "    else { pm.expect(d.phone, '无原值时脱敏值应为空').to.satisfy(function (v) { return v === null || v === '' || v === undefined; }); }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/profile", "host": ["{{baseUrl}}"], "path": ["profile"] },
+        "description": "预期：200，data 含 emailRaw/phoneRaw 原值字段与脱敏后 email/phone。"
+      }
+    },
+    {
+      "name": "T7 个人中心活动-登录 - GET /profile/activities?type=LOGIN",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('T7-1 HTTP 200', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('T7-2 业务 code = 200', function () { pm.expect(body.code).to.eql(200); });",
+              "var d = body.data || {};",
+              "pm.test('T7-3 total >= 1', function () { pm.expect(d.total).to.be.at.least(1); });",
+              "pm.test('T7-4 分页回显 page=1 size=5', function () {",
+              "    pm.expect(d.page).to.eql(1);",
+              "    pm.expect(d.size).to.eql(5);",
+              "});",
+              "pm.test('T7-5 列表非空且条数 <= size', function () {",
+              "    pm.expect(d.list).to.be.an('array').with.length.above(0);",
+              "    pm.expect(d.list.length).to.be.at.most(5);",
+              "});",
+              "pm.test('T7-6 首条 title 含【登录】', function () {",
+              "    pm.expect(d.list[0].title).to.include('登录');",
+              "});",
+              "pm.test('T7-7 type 过滤生效（全部为 LOGIN）', function () {",
+              "    d.list.forEach(function (it) { pm.expect(it.type).to.eql('LOGIN'); });",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/profile/activities?type=LOGIN&page=1&size=5",
+          "host": ["{{baseUrl}}"],
+          "path": ["profile", "activities"],
+          "query": [
+            { "key": "type", "value": "LOGIN" },
+            { "key": "page", "value": "1" },
+            { "key": "size", "value": "5" }
+          ]
+        },
+        "description": "预期：200，total>=1，首条 title 含“登录”，列表 type 全为 LOGIN。"
+      }
+    },
+    {
+      "name": "T8 登录日志 - GET /profile/login-logs",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// 验证个人中心【活动】Tab 的数据来源可用",
+              "pm.test('T8-1 HTTP 200', function () { pm.response.to.have.status(200); });",
+              "var body = pm.response.json();",
+              "pm.test('T8-2 业务 code = 200', function () { pm.expect(body.code).to.eql(200); });",
+              "var d = body.data || {};",
+              "pm.test('T8-3 返回分页列表结构', function () {",
+              "    pm.expect(d).to.have.property('list');",
+              "    pm.expect(d.list).to.be.an('array');",
+              "});",
+              "pm.test('T8-4 日志条目含 time/ip/success 字段', function () {",
+              "    if (d.list.length > 0) {",
+              "        ['time', 'ip', 'success'].forEach(function (k) { pm.expect(d.list[0]).to.have.property(k); });",
+              "    }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": { "raw": "{{baseUrl}}/profile/login-logs", "host": ["{{baseUrl}}"], "path": ["profile", "login-logs"] },
+        "description": "预期：200，返回登录日志分页列表。"
+      }
+    }
+  ]
+}

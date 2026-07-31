@@ -29,6 +29,11 @@ export function listUserOptions(params) {
   return request.get('/users/options', { params })
 }
 
+// 用户已分配角色码：GET /api/users/{id}/roles → List<String>（Phase8 W3 #11，编辑回显兜底）
+export function listUserRoles(id) {
+  return request.get(`/users/${id}/roles`)
+}
+
 // 角色字典：GET /api/roles → List<Role>
 export function listRoles() {
   return request.get('/roles')

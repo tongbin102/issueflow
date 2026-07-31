@@ -4,17 +4,17 @@
 
 ## 职责
 
-无状态鉴权：校验 JWT 签名与有效期 → 校验 Redis 黑名单 → 将 `userId`（principal）与 `roleCode`（authority）写入 `SecurityContext`；未认证统一返回 401，越权统一返回 403。
+无状态鉴权（Phase8 W3 #11 起为多角色）：校验 JWT 签名与有效期 → 校验 Redis 黑名单 → 将 `userId`（principal）与全部 `roleCode`（多个 `SimpleGrantedAuthority`）写入 `SecurityContext`；未认证统一返回 401，越权统一返回 403。
 
 ## 组件
 
 ### JwtUtil（`@Component`）
-- `String generate(Long userId, String roleCode)` — 生成 token；payload：`{userId, roleCode, jti(uuid), exp}`，HS256，有效期 `jwt.expiration`（默认 7200s）
-- `Claims parseToken(String)` / `Long getUserId(String)` / `String getRoleCode(String)` / `String getJti(String)` / `Date getExpiration(String)`
+- `String generate(Long userId, List<String> roles)` — 生成 token；payload：`{userId, roleCode(角色码数组), jti(uuid), exp}`，HS256，有效期 `jwt.expiration`（默认 7200s）
+- `Claims parseToken(String)` / `Long getUserId(String)` / `List<String> getRoles(String)`（兼容旧版单值 token）/ `String getRoleCode(String)`（取角色列表首位，兼容保留）/ `String getJti(String)` / `Date getExpiration(String)`
 - `boolean validateToken(String)` — 校验签名且未过期
 
 ### JwtAuthenticationFilter（`@Component`，`OncePerRequestFilter`）
-- `doFilterInternal`：白名单（`WHITE_LIST`）直接放行；否则取 `Bearer` token → `validateToken` → 比对 Redis 黑名单（`Constants.REDIS_JWT_BLACKLIST_PREFIX + jti`）→ 构建 `UsernamePasswordAuthenticationToken(userId, null, [roleCode])` 写入 `SecurityContext`
+- `doFilterInternal`：白名单（`WHITE_LIST`）直接放行；否则取 `Bearer` token → `validateToken` → 比对 Redis 黑名单（`Constants.REDIS_JWT_BLACKLIST_PREFIX + jti`）→ 遍历 `jwtUtil.getRoles(token)` 为每个角色构建一个 `SimpleGrantedAuthority`，组装 `UsernamePasswordAuthenticationToken(userId, null, authorities)` 写入 `SecurityContext`
 - 白名单含：`/api/auth/login`、`/doc.html**`、`/v3/api-docs**`、`/swagger-resources**`、`/swagger-ui**`、`/api/attachments/static/**`、`/favicon.ico`
 
 ### RestAuthenticationEntryPoint（`@Component`，`AuthenticationEntryPoint`）

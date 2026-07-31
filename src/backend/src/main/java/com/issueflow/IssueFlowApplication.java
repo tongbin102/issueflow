@@ -3,14 +3,18 @@ package com.issueflow;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.issueflow.entity.Role;
 import com.issueflow.entity.User;
+import com.issueflow.entity.UserRole;
 import com.issueflow.mapper.RoleMapper;
 import com.issueflow.mapper.UserMapper;
+import com.issueflow.mapper.UserRoleMapper;
 import com.issueflow.common.Constants;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.List;
 
 /**
  * issueFlow 后端启动类
@@ -32,6 +36,7 @@ public class IssueFlowApplication {
     @Bean
     public ApplicationRunner initAdminUser(UserMapper userMapper,
                                            RoleMapper roleMapper,
+                                           UserRoleMapper userRoleMapper,
                                            PasswordEncoder passwordEncoder) {
         return args -> {
             Long count = userMapper.selectCount(
@@ -49,8 +54,14 @@ public class IssueFlowApplication {
             admin.setPassword(passwordEncoder.encode("admin123"));
             admin.setRealName("系统管理员");
             admin.setRoleId(adminRole.getId());
+            // Phase8 W3 #11：多角色 —— 同步写 roles 冗余列与 user_role 关系
+            admin.setRoles(List.of(Constants.ROLE_ADMIN));
             admin.setStatus(1);
             userMapper.insert(admin);
+            UserRole adminUserRole = new UserRole();
+            adminUserRole.setUserId(admin.getId());
+            adminUserRole.setRoleCode(Constants.ROLE_ADMIN);
+            userRoleMapper.insert(adminUserRole);
         };
     }
 }

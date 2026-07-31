@@ -21,6 +21,66 @@
 
 ---
 
+## [Phase8-Wave3] - 2026-08-03
+
+需求 #11：用户多角色（单角色 `role_id` → 多角色 `user_role` + `user.roles`）。
+迁移脚本：`scripts/V20260803_issueflow_phase8_wave3.sql`（幂等，可重复执行）。
+
+### Added
+- **用户多角色模型**（需求 #11）：
+  - 新增关系表 `user_role`（`user_id` + `role_code`，存码不存 id；`UNIQUE KEY (user_id, role_code)`），
+    与 `role_permission` 同口径——关联随主体重建（整体替换），无逻辑删除。
+  - `user` 表新增 `roles VARCHAR(500)`（JSON 数组角色码文本，如 `["ADMIN","TESTER"]`），
+    作为 `user_role` 的**冗余读缓存**，用于列表 / 登录免 N+1 查询。
+  - 后端新增 `entity/UserRole`、`mapper/UserRoleMapper`、`service/UserRoleService`
+    （`listRoles` / `normalize` / `replaceRoles` 整体替换 / `removeByUserId`）。
+  - `User` / `UserReq` / `UserVO` 新增 `roles`（`List<String>`）；`User.roles` 用
+    `JacksonTypeHandler`（`autoResultMap=true`）读写 JSON 列。
+  - `UserController` 新增 `GET /api/users/{id}/roles` → 返回该用户全部角色码（编辑回显兜底）。
+  - `SecurityUtils` 新增 `getCurrentRoleCodes()`（全部角色）/ `hasRole(String)`；
+    `getCurrentRoleCode()` 改为主角色优先级逻辑（ADMIN → 非 SUBMITTER → 首位）。
+  - 前端：`UserManage.vue` 角色下拉由单选改为**多选** `el-select multiple collapse-tags`，
+    列表角色列改为多 `el-tag` 展示（首个为主角色）；`api/user.js` 新增 `listUserRoles(id)`。
+- i18n 中英双语新增 `user.form.roles` / `user.placeholder.selectRoles` /
+  `user.tip.primaryRole` / `user.msg.rolesRequired`。
+
+### Changed
+- **JWT 多角色**：`JwtUtil.generate(Long, List<String> roles)`，`roleCode` claim 由单字符串升级为
+  **角色码数组**；新增 `getRoles(String)` 同时兼容旧版单值 token，升级瞬间存量 token 不失效；
+  `JwtAuthenticationFilter` 遍历 `getRoles` 逐个写入 `SimpleGrantedAuthority`。
+- **权限取并集**：`PermissionService.currentRoleIds()` 由单角色升级为多角色，
+  `requirePermission` 在 ADMIN 直接放行后取全部角色权限**并集**做 OR 判定。
+- **状态机取并集**：`StateMachine.isAllowed(from, to, Collection<String>)` 新增多角色重载，
+  用户任一角色被规则允许即放行；保留原单角色重载委托。
+- **IssueFlowService.changeStatus**：流转校验改用 `SecurityUtils.getCurrentRoleCodes()` 并集，
+  上下文缺失时退化为入参主角色（行为不变）。
+- **用户增改对齐多角色**：`UserService.createUser` / `updateUser` 通过 `resolveRoleAssignment`
+  解析 `roles`（优先）或退化兼容仅传 `roleId` 的调用方，统一对齐 `roleId`（主角色）与 `roles`，
+  并整体替换 `user_role`；`getUserVO` / `AuthService.login|info` 均下发全部角色码。
+- 默认管理员初始化（`IssueFlowApplication.initAdminUser`）同步写 `user.roles=["ADMIN"]` 与
+  `user_role` 一行。
+
+### Removed
+- 用户角色「单选」的 `UserReq.roleId` 强制校验（`@NotNull` 已移除）；多角色下二者二选一即可，
+  由 `UserService` 统一校验「不能同时为空」。
+
+### Fixed
+- 修复多角色用户登录后仅持有单角色权限、状态机仅按单一角色校验的问题（需求 #11 直接消除）。
+
+### Security
+- 角色码仅经 JWT（HS256）与 `user_role` 关系表在服务端消费，前端只读、不下发明文角色定义；
+  默认密码逻辑不变（仍仅在服务端与管理端接口内流转）。
+- JWT 升级**向后兼容**：旧版单值 `roleCode` token 仍可正常解析，避免升级瞬间全员强制重新登录。
+
+### API 契约变更
+- `GET /api/users/{id}` 响应 `UserVO` **新增** `roles`（`List<String>`，全部角色码，单角色为单元素，向后兼容）。
+- `POST /api/users`、`PUT /api/users/{id}` 请求体**新增**可选字段 `roles`（`List<String>` 角色码数组）；
+  `roleId` 仍保留（兼容历史调用方，缺省时退化取 `roles` 首位对应的角色 id 为主角色）。
+- **新增** `GET /api/users/{id}/roles` → `List<String>`（该用户全部角色码）。
+- `LoginVO` **新增** `roles`（`List<String>`），与 `userInfo.roles` 一致。
+
+---
+
 ## [Phase8-Wave2] - 2026-08-02
 
 新增用户免填密码、用户所属组织、问题所属项目必填、问题弹窗竖形标签页四项改动。

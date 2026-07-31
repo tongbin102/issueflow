@@ -65,6 +65,14 @@ public class UserController {
     }
 
     /**
+     * 查询用户已分配的全部角色码（user:list，Phase8 W3 #11 新增，供编辑回显）
+     */
+    @GetMapping("/users/{id}/roles")
+    public Result<List<String>> roles(@PathVariable Long id) {
+        return Result.success(userService.listUserRoleCodes(id));
+    }
+
+    /**
      * 用户下拉选项（仅登录，无 requirePermission）：负责人/成员选择用。
      * 返回 status=1 & deleted=0 的用户，按 real_name/username 模糊匹配，上限 100。
      */

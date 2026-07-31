@@ -75,7 +75,12 @@ export const useUserStore = defineStore('user', {
     },
     /**
      * 拉取当前角色权限码集合并写入 state。
-     * 权限与单角色模型绑定：userInfo.roleId → GET /roles/{id}/permissions。
+     * 取 userInfo.roleId（主角色）→ GET /roles/{id}/permissions。
+     *
+     * Phase8 W3 #11 说明：后端 requirePermission 已按「全部角色权限并集」判定，
+     * 此处前端按钮级权限仍只取主角色——因该端点需 role:assign（管理员），
+     * 非管理员本就取到空集，管理员则由 ADMIN 短路全量放行，故与升级前行为一致、无回归。
+     * 如后续需要精确的按钮级多角色并集，应新增「当前用户有效权限」端点，不要在此逐角色拉取。
      */
     async loadPermissions() {
       const roleId = this.userInfo && this.userInfo.roleId

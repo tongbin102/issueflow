@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 用户视图对象（隐去密码）
@@ -24,14 +25,20 @@ public class UserVO implements Serializable {
 
     private String phone;
 
-    /** 角色 id */
+    /** 主角色 id */
     private Long roleId;
 
-    /** 角色码 */
+    /** 主角色码 */
     private String roleCode;
 
-    /** 角色名 */
+    /** 主角色名 */
     private String roleName;
+
+    /**
+     * 全部角色码（Phase8 W3 #11 新增，多角色）。
+     * <p>永不为 null；单角色用户返回单元素列表，首位与 {@link #roleCode} 一致。</p>
+     */
+    private List<String> roles;
 
     /** 所属组织 id（可空，Phase8 W2 #9 新增） */
     private Long orgId;

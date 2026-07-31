@@ -20,8 +20,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -49,14 +51,16 @@ public class AuthService {
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {
             throw new BizException(ResultCode.UNAUTHORIZED, "用户名或密码错误");
         }
+        // Phase8 W3 #11：多角色 —— 取用户全部角色码签发 token，主角色（role_id 对应）置于首位
         Role role = roleMapper.selectById(user.getRoleId());
-        String roleCode = role == null ? "" : role.getCode();
-        String token = jwtUtil.generate(user.getId(), roleCode);
+        String primaryRoleCode = role == null ? null : role.getCode();
+        List<String> roles = orderPrimaryFirst(userService.resolveRoleCodes(user), primaryRoleCode);
+        String token = jwtUtil.generate(user.getId(), roles);
 
         LoginVO vo = new LoginVO();
         vo.setToken(token);
         vo.setUserInfo(userService.getUserVO(user));
-        vo.setRoles(role == null ? Collections.emptyList() : Collections.singletonList(roleCode));
+        vo.setRoles(roles);
         // 记录登录日志（异步写入，失败不影响登录主流程）
         try {
             HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.getRequestAttributes()).getRequest();
@@ -107,13 +111,42 @@ public class AuthService {
         if (user == null) {
             throw new BizException(ResultCode.UNAUTHORIZED, "用户不存在");
         }
-        String roleCode = SecurityUtils.getCurrentRoleCode();
+        // Phase8 W3 #11：多角色 —— 优先取 token 解析出的角色集合，缺失时回落数据库
+        List<String> roles = SecurityUtils.getCurrentRoleCodes();
+        if (roles.isEmpty()) {
+            roles = userService.resolveRoleCodes(user);
+        }
 
         LoginVO vo = new LoginVO();
         vo.setToken(null);
         vo.setUserInfo(userService.getUserVO(user));
-        vo.setRoles(roleCode == null ? Collections.emptyList() : Collections.singletonList(roleCode));
+        vo.setRoles(roles);
         return vo;
+    }
+
+    /**
+     * 将主角色码调整到列表首位（不改变其余角色的相对顺序）。
+     *
+     * @param roles           全部角色码
+     * @param primaryRoleCode 主角色码（为 null 或不在列表中时原样返回）
+     * @return 主角色置首的角色码列表，永不为 null
+     */
+    private List<String> orderPrimaryFirst(List<String> roles, String primaryRoleCode) {
+        if (roles == null || roles.isEmpty()) {
+            return primaryRoleCode == null
+                    ? Collections.emptyList() : Collections.singletonList(primaryRoleCode);
+        }
+        if (primaryRoleCode == null || !roles.contains(primaryRoleCode)) {
+            return roles;
+        }
+        List<String> ordered = new ArrayList<>(roles.size());
+        ordered.add(primaryRoleCode);
+        for (String code : roles) {
+            if (!primaryRoleCode.equals(code)) {
+                ordered.add(code);
+            }
+        }
+        return ordered;
     }
 
     private String getClientIp(HttpServletRequest request) {

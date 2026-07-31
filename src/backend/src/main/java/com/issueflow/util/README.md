@@ -19,10 +19,12 @@
 - `byte[] export(DashboardVO vo)` — 将状态分布/每日趋势/严重占比/平均周期/解决率/总数/已关闭数写入 `看板统计` sheet
 
 ## SecurityUtils（`final`，静态方法）
-- 用途：从 `SecurityContext` 取当前登录用户/角色
+- 用途：从 `SecurityContext` 取当前登录用户/角色（Phase8 W3 #11 起支持多角色，authorities 为全部 roleCode）
 - `Long getCurrentUserId()` — principal 为 userId（兼容 Long/Number/String）
-- `String getCurrentRoleCode()` — 取首个 authority（roleCode）
-- 依赖：`JwtAuthenticationFilter` 已将 userId/roleCode 写入上下文
+- `List<String> getCurrentRoleCodes()` — 全部角色码（永不为 null，未登录/无角色时为空列表）
+- `boolean hasRole(String roleCode)` — 是否持有指定角色
+- `String getCurrentRoleCode()` — 取「主角色」：持有 ADMIN → ADMIN；否则首个非 SUBMITTER 角色；否则首个角色（兼容旧单角色逻辑）
+- 依赖：`JwtAuthenticationFilter` 已将 userId 写入 principal、全部 roleCode 写入 authorities
 
 ## DateTimeUtils（`final`，静态方法）
 - 用途：将 `yyyy-MM-dd` 字符串解析为 `LocalDateTime`

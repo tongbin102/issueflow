@@ -31,17 +31,28 @@
 
 ## AuthService
 登录 / 登出 / 当前用户。
-- `LoginVO login(LoginReq req)` — BCrypt 校验 → `JwtUtil.generate(userId, roleCode)`
+- `LoginVO login(LoginReq req)` — BCrypt 校验 → `JwtUtil.generate(userId, List<String> roles)`（Phase8 W3 #11 多角色，主角色置首）
 - `void logout()` — 取 jti 写入 Redis 黑名单（TTL=剩余有效期）
-- `LoginVO info()` — 当前用户信息
+- `LoginVO info()` — 当前用户信息（角色优先取 token 解析结果，缺失时回落数据库）
 
 ## UserService
-用户查询、增删改查、密码加密、姓名映射。
+用户查询、增删改查、密码加密、姓名映射、多角色解析。
 - `User selectByUsername(String)` / `User getById(Long)`
-- `UserVO getUserVO(User)` — 补充角色码/名，隐去密码
+- `UserVO getUserVO(User)` — 补充主角色码/名 + 全部角色码 `roles`，隐去密码
+- `List<String> resolveRoleCodes(User)` — 多角色统一入口，取值优先级：`user.roles`（冗余列）→ `user_role` 关系表 → `user.role_id` 单角色兜底
+- `List<String> listUserRoleCodes(Long id)` — 供 `GET /api/users/{id}/roles` 编辑回显（`user:list`）
 - `PageResult<UserVO> pageUsers(int pageNum, int size)`
-- `UserVO createUser(UserReq)` / `UserVO updateUser(Long id, UserReq)` / `void deleteUser(Long id)`
+- `UserVO createUser(UserReq)` / `UserVO updateUser(Long id, UserReq)` — 写 `user` 后调 `UserRoleService.replaceRoles` 落关系，并对齐主角色 `roleId` 与 `roles` 首位
+- `void deleteUser(Long id)`
 - `Map<Long, String> userNameMap()` — userId→显示名（realName 优先，缺省 username）
+
+## UserRoleService
+用户-角色关系表（`user_role`）读写与角色码校验（Phase8 W3 #11 新增）。
+> 职责边界：只管关系表；`user.role_id`（主角色）与 `user.roles`（冗余列）由 `UserService` 统一维护，避免两处写同一份数据。
+- `List<String> listRoles(Long userId)` — 按 `id` 升序返回角色码（首个为主角色），永不为 null
+- `List<String> normalize(List<String> roleCodes)` — 去空白 / 去重（保序）/ 剔除 `role` 表中不存在的非法码
+- `void replaceRoles(Long userId, List<String> roleCodes)` — 整体替换（先删后插，`@Transactional`）
+- `void removeByUserId(Long userId)` — 删除该用户全部角色关系
 
 ## TagService
 标签字典管理。
@@ -66,7 +77,9 @@
 IssueService      → IssueMapper, IssueAttachmentMapper, IssueHistoryService, IssueNoGenerator, UserService
 IssueFlowService  → IssueMapper, IssueHistoryService, StateMachine, SysConfigService, UserService
 DashboardService  → IssueMapper, ExcelExportUtil
-AuthService       → UserService, RoleMapper, JwtUtil, PasswordEncoder, RedisTemplate
+AuthService       → UserService, RoleMapper, JwtUtil, PasswordEncoder, RedisTemplate, LoginLogService
+UserService       → UserMapper, RoleMapper, OrganizationMapper, PasswordEncoder, PermissionService, SiteConfigService, UserRoleService
+UserRoleService   → UserRoleMapper, RoleMapper
 IssueAttachmentService → IssueMapper, FileUtil, UserService
 所有 Service      → common(Result/BizException/Constants/PageResult)
 ```

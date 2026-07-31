@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,8 @@ public class UserService {
     private final PermissionService permissionService;
     /** Phase8 W2 #7：新增用户密码留空时读取 site.default_password */
     private final SiteConfigService siteConfigService;
+    /** Phase8 W3 #11：多角色关系表读写 */
+    private final UserRoleService userRoleService;
 
     /**
      * 根据用户名查询用户（不存在返回 null）
@@ -99,7 +102,97 @@ public class UserService {
     }
 
     /**
-     * 将 User 转换为 UserVO（补充角色码/角色名，隐去密码）
+     * 解析用户的全部角色码（Phase8 W3 #11 新增，多角色统一入口）。
+     *
+     * <p>取值优先级：{@code user.roles}（JSON 冗余列，免查询）→ {@code user_role} 关系表
+     * → {@code user.role_id} 对应的单角色码（存量数据未回填时的兜底）。</p>
+     *
+     * @param user 用户实体（为 null 返回空列表）
+     * @return 角色码列表，首位为主角色，永不为 null
+     */
+    public List<String> resolveRoleCodes(User user) {
+        if (user == null) {
+            return Collections.emptyList();
+        }
+        List<String> codes = user.getRoles();
+        if (codes == null || codes.isEmpty()) {
+            codes = userRoleService.listRoles(user.getId());
+        }
+        if (codes == null || codes.isEmpty()) {
+            if (user.getRoleId() == null) {
+                return Collections.emptyList();
+            }
+            Role role = roleMapper.selectById(user.getRoleId());
+            return role == null ? Collections.emptyList() : Collections.singletonList(role.getCode());
+        }
+        return new ArrayList<>(codes);
+    }
+
+    /**
+     * 查询指定用户的全部角色码（供 GET /api/users/{id}/roles 编辑回显）。
+     *
+     * @param id 用户 id
+     * @return 角色码列表
+     */
+    public List<String> listUserRoleCodes(Long id) {
+        permissionService.requirePermission("user:list");
+        return resolveRoleCodes(userMapper.selectById(id));
+    }
+
+    /**
+     * 解析请求中的角色分配：校验、去重、对齐主角色。
+     *
+     * <p>兼容两种入参：只传 {@code roles}（新前端）、只传 {@code roleId}（历史调用方）。
+     * 主角色 {@code roleId} 始终与角色码列表首位保持一致。</p>
+     *
+     * @param req 用户请求
+     * @return 角色分配结果（主角色 id + 角色码列表）
+     * @throws BizException 角色为空或全部非法时抛出
+     */
+    private RoleAssignment resolveRoleAssignment(UserReq req) {
+        List<Role> allRoles = roleMapper.selectList(null);
+        List<String> codes = userRoleService.normalize(req.getRoles());
+        if (codes.isEmpty() && req.getRoleId() != null) {
+            // 历史调用方只传 roleId：退化为单角色
+            for (Role role : allRoles) {
+                if (Objects.equals(role.getId(), req.getRoleId())) {
+                    codes = new ArrayList<>(Collections.singletonList(role.getCode()));
+                    break;
+                }
+            }
+        }
+        if (codes.isEmpty()) {
+            throw new BizException(ResultCode.VALID_ERROR, "角色不能为空");
+        }
+        // 主角色：优先沿用请求里的 roleId（需在所选角色内），否则取首个角色码对应的 id
+        Long primaryRoleId = null;
+        for (Role role : allRoles) {
+            if (Objects.equals(role.getId(), req.getRoleId()) && codes.contains(role.getCode())) {
+                primaryRoleId = role.getId();
+                break;
+            }
+        }
+        if (primaryRoleId == null) {
+            String primaryCode = codes.get(0);
+            for (Role role : allRoles) {
+                if (primaryCode.equals(role.getCode())) {
+                    primaryRoleId = role.getId();
+                    break;
+                }
+            }
+        }
+        if (primaryRoleId == null) {
+            throw new BizException(ResultCode.VALID_ERROR, "角色不存在");
+        }
+        return new RoleAssignment(primaryRoleId, codes);
+    }
+
+    /** 角色分配结果：主角色 id + 全部角色码（首位与主角色一致） */
+    private record RoleAssignment(Long roleId, List<String> roleCodes) {
+    }
+
+    /**
+     * 将 User 转换为 UserVO（补充角色码/角色名/全部角色码，隐去密码）
      */
     public UserVO getUserVO(User user) {
         if (user == null) {
@@ -142,6 +235,8 @@ public class UserService {
                 vo.setRoleName(role.getName());
             }
         }
+        // Phase8 W3 #11：全部角色码（单角色用户为单元素列表，保证前端可统一按数组消费）
+        vo.setRoles(resolveRoleCodes(user));
         return vo;
     }
 
@@ -177,6 +272,8 @@ public class UserService {
             // 兜底：配置被清空且常量缺省时不允许创建空密码账号
             throw new BizException(ResultCode.VALID_ERROR, "密码不能为空");
         }
+        // Phase8 W3 #11：解析多角色（roles 优先，退化兼容仅传 roleId 的调用方）
+        RoleAssignment assignment = resolveRoleAssignment(req);
         User user = new User();
         user.setUsername(req.getUsername());
         user.setPassword(passwordEncoder.encode(rawPassword));
@@ -185,12 +282,15 @@ public class UserService {
         user.setPhone(req.getPhone());
         user.setAvatar(req.getAvatar());
         user.setNickname(req.getNickname());
-        user.setRoleId(req.getRoleId());
+        user.setRoleId(assignment.roleId());
+        user.setRoles(assignment.roleCodes());
         // Phase8 W2 #9：所属组织（可空）
         user.setOrgId(req.getOrgId());
         user.setLeaderId(req.getLeaderId());
         user.setStatus(req.getStatus() == null ? 1 : req.getStatus());
         userMapper.insert(user);
+        // Phase8 W3 #11：落 user_role 关系（整体替换）
+        userRoleService.replaceRoles(user.getId(), assignment.roleCodes());
         // 极端场景防环：新建后若上级指向了自己（前端不会出现），置空修正
         if (user.getLeaderId() != null && Objects.equals(user.getLeaderId(), user.getId())) {
             user.setLeaderId(null);
@@ -222,7 +322,10 @@ public class UserService {
         if (req.getNickname() != null) {
             user.setNickname(req.getNickname());
         }
-        user.setRoleId(req.getRoleId());
+        // Phase8 W3 #11：多角色「整体替换」——主角色与角色码列表一并对齐
+        RoleAssignment assignment = resolveRoleAssignment(req);
+        user.setRoleId(assignment.roleId());
+        user.setRoles(assignment.roleCodes());
         // Phase8 W2 #9：所属组织「存在即覆盖」——传 null 表示解除组织归属
         user.setOrgId(req.getOrgId());
         if (req.getLeaderId() != null && Objects.equals(req.getLeaderId(), id)) {
@@ -233,6 +336,7 @@ public class UserService {
             user.setStatus(req.getStatus());
         }
         userMapper.updateById(user);
+        userRoleService.replaceRoles(id, assignment.roleCodes());
         return getUserVO(user);
     }
 

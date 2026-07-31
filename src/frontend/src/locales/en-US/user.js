@@ -24,6 +24,7 @@ export default {
     username: 'Username',
     realName: 'Real Name',
     role: 'Role',
+    roles: 'Roles',
     org: 'Organization',
     leader: 'Leader',
     password: 'Password',
@@ -31,14 +32,19 @@ export default {
   },
   placeholder: {
     selectRole: 'Select role',
+    selectRoles: 'Select one or more roles',
     selectOrg: 'Select organization',
     selectLeader: 'Search and select a leader (optional)'
+  },
+  tip: {
+    primaryRole: 'The first selected role is the primary role; permissions are the union of all roles'
   },
   action: {
     create: 'New User',
     resetPwd: 'Reset Password'
   },
   msg: {
+    rolesRequired: 'Select at least one role',
     leaderSelf: 'Leader cannot be yourself',
     createSuccess: 'User created',
     updateSuccess: 'User updated',

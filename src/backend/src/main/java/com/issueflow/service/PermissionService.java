@@ -82,10 +82,9 @@ public class PermissionService {
     }
 
     /**
-     * 取当前登录用户的角色 id（基于 JWT 携带的 roleCode 解析；兜底查库）。
+     * 角色码 -> 角色 id（内存映射优先，DB 兜底并回填映射）。
      */
-    private Long currentRoleId() {
-        String roleCode = SecurityUtils.getCurrentRoleCode();
+    private Long resolveRoleId(String roleCode) {
         if (roleCode == null) {
             return null;
         }
@@ -101,19 +100,41 @@ public class PermissionService {
     }
 
     /**
-     * 鉴权：ADMIN 直接放行；其余按权限码集合 OR 语意判定。
+     * 取当前登录用户的全部角色 id（Phase8 W3 #11：由单角色升级为多角色）。
+     */
+    private List<Long> currentRoleIds() {
+        List<String> roleCodes = SecurityUtils.getCurrentRoleCodes();
+        if (roleCodes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Long> ids = new ArrayList<>(roleCodes.size());
+        for (String roleCode : roleCodes) {
+            Long id = resolveRoleId(roleCode);
+            if (id != null && !ids.contains(id)) {
+                ids.add(id);
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * 鉴权：持有 ADMIN 直接放行；其余按<b>全部角色权限并集</b>与入参做 OR 语意判定。
+     *
+     * <p>Phase8 W3 #11：多角色下权限取并集——用户任一角色拥有该权限即放行。</p>
      *
      * @param required 允许的权限码（任一命中即放行）
      */
     public void requirePermission(String... required) {
-        String roleCode = SecurityUtils.getCurrentRoleCode();
-        if (Constants.ROLE_ADMIN.equals(roleCode)) {
+        if (SecurityUtils.hasRole(Constants.ROLE_ADMIN)) {
             return;
         }
         if (required == null || required.length == 0) {
             return;
         }
-        Set<String> owned = getPermissions(currentRoleId());
+        Set<String> owned = new HashSet<>();
+        for (Long roleId : currentRoleIds()) {
+            owned.addAll(getPermissions(roleId));
+        }
         for (String perm : required) {
             if (owned.contains(perm)) {
                 return;

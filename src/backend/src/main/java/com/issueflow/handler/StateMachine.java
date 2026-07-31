@@ -14,6 +14,8 @@ import org.springframework.stereotype.Component;
 import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -88,9 +90,24 @@ public class StateMachine {
     }
 
     /**
-     * 判断状态流转是否被允许
+     * 判断状态流转是否被允许（单角色，兼容保留）
      */
     public boolean isAllowed(int from, int to, String roleCode) {
+        return isAllowed(from, to,
+                roleCode == null ? Collections.<String>emptyList() : Collections.singletonList(roleCode));
+    }
+
+    /**
+     * 判断状态流转是否被允许（多角色，Phase8 W3 #11 新增）。
+     *
+     * <p>角色取<b>并集</b>语义：用户任一角色被该流转规则允许即放行。</p>
+     *
+     * @param from      源状态码
+     * @param to        目标状态码
+     * @param roleCodes 当前用户的全部角色码（null/空视为无权限）
+     * @return 允许返回 true
+     */
+    public boolean isAllowed(int from, int to, Collection<String> roleCodes) {
         if (from == to) {
             return false;
         }
@@ -101,7 +118,15 @@ public class StateMachine {
         if (transition.configKey() != null && !sysConfigService.isEnabled(transition.configKey())) {
             return false;
         }
-        return roleCode != null && transition.roles().contains(roleCode);
+        if (roleCodes == null || roleCodes.isEmpty()) {
+            return false;
+        }
+        for (String roleCode : roleCodes) {
+            if (roleCode != null && transition.roles().contains(roleCode)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

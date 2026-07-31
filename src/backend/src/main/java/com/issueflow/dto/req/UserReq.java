@@ -1,10 +1,10 @@
 package com.issueflow.dto.req;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
 /**
  * 用户新增/编辑请求
@@ -35,9 +35,20 @@ public class UserReq implements Serializable {
     /** 手机号 */
     private String phone;
 
-    /** 角色 id（关联 role.id） */
-    @NotNull(message = "角色不能为空")
+    /**
+     * 主角色 id（关联 role.id）。
+     * <p>Phase8 W3 #11：多角色后不再由 Bean Validation 强制——与 {@link #roles} 二选一即可，
+     * 由 {@code UserService} 统一校验「两者不能同时为空」并对齐主角色，
+     * 兼容仍只传 roleId 的历史调用方。</p>
+     */
     private Long roleId;
+
+    /**
+     * 全部角色码（Phase8 W3 #11 新增，如 {@code ["ADMIN","TESTER"]}）。
+     * <p>非法/不存在的角色码会被服务端剔除；为空时退化为按 {@link #roleId} 赋单角色。
+     * 首位视为主角色，服务端据此回填 {@code roleId}。</p>
+     */
+    private List<String> roles;
 
     /** 所属组织 id（关联 organization.id，可空；Phase8 W2 #9 新增） */
     private Long orgId;

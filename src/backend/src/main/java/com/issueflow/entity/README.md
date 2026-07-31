@@ -3,15 +3,21 @@
 > 实体位于 `com.issueflow.entity`；枚举位于 `com.issueflow.enums`（同层独立包，本文件一并说明）。
 > 表映射使用 MyBatis-Plus 注解；逻辑删除字段 `deleted` 由 `BaseEntity` 提供（除 `Role`/`SysConfig`）。
 
-## 一、实体（7 张表）
+## 一、实体（8 张表）
 
-### User（`user`，单角色模型）
-- 字段：`id`、`username`(UNIQUE)、`password`(BCrypt)、`realName`、`email`、`phone`、`roleId`(FK→role)、`status`(1启用/0禁用)
+### User（`user`，多角色模型：`roleId` 主角色 + `roles` 全部角色）
+- 字段：`id`、`username`(UNIQUE)、`password`(BCrypt)、`realName`、`email`、`phone`、`roleId`(FK→role，**主角色**)、`roles`(JSON 数组角色码，Phase8 W3 #11)、`status`(1启用/0禁用)
+- `roles` 用 `JacksonTypeHandler` 读写（类上 `@TableName(autoResultMap = true)`）；为 `null` 时以 `user_role` 关系表为准
 - 继承 `BaseEntity`（`createdAt`/`updatedAt`/`deleted`）
 
 ### Role（`role`，角色字典）
 - 字段：`id`、`code`(UNIQUE: SUBMITTER/DEVELOPER/TESTER/ADMIN)、`name`、`description`、`createdAt`
 - **不继承** `BaseEntity`（无 `deleted`）
+
+### UserRole（`user_role`，用户-角色关系，Phase8 W3 #11 新增）
+- 字段：`id`、`userId`(→`user.id`)、`roleCode`(→`role.code`)；`UNIQUE KEY (user_id, role_code)`
+- 存角色**码**而非角色 id：JWT / SecurityContext 直接消费，鉴权链路免 id→code 反查
+- **不继承** `BaseEntity`（无 `deleted`）——与 `RolePermission` 同口径，关联随主体整体替换，物理删除
 
 ### Issue（`issue`，问题主表）
 - 字段：`id`、`issueNo`(UNIQUE, IS-YYYYMMDD-序号)、`title`、`description`、`severity`(0~3)、`tags`(逗号分隔)、`reproduceSteps`、`envOs`、`envBrowser`、`envAppVersion`、`envDevice`、`status`(0~4)、`reporterId`、`assigneeId`、`closedAt`

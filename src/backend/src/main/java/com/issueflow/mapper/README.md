@@ -12,6 +12,12 @@
 | `SysConfigMapper` | `SysConfig` | 配置 CRUD |
 | `IssueAttachmentMapper` | `IssueAttachment` | 附件 CRUD |
 
+## UserRoleMapper（含自定义 `@Select` / `@Delete` / `@Insert`，Phase8 W3 #11）
+> `user_role` 无 `deleted` 字段，走物理删除；关联随主体整体替换。
+- `List<String> selectRoleCodesByUserId(@Param("userId") Long)` — `SELECT role_code ... ORDER BY id`（首个为主角色）
+- `int deleteByUserId(@Param("userId") Long)` — 物理删除该用户全部角色映射
+- `int insertBatch(@Param("list") List<UserRole>)` — `<script>` + `<foreach>` 批量插入（调用方保证非空且已去重）
+
 ## IssueMapper（含自定义 `@Select` 聚合查询）
 - `Long maxSeqByIssueNoPrefix(@Param("prefix") String)` — 取当日最大编号序号（含逻辑删除行，避免软删导致序号回退）；`WHERE issue_no LIKE CONCAT(#{prefix},'%')`，取 SUBSTRING 序号段的 MAX（COALESCE 空为 0）
 - `List<Map<String,Object>> statusDistribution(reporterId, version, start, end)` — 状态分布 `GROUP BY status`

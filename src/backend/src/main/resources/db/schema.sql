@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `email` VARCHAR(100) DEFAULT NULL,
   `phone` VARCHAR(20) DEFAULT NULL,
   `role_id` BIGINT NOT NULL,
+  `roles` VARCHAR(500) DEFAULT NULL COMMENT 'JSON 数组角色码，如 ["ADMIN"]（Phase8 W3 #11）',
   `status` TINYINT NOT NULL DEFAULT 1,
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -31,7 +32,17 @@ CREATE TABLE IF NOT EXISTS `user` (
   UNIQUE KEY `uk_user_username` (`username`),
   KEY `idx_user_role` (`role_id`),
   CONSTRAINT `fk_user_role` FOREIGN KEY (`role_id`) REFERENCES `role` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户(单角色)';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户(role_id 主角色 + roles 多角色)';
+
+-- 用户-角色关系表（Phase8 W3 #11）：存角色码而非角色 id，鉴权链路免二次反查
+CREATE TABLE IF NOT EXISTS `user_role` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT NOT NULL,
+  `role_code` VARCHAR(50) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_role` (`user_id`, `role_code`),
+  KEY `idx_user_role_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户-角色关系(多角色)';
 
 CREATE TABLE IF NOT EXISTS `issue` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,

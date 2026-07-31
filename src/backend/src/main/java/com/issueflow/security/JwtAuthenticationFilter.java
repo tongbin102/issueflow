@@ -16,7 +16,7 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -68,12 +68,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     String blacklistKey = Constants.REDIS_JWT_BLACKLIST_PREFIX + jti;
                     if (redisTemplate.opsForValue().get(blacklistKey) == null) {
                         Long userId = jwtUtil.getUserId(token);
-                        String roleCode = jwtUtil.getRoleCode(token);
+                        // Phase8 W3 #11：多角色 —— token 的 roleCode claim 已是数组，
+                        // 逐个转 SimpleGrantedAuthority 写入上下文（旧版单值 token 由 getRoles 兼容为单元素列表）
+                        List<String> roles = jwtUtil.getRoles(token);
+                        List<SimpleGrantedAuthority> authorities = new ArrayList<>(roles.size());
+                        for (String role : roles) {
+                            authorities.add(new SimpleGrantedAuthority(role));
+                        }
                         UsernamePasswordAuthenticationToken authentication =
-                                new UsernamePasswordAuthenticationToken(
-                                        userId,
-                                        null,
-                                        Collections.singletonList(new SimpleGrantedAuthority(roleCode)));
+                                new UsernamePasswordAuthenticationToken(userId, null, authorities);
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                     }

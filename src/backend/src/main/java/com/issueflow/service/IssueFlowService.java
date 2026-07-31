@@ -13,6 +13,7 @@ import com.issueflow.handler.StateMachine;
 import com.issueflow.mapper.IssueMapper;
 import com.issueflow.service.PermissionService;
 import com.issueflow.util.DateTimeUtils;
+import com.issueflow.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,7 +51,13 @@ public class IssueFlowService {
         if (toStatus == null) {
             throw new BizException(ResultCode.VALID_ERROR, "目标状态不能为空");
         }
-        if (!stateMachine.isAllowed(from, toStatus, roleCode)) {
+        // Phase8 W3 #11：多角色 —— 取当前登录用户全部角色码做并集判定；
+        // 上下文缺失（如内部调用）时退化为入参主角色，行为与升级前一致。
+        List<String> roleCodes = SecurityUtils.getCurrentRoleCodes();
+        if (roleCodes.isEmpty() && roleCode != null) {
+            roleCodes = List.of(roleCode);
+        }
+        if (!stateMachine.isAllowed(from, toStatus, roleCodes)) {
             throw new BizException(ResultCode.STATUS_TRANSITION_DENIED);
         }
         // 必填备注由流转规则数据驱动（flow_transition.remark_required）

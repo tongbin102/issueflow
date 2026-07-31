@@ -12,8 +12,22 @@
         <el-table-column prop="username" :label="t('user.col.username')" width="140" />
         <el-table-column prop="realName" :label="t('user.col.realName')" width="120" />
         <el-table-column prop="email" :label="t('user.col.email')" min-width="160" show-overflow-tooltip />
-        <el-table-column :label="t('user.col.role')" width="120">
-          <template #default="{ row }">{{ roleName(row.roleId) }}</template>
+        <!-- Phase8 W3 #11：多角色，逐个 tag 展示（首个为主角色） -->
+        <el-table-column :label="t('user.col.role')" min-width="160">
+          <template #default="{ row }">
+            <template v-if="rowRoleCodes(row).length">
+              <el-tag
+                v-for="code in rowRoleCodes(row)"
+                :key="code"
+                class="role-tag"
+                size="small"
+                effect="light"
+              >
+                {{ roleNameByCode(code) }}
+              </el-tag>
+            </template>
+            <span v-else>-</span>
+          </template>
         </el-table-column>
         <!-- Phase8 W2 #9：所属组织（UserVO.orgName，未归属时展示 -） -->
         <el-table-column :label="t('user.col.org')" width="140" show-overflow-tooltip>
@@ -76,10 +90,19 @@
         <el-form-item :label="t('user.col.phone')">
           <el-input v-model="form.phone" />
         </el-form-item>
-        <el-form-item :label="t('user.form.role')" prop="roleId">
-          <el-select v-model="form.roleId" :placeholder="t('user.placeholder.selectRole')" style="width: 100%">
-            <el-option v-for="r in roles" :key="r.id" :label="r.name" :value="r.id" />
+        <!-- Phase8 W3 #11：多角色多选，选项取 GET /api/roles 平铺的 role.code -->
+        <el-form-item :label="t('user.form.roles')" prop="roles">
+          <el-select
+            v-model="form.roles"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            :placeholder="t('user.placeholder.selectRoles')"
+            style="width: 100%"
+          >
+            <el-option v-for="r in roles" :key="r.code" :label="r.name" :value="r.code" />
           </el-select>
+          <div class="form-tip">{{ t('user.tip.primaryRole') }}</div>
         </el-form-item>
         <!-- Phase8 W2 #9：所属组织（可空，平铺下拉，来源 GET /api/organizations） -->
         <el-form-item :label="t('user.form.org')">
@@ -135,7 +158,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { formatDate } from '@/utils/format'
-import { pageUsers, createUser, updateUser, deleteUser, listUserOptions } from '@/api/user'
+import { pageUsers, createUser, updateUser, deleteUser, listUserOptions, listUserRoles } from '@/api/user'
 import { listRoles } from '@/api/user'
 import { listOrganizations } from '@/api/organization'
 import FormDrawer from '@/components/FormDrawer.vue'
@@ -149,7 +172,8 @@ const total = ref(0)
 const page = ref(1)
 const size = ref(10)
 const roles = ref([])
-const roleMap = ref({})
+/** Phase8 W3 #11：角色码 -> 角色名，用于列表多角色展示（原 roleId->名 映射随单角色列一并移除） */
+const roleCodeMap = ref({})
 /** Phase8 W2 #9：组织下拉（平铺列表，来源 GET /api/organizations） */
 const orgOptions = ref([])
 const drawerVisible = ref(false)
@@ -161,7 +185,8 @@ const emptyForm = () => ({
   realName: '',
   email: '',
   phone: '',
-  roleId: null,
+  // Phase8 W3 #11：多角色，存角色码数组；主角色 roleId 提交时由首位推导
+  roles: [],
   orgId: null,
   leaderId: null,
   status: 1
@@ -169,27 +194,49 @@ const emptyForm = () => ({
 const form = reactive(emptyForm())
 
 // Phase8 W2 #7：密码字段已从新增弹窗移除，故不再有 password 校验规则
+// Phase8 W3 #11：角色校验由单选 roleId 改为多选 roles（数组非空）
 const rules = computed(() => ({
   username: [{ required: true, message: t('login.msg.usernameRequired'), trigger: 'blur' }],
-  roleId: [{ required: true, message: t('user.placeholder.selectRole'), trigger: 'change' }]
+  roles: [
+    { type: 'array', required: true, message: t('user.msg.rolesRequired'), trigger: 'change' }
+  ]
 }))
 
-function roleName(roleId) {
-  return roleMap.value[roleId] || '-'
+/** 角色码 -> 角色名（字典未加载或角色被删时退化展示角色码本身） */
+function roleNameByCode(code) {
+  return roleCodeMap.value[code] || code
+}
+
+/**
+ * 行数据的角色码列表：优先取多角色 roles，回落单角色 roleCode，
+ * 再回落 roleId 反查（兼容后端未回填 roles 的历史数据）。
+ */
+function rowRoleCodes(row) {
+  if (Array.isArray(row.roles) && row.roles.length) return row.roles
+  if (row.roleCode) return [row.roleCode]
+  const hit = roles.value.find((r) => r.id === row.roleId)
+  return hit ? [hit.code] : []
 }
 
 async function loadRoles() {
   try {
     const data = await listRoles()
     roles.value = data || []
-    const m = {}
+    const cm = {}
     ;(data || []).forEach((r) => {
-      m[r.id] = r.name
+      cm[r.code] = r.name
     })
-    roleMap.value = m
+    roleCodeMap.value = cm
   } catch (e) {
     roles.value = []
   }
+}
+
+/** 由角色码推导主角色 id（首个选中角色，后端也会做同样对齐） */
+function primaryRoleId(codes) {
+  if (!Array.isArray(codes) || !codes.length) return null
+  const hit = roles.value.find((r) => r.code === codes[0])
+  return hit ? hit.id : null
 }
 
 /** 组织下拉：平铺全量启用组织，供「所属组织」选择（Phase8 W2 #9） */
@@ -245,14 +292,15 @@ function openCreate() {
   leaderOptions.value = []
   drawerVisible.value = true
 }
-function openEdit(row) {
+async function openEdit(row) {
   Object.assign(form, {
     id: row.id,
     username: row.username,
     realName: row.realName || '',
     email: row.email || '',
     phone: row.phone || '',
-    roleId: row.roleId,
+    // Phase8 W3 #11：多角色回显，列表已带 roles 时直接用，避免多一次往返
+    roles: rowRoleCodes(row).slice(),
     orgId: row.orgId ?? null,
     leaderId: row.leaderId ?? null,
     status: row.status === 0 ? 0 : 1
@@ -261,6 +309,17 @@ function openEdit(row) {
   leaderOptions.value =
     row.leaderId != null ? [{ id: row.leaderId, realName: row.leaderName || '', username: '' }] : []
   drawerVisible.value = true
+  // 列表未返回 roles（旧接口/历史数据）时兜底拉取 GET /api/users/{id}/roles
+  if (!Array.isArray(row.roles) || !row.roles.length) {
+    try {
+      const codes = await listUserRoles(row.id)
+      if (Array.isArray(codes) && codes.length && form.id === row.id) {
+        form.roles = codes.slice()
+      }
+    } catch (e) {
+      /* 回显兜底失败时保留已有推导结果，不打断编辑 */
+    }
+  }
 }
 function onDrawerClosed() {
   formRef.value && formRef.value.resetFields()
@@ -281,7 +340,9 @@ function onSubmit() {
       realName: form.realName,
       email: form.email,
       phone: form.phone,
-      roleId: form.roleId,
+      // Phase8 W3 #11：下发全部角色码；roleId 为兼容字段，取首个角色对应的 id（主角色）
+      roles: form.roles,
+      roleId: primaryRoleId(form.roles),
       // Phase8 W2 #9：所属组织，未选择时下发 null 表示解除归属
       orgId: form.orgId ?? null,
       leaderId: form.leaderId ?? null,
@@ -332,5 +393,16 @@ onMounted(async () => {
   margin-top: 12px;
   display: flex;
   justify-content: flex-end;
+}
+/* Phase8 W3 #11：多角色 tag 间距与表单提示 */
+.role-tag {
+  margin-right: 4px;
+}
+.form-tip {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--el-text-color-secondary);
 }
 </style>

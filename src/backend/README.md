@@ -14,7 +14,7 @@
 | 认证 | Spring Security 6 + JWT（jjwt 0.12.x，HS256） |
 | 接口文档 | Knife4j / OpenAPI3（`/doc.html`） |
 | 导出 | EasyExcel（看板 Excel） |
-| 工具 | Lombok、Hutool |
+| 工具 | Lombok |
 
 ## 二、包结构总览
 

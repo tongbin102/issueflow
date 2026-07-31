@@ -761,7 +761,7 @@ sequenceDiagram
   <dependency><groupId>com.alibaba</groupId><artifactId>easyexcel</artifactId><version>3.3.4</version></dependency>
   <!-- 工具 -->
   <dependency><groupId>org.projectlombok</groupId><artifactId>lombok</artifactId><optional>true</optional></dependency>
-  <dependency><groupId>cn.hutool</groupId><artifactId>hutool-all</artifactId><version>5.8.27</version></dependency>
+  <!-- 注：hutool-all 已于 2026-08-01 清理轮移除（全代码库零引用），不再依赖 -->
   <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
 </dependencies>
 ```

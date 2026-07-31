@@ -467,13 +467,13 @@ const itemRules = computed(() => ({
 }))
 
 async function fetchItems() {
-  if (!activeTypeId.value) {
+  if (!activeType.value) {
     items.value = []
     return
   }
   itemLoading.value = true
   try {
-    const params = { typeId: activeTypeId.value }
+    const params = { typeCode: activeType.value?.code }
     if (itemKeyword.value) params.keyword = itemKeyword.value
     items.value = (await listDictItems(params)) || []
   } catch (e) {
@@ -513,11 +513,11 @@ function onSaveItem() {
   if (!itemFormRef.value) return
   itemFormRef.value.validate(async (valid) => {
     if (!valid) return
-    if (!activeTypeId.value) return
+    if (!activeType.value) return
     itemSaving.value = true
     try {
       const payload = {
-        typeId: activeTypeId.value,
+        typeCode: activeType.value?.code,
         name: itemForm.name,
         code: itemForm.code,
         description: itemForm.description,

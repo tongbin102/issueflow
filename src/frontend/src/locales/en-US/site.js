@@ -3,12 +3,14 @@
  */
 export default {
   page: {
-    title: 'Site Settings'
+    // Phase8 W1 #2: menu "Site Settings" → "System Settings", page title kept in sync
+    title: 'System Settings'
   },
   group: {
     basic: 'Basic Info',
     appearance: 'Default Appearance',
-    footer: 'Footer'
+    footer: 'Footer',
+    security: 'Security'
   },
   form: {
     name: 'Site Name',
@@ -21,11 +23,17 @@ export default {
     icp: 'ICP License',
     footerText: 'Footer Text',
     logo: 'Site Logo',
-    favicon: 'Favicon'
+    favicon: 'Favicon',
+    defaultPassword: 'Default Password for New Users'
+  },
+  tip: {
+    defaultPassword: 'Initial password used when an admin creates a user; change it after first login'
   },
   rules: {
     nameRequired: 'Please enter the site name',
-    shortNameRequired: 'Please enter the short name'
+    shortNameRequired: 'Please enter the short name',
+    defaultPasswordRequired: 'Please enter the default password',
+    defaultPasswordLength: 'The default password must be 6-32 characters'
   },
   action: {
     restoreDefault: 'Restore Defaults'

@@ -26,7 +26,6 @@ export default {
     issueTypes: '问题类型',
     projectGroup: '项目管理',
     projects: '项目配置',
-    modules: '模块配置',
     flowGroup: '流程管理',
     flowMonitor: '流程监控',
     flowConfig: '流程配置',
@@ -35,7 +34,10 @@ export default {
     organizations: '组织管理',
     menus: '菜单管理',
     roles: '角色管理',
-    siteSettings: '网站设置',
-    systemSettings: '系统设置'
+    // Phase8 W1 #2：菜单文案调整（路由 path / component 不变）
+    // /admin/system/site  → 系统设置（原「网站设置」）
+    // /admin/system/settings → 备份设置（原「系统设置」）
+    siteSettings: '系统设置',
+    systemSettings: '备份设置'
   }
 }

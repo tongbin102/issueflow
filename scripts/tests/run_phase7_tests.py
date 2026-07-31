@@ -159,8 +159,9 @@ class Phase7Suite:
 
         biz = next((n for n in data if n.get("name") == "业务管理"), None)
         biz_kids = [c.get("name") for c in (biz or {}).get("children") or []]
-        case.check("业务管理下含 项目配置/模块配置/字典配置",
-                   all(k in biz_kids for k in ["项目配置", "模块配置", "字典配置"]),
+        # Phase8 W1 #8：「模块配置」菜单已下线（模块维护并入项目配置页抽屉），断言中移除
+        case.check("业务管理下含 项目配置/字典配置",
+                   all(k in biz_kids for k in ["项目配置", "字典配置"]),
                    biz_kids)
 
         infra = next((n for n in data if n.get("name") == "基础设施"), None)

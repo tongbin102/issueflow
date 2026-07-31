@@ -43,4 +43,9 @@ public class SiteConfigReq implements Serializable {
     /** ICP 备案号 site.icp */
     @Size(max = 50, message = "备案号不能超过 50 字")
     private String icp;
+
+    /** 新增用户默认密码 site.default_password（Phase8 W1 #2） */
+    @NotBlank(message = "新增用户默认密码不能为空")
+    @Size(min = 6, max = 32, message = "新增用户默认密码长度需为 6~32 个字符")
+    private String defaultPassword;
 }

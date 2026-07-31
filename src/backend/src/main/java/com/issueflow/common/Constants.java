@@ -62,6 +62,15 @@ public final class Constants {
     public static final String CFG_SITE_COPYRIGHT = "site.copyright";
     public static final String CFG_SITE_ICP = "site.icp";
 
+    /**
+     * 新增用户默认密码（Phase8 W1 #2）。
+     * <p>敏感项：仅管理端 GET /api/admin/site/config 下发，公开的 /api/site/config 不返回。</p>
+     */
+    public static final String CFG_SITE_DEFAULT_PASSWORD = "site.default_password";
+
+    /** 新增用户默认密码兜底值（DB 缺键时使用） */
+    public static final String DEFAULT_USER_PASSWORD = "123456";
+
     /** 前台主题合法值（Q2：4 套主题） */
     public static final Set<String> SITE_THEMES = Set.of("light", "dark", "blue", "green");
 

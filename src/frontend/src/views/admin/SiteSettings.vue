@@ -59,6 +59,20 @@
           </el-radio-group>
         </el-form-item>
 
+        <!-- Phase8 W1 #2：安全设置 —— 新增用户默认密码（sys_config: site.default_password） -->
+        <el-divider content-position="left">{{ t('site.group.security') }}</el-divider>
+        <el-form-item :label="t('site.form.defaultPassword')" prop="defaultPassword">
+          <el-input
+            v-model="form.defaultPassword"
+            type="password"
+            show-password
+            autocomplete="new-password"
+            maxlength="32"
+            style="width: 320px"
+          />
+          <div class="field-tip">{{ t('site.tip.defaultPassword') }}</div>
+        </el-form-item>
+
         <!-- 页脚信息 -->
         <el-divider content-position="left">{{ t('site.group.footer') }}</el-divider>
         <el-form-item :label="t('site.form.copyright')" prop="copyright">
@@ -91,7 +105,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Download } from '@element-plus/icons-vue'
-import { getSiteConfig, saveSiteConfig } from '@/api/site'
+import { getAdminSiteConfig, saveSiteConfig } from '@/api/site'
 import { useAppStore } from '@/store/app'
 import BackupDrawer from '@/components/BackupDrawer.vue'
 
@@ -114,7 +128,9 @@ const DEFAULTS = {
   defaultTheme: 'light',
   defaultLocale: 'zh-CN',
   copyright: '(c) 2026 issueFlow',
-  icp: ''
+  icp: '',
+  // Phase8 W1 #2：新增用户默认密码（site.default_password）
+  defaultPassword: '123456'
 }
 
 const loading = ref(false)
@@ -133,7 +149,12 @@ const form = reactive({ ...DEFAULTS })
 
 const rules = computed(() => ({
   name: [{ required: true, message: t('site.rules.nameRequired'), trigger: 'blur' }],
-  shortName: [{ required: true, message: t('site.rules.shortNameRequired'), trigger: 'blur' }]
+  shortName: [{ required: true, message: t('site.rules.shortNameRequired'), trigger: 'blur' }],
+  // Phase8 W1 #2：默认密码非空 + 长度 6~32
+  defaultPassword: [
+    { required: true, message: t('site.rules.defaultPasswordRequired'), trigger: 'blur' },
+    { min: 6, max: 32, message: t('site.rules.defaultPasswordLength'), trigger: 'blur' }
+  ]
 }))
 
 /** 后端返回的 site.* 扁平 Map → 表单字段 */
@@ -146,12 +167,14 @@ function applyConfig(cfg) {
   form.defaultLocale = cfg['site.default_locale'] ?? DEFAULTS.defaultLocale
   form.copyright = cfg['site.copyright'] ?? DEFAULTS.copyright
   form.icp = cfg['site.icp'] ?? DEFAULTS.icp
+  form.defaultPassword = cfg['site.default_password'] ?? DEFAULTS.defaultPassword
 }
 
 async function load() {
   loading.value = true
   try {
-    const cfg = await getSiteConfig()
+    // Phase8 W1 #2：改走管理端读接口——公开的 GET /api/site/config 不下发 site.default_password
+    const cfg = await getAdminSiteConfig()
     applyConfig(cfg)
   } catch (e) {
     ElMessage.warning(t('site.msg.loadError'))
@@ -178,10 +201,12 @@ function onSave() {
         defaultTheme: form.defaultTheme,
         defaultLocale: form.defaultLocale,
         copyright: form.copyright,
-        icp: form.icp
+        icp: form.icp,
+        defaultPassword: form.defaultPassword
       })
       ElMessage.success(t('site.msg.saveSuccess'))
       // 本地同步 app store，登录页 / 标题即时生效，无需刷新
+      // 注意：默认密码属敏感项，不写入 app store（store 仅服务于公开的 site.* 展示键）
       appStore.setSiteConfig({
         'site.name': form.name,
         'site.short_name': form.shortName,
@@ -217,6 +242,15 @@ onMounted(load)
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+/* 表单项下方补充说明（Phase8 W1 #2） */
+.field-tip {
+  width: 100%;
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
 }
 
 .theme-dot {

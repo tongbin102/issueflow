@@ -69,6 +69,11 @@
           <router-view />
         </div>
       </main>
+      <!-- Phase8 W1 #4：前台页脚（版权 / 备案号，二者皆空则整体不渲染；后台不加） -->
+      <footer v-if="showFooter" class="if-footer">
+        <span v-if="appStore.siteCopyright" class="if-footer__item">{{ appStore.siteCopyright }}</span>
+        <span v-if="appStore.siteIcp" class="if-footer__item">{{ appStore.siteIcp }}</span>
+      </footer>
     </div>
   </div>
 </template>
@@ -107,6 +112,8 @@ const pageTitle = computed(() => {
 })
 /** 顶栏展示名：昵称优先 → 姓名 → 账号（Phase7 T5 起 userInfo 带 nickname） */
 const displayName = computed(() => userStore.displayName || userStore.realName)
+/** Phase8 W1 #4：版权与备案号任一非空才渲染页脚 */
+const showFooter = computed(() => !!(appStore.siteCopyright || appStore.siteIcp))
 
 // ===== Phase6 前台主题挂载（ARCH §七.3）=====
 // 仅写 body[data-if-theme]，严禁写 document.documentElement；
@@ -188,6 +195,23 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 6px;
   cursor: pointer;
+}
+
+/* Phase8 W1 #4：前台页脚。位于 .if-main（flex 列）底部，
+   .if-content 保持 flex:1 + overflow:auto，故页脚不参与滚动、也不遮挡内容 */
+.if-layout--user .if-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--el-text-color-secondary);
+  text-align: center;
 }
 </style>
 

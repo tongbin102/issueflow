@@ -32,6 +32,15 @@ public class SiteConfigController {
     }
 
     /**
+     * 管理端读取全部 site.* 配置（含敏感键 site.default_password，共 8 键）
+     * <p>Phase8 W1 #2：需登录 + site:config:update 权限，供「系统设置」页回填表单。</p>
+     */
+    @GetMapping("/api/admin/site/config")
+    public Result<Map<String, String>> getForAdmin() {
+        return Result.success(siteConfigService.getAdminSiteConfig());
+    }
+
+    /**
      * 管理端保存网站设置（site:config:update）
      */
     @PutMapping("/api/admin/site/config")

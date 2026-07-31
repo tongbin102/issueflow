@@ -118,12 +118,8 @@ const routes = [
         component: () => import('@/views/admin/ProjectManage.vue'),
         meta: { title: 'menu.admin.projects', roles: ['ADMIN'] }
       },
-      {
-        path: 'modules',
-        name: 'module-manage',
-        component: () => import('@/views/admin/ModuleManage.vue'),
-        meta: { title: 'menu.admin.modules', roles: ['ADMIN'] }
-      },
+      // Phase8 W1 #8：「模块配置」独立页面下线（模块维护统一走项目配置页的模块抽屉），
+      // 原 /admin/modules 路由与 ModuleManage.vue 已移除；ModuleTreePanel / ModuleTreeDrawer 保留复用。
       {
         path: 'flow-monitor',
         name: 'flow-monitor',

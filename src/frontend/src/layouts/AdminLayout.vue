@@ -9,7 +9,8 @@
       }"
     >
       <div class="if-logo">
-        <span v-if="!collapsed">{{ t('layout.logo.admin') }}</span>
+        <!-- Phase8 W1 #10：展开态跟随「网站名称」配置（appStore.siteName 自带 'issueFlow' 兜底） -->
+        <span v-if="!collapsed">{{ appStore.siteName }}</span>
         <span v-else>{{ appStore.siteShortName }}</span>
       </div>
       <!-- R1：菜单内滚动容器（flex:1 + overflow-y:auto） -->
@@ -141,7 +142,8 @@ function onStyleChange(next) {
 const pageTitle = computed(() => {
   const key = route.meta.title
   if (key && te(key)) return t(key)
-  return key || t('layout.logo.admin')
+  // Phase8 W1 #10：兜底改为站点名称配置，与 UserLayout 保持一致
+  return key || appStore.siteName
 })
 const realName = computed(() => userStore.realName)
 const avatarText = computed(() => (realName.value || 'A').charAt(0).toUpperCase())

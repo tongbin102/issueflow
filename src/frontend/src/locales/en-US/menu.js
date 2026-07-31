@@ -25,7 +25,6 @@ export default {
     issueTypes: 'Issue Types',
     projectGroup: 'Project',
     projects: 'Project Config',
-    modules: 'Module Config',
     flowGroup: 'Workflow',
     flowMonitor: 'Flow Monitor',
     flowConfig: 'Flow Config',
@@ -34,7 +33,10 @@ export default {
     organizations: 'Organizations',
     menus: 'Menus',
     roles: 'Roles',
-    siteSettings: 'Site Settings',
-    systemSettings: 'System Settings'
+    // Phase8 W1 #2: menu label rework (route path / component unchanged)
+    // /admin/system/site      → System Settings (was "Site Settings")
+    // /admin/system/settings  → Backup Settings (was "System Settings")
+    siteSettings: 'System Settings',
+    systemSettings: 'Backup Settings'
   }
 }

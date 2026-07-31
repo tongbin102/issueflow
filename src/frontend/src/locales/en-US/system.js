@@ -2,7 +2,8 @@
  * System settings texts (en-US, existing settings page)
  */
 export default {
-  title: 'System Settings',
+  // Phase8 W1 #2: menu "System Settings" → "Backup Settings", page title kept in sync
+  title: 'Backup Settings',
   group: {
     basic: 'Basic',
     security: 'Security',

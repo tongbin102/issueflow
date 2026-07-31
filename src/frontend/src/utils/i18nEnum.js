@@ -137,7 +137,7 @@ export const MENU_KEY_BY_PATH = {
   '/admin/issue-types': 'menu.admin.issueTypes',
   '/admin/project': 'menu.admin.projectGroup',
   '/admin/projects': 'menu.admin.projects',
-  '/admin/modules': 'menu.admin.modules',
+  // Phase8 W1 #8：/admin/modules（模块配置）已下线，映射一并移除
   '/admin/flow': 'menu.admin.flowGroup',
   '/admin/flow-monitor': 'menu.admin.flowMonitor',
   '/admin/flow-config': 'menu.admin.flowConfig',

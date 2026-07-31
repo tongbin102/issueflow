@@ -2,7 +2,8 @@
  * 系统设置页文案（zh-CN，复用既有系统设置页）
  */
 export default {
-  title: '系统设置',
+  // Phase8 W1 #2：菜单「系统设置」→「备份设置」，页面标题同步
+  title: '备份设置',
   group: {
     basic: '基础设置',
     security: '安全设置',

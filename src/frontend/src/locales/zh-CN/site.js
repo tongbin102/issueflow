@@ -3,12 +3,14 @@
  */
 export default {
   page: {
-    title: '网站设置'
+    // Phase8 W1 #2：菜单「网站设置」→「系统设置」，页面标题同步
+    title: '系统设置'
   },
   group: {
     basic: '基础信息',
     appearance: '外观默认值',
-    footer: '页脚信息'
+    footer: '页脚信息',
+    security: '安全设置'
   },
   form: {
     name: '网站名称',
@@ -21,11 +23,17 @@ export default {
     icp: '备案号',
     footerText: '页脚文案',
     logo: '网站 Logo',
-    favicon: '网站图标'
+    favicon: '网站图标',
+    defaultPassword: '新增用户默认密码'
+  },
+  tip: {
+    defaultPassword: '后台新增用户时的初始密码，建议首次登录后修改'
   },
   rules: {
     nameRequired: '请输入网站名称',
-    shortNameRequired: '请输入网站简称'
+    shortNameRequired: '请输入网站简称',
+    defaultPasswordRequired: '请输入新增用户默认密码',
+    defaultPasswordLength: '默认密码长度需为 6~32 个字符'
   },
   action: {
     restoreDefault: '恢复默认'

@@ -136,6 +136,50 @@ bash tests/api/test-api.sh
 | 开发人员 DEVELOPER | 认领问题、更新处理状态 | 自行创建 |
 | 测试人员 TESTER | 执行验证、记录验证结果 | 自行创建 |
 
+> 管理员在后台「系统管理 → 系统设置」新增用户时，初始密码取自配置项 `site.default_password`（默认 `123456`），建议用户首次登录后自行修改。
+
+### 4.6 站点配置项（`sys_config` 表 `site.*`）
+
+后台「系统管理 → **系统设置**」页（`/admin/system/site`）统一维护以下键：
+
+| 配置键 | 说明 | 默认值 | 是否公开 |
+|---|---|---|---|
+| `site.name` | 网站名称（登录页大标题、前台/后台侧栏展开态 Logo、浏览器标题） | `issueFlow` | 是 |
+| `site.short_name` | 网站简称（侧栏折叠态 Logo） | `IF` | 是 |
+| `site.subtitle` | 副标题 | `问题跟踪与流程管理平台` | 是 |
+| `site.default_theme` | 前台默认主题 `light/dark/blue/green` | `light` | 是 |
+| `site.default_locale` | 默认语言 `zh-CN/en-US` | `zh-CN` | 是 |
+| `site.copyright` | 版权信息（前台页脚展示） | `(c) 2026 issueFlow` | 是 |
+| `site.icp` | ICP 备案号（前台页脚展示，可为空） | 空 | 是 |
+| `site.default_password` | 新增用户默认密码，长度 6~32 | `123456` | **否（敏感）** |
+
+读写接口：
+
+- `GET /api/site/config`：**公开**（登录页可用），仅返回上表 7 个「公开」键，**不下发** `site.default_password`。
+- `GET /api/admin/site/config`：需登录 + `site:config:update` 权限，返回全部 8 键，供「系统设置」页回填表单。
+- `PUT /api/admin/site/config`：需 `site:config:update` 权限，整表提交保存。
+
+### 4.7 后台菜单结构（`menu` 表驱动）
+
+后台菜单由数据库 `menu` 表驱动（非前端静态路由表），前端按 `path` 映射 i18n 词条渲染，支持中英双语：
+
+```
+概览 /admin/index
+业务管理 /admin/business ├ 问题列表 /admin/issues  ├ 字典配置 /admin/dicts
+问题类型 /admin/issue-types
+项目管理 /admin/project   └ 项目配置 /admin/projects（模块维护内置于本页的模块抽屉）
+流程管理 └ 流程监控 /admin/flow-monitor  └ 流程配置 /admin/flow-config
+系统管理 /admin/system
+        ├ 组织管理 /admin/system/organizations   ├ 菜单管理 /admin/system/menus
+        ├ 用户管理 /admin/system/users           ├ 角色管理 /admin/system/roles
+        ├ 系统设置 /admin/system/site            └ 备份设置 /admin/system/settings
+基础设施 /admin/infra（文件配置 / 文件列表 / 配置管理 / Redis 监控 / 定时任务）
+```
+
+> 命名说明（Phase8 W1）：`/admin/system/site` 由「网站设置」更名为「**系统设置**」（站点基础配置 + 安全设置）；
+> `/admin/system/settings` 由「系统设置」更名为「**备份设置**」（数据初始化 / 数据维护）。路由 `path` 与页面组件均未变更。
+> 原独立页「模块配置」（`/admin/modules`）已下线，模块维护统一在「项目配置」页的模块抽屉中完成。
+
 ---
 
 ## 5. 目录结构说明

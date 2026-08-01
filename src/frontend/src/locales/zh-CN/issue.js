@@ -103,7 +103,20 @@ export default {
       tag: '标签筛选',
       version: '版本筛选',
       keyword: '标题/描述关键字'
-    }
+    },
+    // Phase9 T8：列表空状态
+    empty: {
+      title: '还没有问题记录',
+      desc: '点击「提交问题」创建第一条记录',
+      noResultTitle: '没有符合条件的问题',
+      noResultDesc: '试试放宽或重置筛选条件'
+    },
+    // Phase9 T8：移动端（<768px）卡片流降级视图
+    mobile: {
+      untitled: '（无标题）',
+      updatedPrefix: '更新于'
+    },
+    subtitle: '查看并跟进我提交的全部问题'
   },
   filter: {
     typeDisabledSuffix: '（已停用）'
@@ -117,7 +130,10 @@ export default {
       attachment: '附件',
       relation: '关联问题',
       action: '流转操作',
-      history: '操作历史'
+      history: '操作历史',
+      // Phase9 T8：详情抽屉分区标题补充
+      content: '问题内容',
+      env: '环境信息'
     },
     field: {
       reporter: '报告人',

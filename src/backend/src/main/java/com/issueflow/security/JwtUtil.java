@@ -28,6 +28,19 @@ import java.util.UUID;
 @Component
 public class JwtUtil {
 
+    /**
+     * HS256 密钥最小字节数（RFC 7518 要求 ≥ 256 bit）。
+     * <p>低于该长度 {@link Keys#hmacShaKeyFor} 会抛 {@code WeakKeyException}，
+     * 这里提前拦截以给出可操作的运维指引。</p>
+     */
+    private static final int MIN_SECRET_BYTES = 32;
+
+    /** 密钥缺失/过弱时统一的排障指引（运维可直接照做） */
+    private static final String SECRET_HINT =
+            "请设置 JWT_SECRET 环境变量，长度 ≥ 32 字节。"
+                    + "生成强随机密钥：openssl rand -base64 48 ；"
+                    + "并写入部署环境的 .env（勿入 git），随后重启 backend 容器。";
+
     @Value("${jwt.secret}")
     private String secret;
 
@@ -37,9 +50,28 @@ public class JwtUtil {
 
     private SecretKey key;
 
+    /**
+     * 启动期密钥校验与初始化（M1 安全加固）。
+     *
+     * <p>生产档 {@code application-prod.yml} 已去除 {@code jwt.secret} 兜底，
+     * 未注入 {@code JWT_SECRET} 时 Spring 占位符解析阶段即失败；
+     * 若注入了空串或过短的值，则由本方法快速失败，避免应用带着弱密钥对外提供服务。</p>
+     *
+     * @throws IllegalStateException 密钥为空或长度 &lt; 32 字节
+     */
     @PostConstruct
     public void init() {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT 密钥未配置（jwt.secret 为空）。" + SECRET_HINT);
+        }
+        // 注意：此处刻意不做 trim()，保持与历史签名口径完全一致，避免存量 token 失效
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException(
+                    "JWT 密钥强度不足：当前 " + keyBytes.length + " 字节，要求 ≥ " + MIN_SECRET_BYTES + " 字节。"
+                            + SECRET_HINT);
+        }
+        this.key = Keys.hmacShaKeyFor(keyBytes);
     }
 
     /**

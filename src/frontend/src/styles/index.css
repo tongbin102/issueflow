@@ -4,12 +4,186 @@
   background: var(--bg-container);
   /* 圆角跟随布局局部变量 --if-radius：用户端 16px 柔和 / 后台 4px 紧凑 */
   border-radius: var(--if-radius, var(--border-radius-base));
-  padding: 16px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  padding: var(--if-space-md, 16px);
+  /* Phase9 T3：阴影令牌化，dark 主题自动加深 */
+  box-shadow: var(--if-shadow-sm);
 }
 
 .text-muted {
   color: var(--text-secondary);
+}
+
+/* ==========================================================================
+   Phase9 T3：全局工具类与交互过渡
+   命名统一 if- 前缀，避免与 Element Plus / 既有 admin-style 冲突。
+   ========================================================================== */
+
+/* --- 卡片提升态（可点击卡片统一 hover 反馈） --- */
+.if-hoverable {
+  transition: box-shadow var(--if-transition-base, 0.25s ease),
+    transform var(--if-transition-base, 0.25s ease),
+    border-color var(--if-transition-base, 0.25s ease);
+}
+
+.if-hoverable:hover {
+  box-shadow: var(--if-shadow-md);
+  transform: translateY(-2px);
+}
+
+.if-clickable {
+  cursor: pointer;
+}
+
+/* 键盘可达：所有可点击卡片需要可见焦点环 */
+.if-clickable:focus-visible,
+.if-hoverable:focus-visible {
+  outline: 2px solid var(--theme-color);
+  outline-offset: 2px;
+}
+
+/* --- 弹性布局工具 --- */
+.if-flex {
+  display: flex;
+  align-items: center;
+}
+
+.if-flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.if-flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.if-flex-wrap {
+  flex-wrap: wrap;
+}
+
+.if-flex-1 {
+  flex: 1;
+  min-width: 0;
+}
+
+/* --- 间距工具（仅提供高频档位，避免工具类膨胀） --- */
+.if-gap-xs {
+  gap: var(--if-space-xs, 4px);
+}
+
+.if-gap-sm {
+  gap: var(--if-space-sm, 8px);
+}
+
+.if-gap-md {
+  gap: var(--if-space-md, 16px);
+}
+
+.if-gap-lg {
+  gap: var(--if-space-lg, 24px);
+}
+
+.if-mt-sm {
+  margin-top: var(--if-space-sm, 8px);
+}
+
+.if-mt-md {
+  margin-top: var(--if-space-md, 16px);
+}
+
+.if-mt-lg {
+  margin-top: var(--if-space-lg, 24px);
+}
+
+.if-mb-md {
+  margin-bottom: var(--if-space-md, 16px);
+}
+
+/* --- 文本工具 --- */
+.if-text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.if-text-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.if-text-primary {
+  color: var(--text-primary);
+}
+
+.if-text-regular {
+  color: var(--text-regular);
+}
+
+.if-text-secondary {
+  color: var(--text-secondary);
+}
+
+.if-text-h2 {
+  font-size: var(--if-font-h2, 20px);
+  font-weight: var(--if-weight-bold, 600);
+  color: var(--text-primary);
+}
+
+.if-text-h3 {
+  font-size: var(--if-font-h3, 16px);
+  font-weight: var(--if-weight-medium, 500);
+  color: var(--text-primary);
+}
+
+.if-text-sm {
+  font-size: var(--if-font-sm, 13px);
+}
+
+.if-text-xs {
+  font-size: var(--if-font-xs, 12px);
+}
+
+/* --- 分区标题（页面内小节，如「快捷入口」「我的最近问题」） --- */
+.if-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--if-space-sm, 8px);
+  font-size: var(--if-font-h3, 16px);
+  font-weight: var(--if-weight-bold, 600);
+  color: var(--text-primary);
+  line-height: var(--if-line-tight, 1.35);
+}
+
+.if-section-title::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  border-radius: var(--if-radius-pill, 999px);
+  background: var(--theme-color);
+}
+
+/* --- 语义色文本工具（固定语义，不随主题变化） --- */
+.if-color-success {
+  color: var(--if-color-success);
+}
+
+.if-color-warning {
+  color: var(--if-color-warning);
+}
+
+.if-color-danger {
+  color: var(--if-color-danger);
+}
+
+.if-color-info {
+  color: var(--if-color-info);
+}
+
+.if-color-processing {
+  color: var(--if-color-processing);
 }
 
 /* 滚动条美化 */
@@ -25,4 +199,29 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #909399;
+}
+
+/* 深色主题下滚动条降低亮度，避免刺眼白条 */
+body[data-if-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: #4c4d4f;
+}
+
+body[data-if-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: #6c6e72;
+}
+
+/* --- 可访问性：尊重系统「减少动态效果」偏好（PRD §2.6） --- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .if-hoverable:hover {
+    transform: none;
+  }
 }

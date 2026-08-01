@@ -129,7 +129,37 @@ a {
   color: var(--text-regular);
 }
 
-/* ===== 响应式：移动端抽屉式侧栏 ===== */
+/* ==========================================================================
+   Phase9 T3：响应式断点体系（PRD §2.5 / 用户确认）
+     - 桌面 desktop ：>= 1280px
+     - 平板 tablet  ：768px ~ 1279px
+     - 移动 mobile  ：< 768px
+   媒体查询无法直接消费 CSS 变量，此处写字面量，与 --if-bp-* 保持一致。
+   ========================================================================== */
+
+/* ===== 平板：768px ~ 1279px ===== */
+@media (max-width: 1279px) {
+  .if-content {
+    padding: var(--if-space-md, 16px) var(--if-space-md, 16px);
+  }
+
+  /* 平板下内容区不再限宽，避免两侧大片留白 */
+  .if-content__inner {
+    max-width: none;
+  }
+
+  /* 平板下页头标题降一级 */
+  .if-page-header__title {
+    font-size: var(--if-font-h2, 20px);
+  }
+
+  /* 平板：仅桌面可见的元素隐藏 */
+  .if-desktop-only {
+    display: none !important;
+  }
+}
+
+/* ===== 响应式：移动端抽屉式侧栏（< 768px） ===== */
 @media (max-width: 768px) {
   .if-sidebar {
     position: fixed;
@@ -150,5 +180,61 @@ a {
     inset: 0;
     background: rgba(0, 0, 0, 0.4);
     z-index: 1000;
+  }
+}
+
+/* ===== 移动端：< 768px 通用适配 ===== */
+@media (max-width: 767px) {
+  .if-content {
+    padding: var(--if-space-sm, 8px);
+  }
+
+  .if-topbar {
+    padding: 0 var(--if-space-sm, 8px);
+  }
+
+  /* 平板/桌面可见的元素在移动端隐藏 */
+  .if-tablet-up-only {
+    display: none !important;
+  }
+
+  /* 仅移动端可见 */
+  .if-mobile-only {
+    display: block;
+  }
+
+  /* 触控热区 >= 44px（PRD §2.6 可访问性硬要求）：
+     覆盖 Element Plus 的小尺寸按钮 / 分页按钮 / 表单控件 */
+  .if-touch-area,
+  .if-mobile-scope .el-button,
+  .if-mobile-scope .el-pagination button,
+  .if-mobile-scope .el-pagination .el-pager li {
+    min-height: var(--if-touch-size, 44px);
+    min-width: var(--if-touch-size, 44px);
+  }
+
+  .if-mobile-scope .el-button.is-text,
+  .if-mobile-scope .el-button.is-link {
+    padding-left: var(--if-space-sm, 8px);
+    padding-right: var(--if-space-sm, 8px);
+  }
+
+  /* 移动端表单控件加高，便于点按 */
+  .if-mobile-scope .el-input__wrapper,
+  .if-mobile-scope .el-select__wrapper {
+    min-height: var(--if-touch-size, 44px);
+  }
+
+  /* 移动端抽屉一律接近全屏 */
+  .if-mobile-scope .el-drawer.rtl,
+  .if-mobile-scope .el-drawer.ltr {
+    width: 100% !important;
+  }
+}
+
+/* 桌面（>= 1280px）：仅移动端元素隐藏 */
+@media (min-width: 768px) {
+  .if-mobile-only {
+    display: none !important;
   }
 }

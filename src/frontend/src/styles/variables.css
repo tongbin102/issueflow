@@ -33,4 +33,79 @@
   --if-stat-card-bg: #ffffff;
   --if-code-bg: #f5f7fa;
   --if-timeline-line: #e4e7ed;
+
+  /* ==========================================================================
+     Phase9 前台改版 T1：设计令牌（Design Tokens）
+     约定（ARCH §七.2）：
+       - 所有新增令牌统一 --if- 前缀，:root 提供默认值（后台亦可安全消费）；
+       - themes.css 仅覆盖「随主题变化」的部分（阴影 / 容器色 / 骨架色）；
+       - 语义色（success/warning/danger/info/processing）固定不随主题变化，
+         与 utils/format.js 中的色值常量一一对应，切主题时状态语义保持稳定；
+       - 组件层禁止硬编码色值 / 间距 / 阴影，一律 var(--if-*)。
+     ========================================================================== */
+
+  /* --- 间距阶梯（4 的倍数，PRD §2.2） --- */
+  --if-space-xs: 4px;
+  --if-space-sm: 8px;
+  --if-space-md: 16px;
+  --if-space-lg: 24px;
+  --if-space-xl: 32px;
+
+  /* --- 字号阶梯（PRD §2.3） --- */
+  --if-font-h1: 26px;
+  --if-font-h2: 20px;
+  --if-font-h3: 16px;
+  --if-font-base: 14px;
+  --if-font-sm: 13px;
+  --if-font-xs: 12px;
+
+  /* --- 字重 --- */
+  --if-weight-regular: 400;
+  --if-weight-medium: 500;
+  --if-weight-bold: 600;
+
+  /* --- 行高 --- */
+  --if-line-tight: 1.35;
+  --if-line-base: 1.6;
+
+  /* --- 阴影层级（浅色基准，dark 主题在 themes.css 加深） --- */
+  --if-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.04);
+  --if-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --if-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  /* --- 圆角 --- */
+  --if-radius-sm: 8px;
+  --if-radius-pill: 999px;
+
+  /* --- 语义色（固定，不随主题覆盖；与 utils/format.js 常量对齐） --- */
+  --if-color-success: #67c23a;
+  --if-color-warning: #e6a23c;
+  --if-color-danger: #f56c6c;
+  --if-color-info: #909399;
+  --if-color-processing: #409eff;
+
+  /* 语义色浅底（用于统计卡 / 标签底色，rgba 保证在深色主题下也不刺眼） */
+  --if-color-success-soft: rgba(103, 194, 58, 0.12);
+  --if-color-warning-soft: rgba(230, 162, 60, 0.12);
+  --if-color-danger-soft: rgba(245, 108, 108, 0.12);
+  --if-color-info-soft: rgba(144, 147, 153, 0.12);
+  --if-color-processing-soft: rgba(64, 158, 255, 0.12);
+
+  /* --- 断点（供 JS 读取；CSS @media 无法直接用 var，媒体查询处写字面量） --- */
+  --if-bp-mobile: 768;
+  --if-bp-desktop: 1280;
+
+  /* --- 过渡 --- */
+  --if-transition-fast: 0.15s ease;
+  --if-transition-base: 0.25s ease;
+
+  /* --- 交互态叠加层（hover / active 背景） --- */
+  --if-hover-bg: rgba(64, 158, 255, 0.06);
+  --if-active-bg: rgba(64, 158, 255, 0.12);
+
+  /* --- 骨架屏底色（themes.css 按主题覆盖） --- */
+  --if-skeleton-bg: #f2f3f5;
+
+  /* --- 移动端最小触控热区（PRD §2.6 可访问性） --- */
+  --if-touch-size: 44px;
 }

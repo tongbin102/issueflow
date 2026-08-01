@@ -37,8 +37,22 @@ dist-*/
 build-*/
 scripts/.p7*.sql
 src/frontend/check-i18n-keys.mjs
+
+# QA/工程临时排查脚本（一次性排查用，不入库；覆盖 *_qa_*.mjs、qa-*.mjs、qa_*.mjs 三种命名习惯）
+src/frontend/*_qa_*.mjs
+src/frontend/qa[-_]*.mjs
 src/frontend/scan-cn.mjs
 
 # ===== 部署私钥（严禁入库，参考 ss-assess 的 .deploy_key 模式）=====
 .deploy_key
 .deploy_known_hosts
+# JWT 持久化密钥：由 scripts/deploy-23.sh 在服务器 /opt/issueflow 下生成（chmod 600）。
+# 此处忽略同名文件，防止有人在本地仓库根目录生成后被误提交。
+.jwt_secret
+# deploy-23.sh 在 $PROJECT_DIR（= git 工作区 /opt/issueflow）内生成的部署编排文件，
+# 其中含 JWT 密钥与数据库密码明文（heredoc 展开后落盘），严禁入库。
+docker-compose.23.yml
+
+# 前端临时构建产物：dist_/dist- 前缀的验证/QA 临时目录（勿误伤正式 dist/，sandbox 守卫下无法自动删除）
+src/frontend/dist[_-]*/
+vite.config.js.timestamp-*

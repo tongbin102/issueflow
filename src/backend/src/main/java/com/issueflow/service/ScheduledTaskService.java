@@ -13,6 +13,7 @@ import com.issueflow.dto.resp.ScheduledTaskLogVO;
 import com.issueflow.dto.resp.ScheduledTaskVO;
 import com.issueflow.entity.ScheduledTask;
 import com.issueflow.entity.ScheduledTaskLog;
+import com.issueflow.enums.EnableStatusEnum;
 import com.issueflow.mapper.ScheduledTaskLogMapper;
 import com.issueflow.mapper.ScheduledTaskMapper;
 import com.issueflow.util.CronUtils;
@@ -301,7 +302,7 @@ public class ScheduledTaskService {
         vo.setLastExecResult(row.getLastExecResult());
         vo.setLastCostMs(row.getLastCostMs());
         // 仅「运行中」的任务才有下次执行时间，暂停态返回 null 避免前端误导
-        vo.setNextExecTime(row.getStatus() != null && row.getStatus() == 1
+        vo.setNextExecTime(EnableStatusEnum.isEnabled(row.getStatus())
                 ? CronUtils.nextExecTime(row.getCron()) : null);
         return vo;
     }

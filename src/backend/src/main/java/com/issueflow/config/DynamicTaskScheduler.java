@@ -7,6 +7,7 @@ import com.issueflow.common.ResultCode;
 import com.issueflow.dto.resp.JobOptionVO;
 import com.issueflow.entity.ScheduledTask;
 import com.issueflow.entity.ScheduledTaskLog;
+import com.issueflow.enums.EnableStatusEnum;
 import com.issueflow.job.ScheduledJob;
 import com.issueflow.mapper.ScheduledTaskLogMapper;
 import com.issueflow.mapper.ScheduledTaskMapper;
@@ -173,7 +174,8 @@ public class DynamicTaskScheduler {
     public void registerAll() {
         try {
             List<ScheduledTask> tasks = scheduledTaskMapper.selectList(
-                    new LambdaQueryWrapper<ScheduledTask>().eq(ScheduledTask::getStatus, 1));
+                    new LambdaQueryWrapper<ScheduledTask>()
+                            .eq(ScheduledTask::getStatus, EnableStatusEnum.ENABLED.getCode()));
             int ok = 0;
             for (ScheduledTask task : tasks) {
                 if (doRegister(task)) {

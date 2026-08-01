@@ -2,11 +2,14 @@
   <el-drawer
     :model-value="modelValue"
     :title="detail ? `${t('issue.detail.title')} ${detail.issueNo || ''}` : t('issue.detail.title')"
-    size="560px"
+    :size="drawerSize"
+    :class="{ 'if-detail-drawer--mobile': appStore.isMobile }"
     @update:model-value="(v) => emit('update:modelValue', v)"
     @open="onOpen"
   >
-    <div v-loading="loading" class="detail-body">
+    <div class="detail-body">
+      <!-- Phase9 T13：加载态改用骨架屏，避免暗色主题下白色遮罩突兀 -->
+      <IfLoading :loading="loading" :rows="6" min-height="240px">
       <template v-if="detail">
         <!-- 流转操作常驻在标签页之上：任意标签下都能直接执行流转，不被标签切换挡住 -->
         <div class="flow-bar">
@@ -30,25 +33,27 @@
               <!-- Phase7 T3：来源（字典项名，i18n 优先，回退后端 sourceDesc） -->
               <el-descriptions-item :label="t('issue.list.col.source')">{{ sourceText }}</el-descriptions-item>
               <!-- Phase7 T3：优先级（与严重等级同款 tag 渲染） -->
+              <!-- Phase9 T13：语义标签统一走 IfTag（色值固定，四主题一致） -->
               <el-descriptions-item :label="t('issue.list.col.priority')">
-                <el-tag
+                <IfTag
                   v-if="detail.priority !== null && detail.priority !== undefined"
-                  :type="priorityTagType(detail.priority)"
-                  effect="light"
-                >
-                  {{ priorityLabelI18n(detail.priority) }}
-                </el-tag>
+                  :semantic="prioritySemantic(detail.priority)"
+                  :label="priorityLabelI18n(detail.priority)"
+                />
                 <span v-else>-</span>
               </el-descriptions-item>
               <el-descriptions-item :label="t('issue.list.col.severity')">
-                <el-tag :type="severityTagType(detail.severity)" effect="light">
-                  {{ severityLabelI18n(detail.severity) }}
-                </el-tag>
+                <IfTag
+                  :semantic="severitySemantic(detail.severity)"
+                  :label="severityLabelI18n(detail.severity)"
+                />
               </el-descriptions-item>
               <el-descriptions-item :label="t('issue.list.col.status')">
-                <el-tag :type="statusTagType(detail.status)" effect="light">
-                  {{ statusLabelI18n(detail.status) }}
-                </el-tag>
+                <IfTag
+                  :semantic="statusSemantic(detail.status)"
+                  :label="statusLabelI18n(detail.status)"
+                  dot
+                />
               </el-descriptions-item>
               <el-descriptions-item :label="t('issue.list.col.reporter')">{{ detail.reporterName || '-' }}</el-descriptions-item>
               <el-descriptions-item :label="t('issue.list.col.assignee')">{{ detail.assigneeName || '-' }}</el-descriptions-item>
@@ -59,13 +64,13 @@
 
           <!-- ===== 标签 2：问题描述（描述 + 复现步骤 + 环境信息）===== -->
           <template #detail>
-            <el-divider content-position="left">{{ t('issue.form.description') }}</el-divider>
+            <h4 class="if-section-title detail-sub">{{ t('issue.form.description') }}</h4>
             <div class="block-text">{{ detail.description || t('issue.detail.none') }}</div>
 
-            <el-divider content-position="left">{{ t('issue.form.steps') }}</el-divider>
+            <h4 class="if-section-title detail-sub">{{ t('issue.form.steps') }}</h4>
             <div class="block-text">{{ detail.reproduceSteps || t('issue.detail.none') }}</div>
 
-            <el-divider content-position="left">{{ t('issue.form.section.env') }}</el-divider>
+            <h4 class="if-section-title detail-sub">{{ t('issue.detail.section.env') }}</h4>
             <el-descriptions :column="1" border size="small">
               <el-descriptions-item :label="t('issue.form.envOs')">{{ detail.envOs || '-' }}</el-descriptions-item>
               <el-descriptions-item :label="t('issue.form.envBrowser')">{{ detail.envBrowser || '-' }}</el-descriptions-item>
@@ -99,6 +104,7 @@
           </template>
         </IssueFormSections>
       </template>
+      </IfLoading>
     </div>
   </el-drawer>
 </template>
@@ -106,7 +112,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { statusTagType, severityTagType, priorityTagType, formatDate } from '@/utils/format'
+import { statusSemantic, severitySemantic, prioritySemantic, formatDate } from '@/utils/format'
 import {
   statusLabelI18n,
   severityLabelI18n,
@@ -116,6 +122,9 @@ import {
 } from '@/utils/i18nEnum'
 import { getIssue, getHistory } from '@/api/issue'
 import { useUserStore } from '@/store/user'
+import { useAppStore } from '@/store/app'
+import IfTag from '@/components/base/IfTag.vue'
+import IfLoading from '@/components/base/IfLoading.vue'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
 import StatusFlowButtons from '@/components/StatusFlowButtons.vue'
 import StatusTimeline from '@/components/StatusTimeline.vue'
@@ -130,6 +139,13 @@ const props = defineProps({
   flowConfig: { type: Object, default: () => ({ rejectEnabled: true, reopenEnabled: true }) }
 })
 const emit = defineEmits(['update:modelValue', 'updated'])
+
+const appStore = useAppStore()
+/**
+ * 抽屉宽度：桌面 / 平板保持 560px（ARCH 约定），移动端（<768px）全屏，
+ * 避免 560px 固定宽在小屏被截断。
+ */
+const drawerSize = computed(() => (appStore.isMobile ? '100%' : '560px'))
 
 const loading = ref(false)
 const detail = ref(null)
@@ -197,24 +213,34 @@ watch(
 
 <style scoped>
 .detail-body {
-  padding-bottom: 24px;
+  padding-bottom: var(--if-space-lg);
 }
-/* 常驻流转操作条：与下方标签页做视觉分隔 */
+/* 常驻流转操作条：与下方标签页做视觉分隔（Phase9 T13 令牌化 + 轻量底色强化「常驻可操作」） */
 .flow-bar {
-  padding: 0 0 12px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding: var(--if-space-sm) var(--if-space-sm) var(--if-space-sm);
+  margin-bottom: var(--if-space-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--if-radius-sm);
+  background: var(--if-hover-bg);
 }
 .flow-bar-title {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--if-font-sm);
+  font-weight: var(--if-weight-bold);
   color: var(--text-regular);
-  margin-bottom: 8px;
+  margin-bottom: var(--if-space-sm);
 }
 .block-text {
   white-space: pre-wrap;
-  line-height: 1.6;
+  line-height: var(--if-line-base);
   color: var(--text-regular);
-  font-size: 13px;
+  font-size: var(--if-font-sm);
+}
+/* 详情内分节标题：替换 el-divider，视觉与页面分区标题一致 */
+.detail-sub {
+  margin: var(--if-space-md) 0 var(--if-space-sm);
+  font-size: var(--if-font-sm);
+}
+.detail-sub:first-child {
+  margin-top: 0;
 }
 </style>

@@ -1,16 +1,16 @@
 <template>
-  <div class="user-issue-list">
-    <el-card class="page-card" shadow="never">
-      <template #header>
-        <div class="head">
-          <span>{{ t('issue.list.myTitle') }}</span>
-          <!-- Phase6：提交入口收敛为本页抽屉（原 /user/submit-issue 已 redirect） -->
-          <el-button type="primary" :icon="Plus" @click="openCreate">{{
-            t('issue.action.submitNew')
-          }}</el-button>
-        </div>
+  <div class="user-issue-list" :class="{ 'if-mobile-scope': appStore.isMobile }">
+    <!-- 页头：标题 + 说明 + 提交入口（Phase9 T11） -->
+    <IfPageHeader :title="t('issue.list.myTitle')" :subtitle="t('issue.list.subtitle')">
+      <template #actions>
+        <!-- Phase6：提交入口收敛为本页抽屉（原 /user/submit-issue 已 redirect） -->
+        <IfButton type="primary" :icon="Plus" @click="openCreate">
+          {{ t('issue.action.submitNew') }}
+        </IfButton>
       </template>
+    </IfPageHeader>
 
+    <IfCard body-padding="0">
       <IssueTable
         ref="tableRef"
         scope="mine"
@@ -18,7 +18,7 @@
         @view="openDetail"
         @edit="openEdit"
       />
-    </el-card>
+    </IfCard>
 
     <!-- 详情抽屉 -->
     <IssueDetailDrawer
@@ -64,7 +64,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
@@ -73,10 +73,15 @@ import IssueTable from '@/components/IssueTable.vue'
 import IssueDetailDrawer from '@/components/IssueDetailDrawer.vue'
 import IssueForm from '@/components/IssueForm.vue'
 import FormDrawer from '@/components/FormDrawer.vue'
+import IfPageHeader from '@/components/base/IfPageHeader.vue'
+import IfCard from '@/components/base/IfCard.vue'
+import IfButton from '@/components/base/IfButton.vue'
+import { useAppStore } from '@/store/app'
 import { createIssue, updateIssue } from '@/api/issue'
 
 const { t } = useI18n()
 const route = useRoute()
+const appStore = useAppStore()
 const tableRef = ref(null)
 const drawerVisible = ref(false)
 const currentId = ref(null)
@@ -168,12 +173,19 @@ async function onEditSubmit({ data }) {
     editLoading.value = false
   }
 }
+
+// Phase9 T11：工作台「快捷入口 - 提交问题」跳转本页时带 ?create=1，自动打开新建抽屉。
+// 仅在挂载时读取一次，不影响既有 status 筛选链路。
+onMounted(() => {
+  if (route.query.create != null && String(route.query.create) !== '0') {
+    openCreate()
+  }
+})
 </script>
 
 <style scoped>
-.head {
+.user-issue-list {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
 }
 </style>

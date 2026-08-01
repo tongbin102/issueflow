@@ -41,6 +41,15 @@ body[data-if-theme='light'] {
   --if-stat-card-bg: var(--bg-container);
   --if-code-bg: var(--bg-page);
   --if-timeline-line: var(--border-color);
+
+  /* Phase9 T2：随主题变化的令牌（阴影 / 交互底 / 骨架）
+     注意：语义色 --if-color-* 固定在 variables.css，此处不覆盖 */
+  --if-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.04);
+  --if-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --if-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --if-hover-bg: rgba(64, 158, 255, 0.06);
+  --if-active-bg: rgba(64, 158, 255, 0.12);
+  --if-skeleton-bg: #f2f3f5;
 }
 
 /* ===== 2. dark（暗黑）===== */
@@ -98,6 +107,21 @@ body[data-if-theme='dark'] {
   --if-stat-card-bg: #1e1e20;
   --if-code-bg: #141414;
   --if-timeline-line: #4c4d4f;
+
+  /* Phase9 T2：暗色下阴影需更深更大扩散，否则卡片与页面背景无法区分 */
+  --if-shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.45);
+  --if-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.55);
+  --if-shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.65);
+  --if-hover-bg: rgba(255, 255, 255, 0.06);
+  --if-active-bg: rgba(64, 158, 255, 0.2);
+  --if-skeleton-bg: #2b2b2c;
+
+  /* 暗色下语义浅底需要更高不透明度才可见 */
+  --if-color-success-soft: rgba(103, 194, 58, 0.2);
+  --if-color-warning-soft: rgba(230, 162, 60, 0.2);
+  --if-color-danger-soft: rgba(245, 108, 108, 0.2);
+  --if-color-info-soft: rgba(144, 147, 153, 0.2);
+  --if-color-processing-soft: rgba(64, 158, 255, 0.2);
 }
 
 /* ===== 3. blue（商务蓝）===== */
@@ -127,6 +151,14 @@ body[data-if-theme='blue'] {
   --if-stat-card-bg: var(--bg-container);
   --if-code-bg: #eef4fe;
   --if-timeline-line: var(--border-color);
+
+  /* Phase9 T2：商务蓝阴影带轻微蓝调，交互底跟随主题色 */
+  --if-shadow-sm: 0 1px 4px rgba(30, 111, 255, 0.08);
+  --if-shadow-md: 0 4px 12px rgba(30, 111, 255, 0.12);
+  --if-shadow-lg: 0 8px 24px rgba(30, 111, 255, 0.16);
+  --if-hover-bg: rgba(30, 111, 255, 0.06);
+  --if-active-bg: rgba(30, 111, 255, 0.12);
+  --if-skeleton-bg: #e3ecfb;
 }
 
 /* ===== 4. green（护眼绿）===== */
@@ -156,6 +188,14 @@ body[data-if-theme='green'] {
   --if-stat-card-bg: var(--bg-container);
   --if-code-bg: #f0f7f3;
   --if-timeline-line: var(--border-color);
+
+  /* Phase9 T2：护眼绿阴影带轻微绿调，交互底跟随主题色 */
+  --if-shadow-sm: 0 1px 4px rgba(23, 169, 124, 0.08);
+  --if-shadow-md: 0 4px 12px rgba(23, 169, 124, 0.12);
+  --if-shadow-lg: 0 8px 24px rgba(23, 169, 124, 0.16);
+  --if-hover-bg: rgba(23, 169, 124, 0.06);
+  --if-active-bg: rgba(23, 169, 124, 0.12);
+  --if-skeleton-bg: #e3f0e9;
 }
 
 /* 主题切换时的平滑过渡（仅前台生效，避免后台闪烁） */

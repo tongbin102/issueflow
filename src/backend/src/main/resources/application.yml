@@ -11,6 +11,8 @@ spring:
   profiles:
     active: dev
   # 启动时执行建表/初始化 SQL
+  # 【安全 · M3】基线/开发保留 always（便于本地一键起库）；
+  # 生产档 application-prod.yml 覆盖为 never，防止重启误重建 schema / 覆盖 data。
   sql:
     init:
       mode: always
@@ -46,6 +48,8 @@ mybatis-plus:
   type-aliases-package: com.issueflow.entity
   configuration:
     map-underscore-to-camel-case: true
+    # 【安全 · M2】基线/开发保留 StdOutImpl，方便本地调试看完整 SQL；
+    # 生产档 application-prod.yml 覆盖为 NoLoggingImpl，避免 SQL 与参数明文落盘。
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
@@ -56,9 +60,17 @@ mybatis-plus:
       table-prefix: ""
 
 # JWT 配置
+# ============================================================================
+# 【安全 · M1】密钥仅在此基线/开发档保留默认值，生产环境强制外部注入！
+#   - 本档默认值 **仅限本地开发**，禁止用于任何联网/生产环境；
+#   - 生产档 application-prod.yml 已改为 ${JWT_SECRET}（无兜底），
+#     未注入 JWT_SECRET 环境变量时应用会快速失败并打印指引；
+#   - 密钥要求 HS256 ≥ 32 字节，生成命令：openssl rand -base64 48
+#   - 校验逻辑见 com.issueflow.security.JwtUtil#init
+# ============================================================================
 jwt:
-  secret: "issueflow-secret-key-2024-issueflow-jwt-secure-32bytes!!"
-  expiration: 7200   # 秒，2 小时
+  secret: ${JWT_SECRET:issueflow-LOCAL-DEV-ONLY-secret-key-do-not-use-in-prod!!}
+  expiration: ${JWT_EXPIRATION:7200}   # 秒，2 小时
 
 # 应用自定义配置
 app:

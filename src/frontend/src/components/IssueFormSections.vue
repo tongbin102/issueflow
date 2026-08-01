@@ -157,21 +157,21 @@ onBeforeUnmount(() => {
   min-height: 320px;
 }
 
-/* 竖形标签：左侧导航固定宽度 + 右侧内容留白 */
+/* 竖形标签：左侧导航固定宽度 + 右侧内容留白（Phase9 T14：尺寸/字重改令牌） */
 .if-issue-tabs :deep(.el-tabs__header.is-left) {
-  margin-right: 16px;
+  margin-right: var(--if-space-md);
 }
 .if-issue-tabs :deep(.el-tabs__item.is-left) {
   justify-content: flex-start;
   min-width: 108px;
   height: 42px;
-  font-weight: 500;
+  font-weight: var(--if-weight-medium);
 }
 .if-issue-tabs :deep(.el-tabs__item.is-active) {
-  font-weight: 600;
+  font-weight: var(--if-weight-bold);
 }
 .if-issue-tabs :deep(.el-tabs__content) {
-  padding-left: 4px;
+  padding-left: var(--if-space-xs);
   overflow: visible;
 }
 
@@ -191,7 +191,7 @@ onBeforeUnmount(() => {
 }
 
 .if-tab-panel {
-  padding: 2px 0 8px;
+  padding: 2px 0 var(--if-space-sm);
 }
 
 /* #3.1：标签文字 + 「已填写」红点。inline-flex 保证左排 / 顶排两种布局下均不溢出 */
@@ -206,16 +206,22 @@ onBeforeUnmount(() => {
   height: 6px;
   margin-left: 6px;
   border-radius: 50%;
-  background-color: var(--el-color-danger);
+  /* Phase9 T14：红点走固定语义色，四主题一致 */
+  background-color: var(--if-color-danger);
 }
 
 /* 窄屏：水平标签允许横向滚动，避免挤压 */
 @media (max-width: 767px) {
   .if-issue-tabs :deep(.el-tabs__header.is-top) {
-    margin-bottom: 12px;
+    margin-bottom: var(--if-space-sm);
   }
   .if-issue-tabs {
     min-height: 0;
+  }
+  /* 移动端标签热区 >= 44px */
+  .if-issue-tabs :deep(.el-tabs__item) {
+    height: var(--if-touch-size);
+    line-height: var(--if-touch-size);
   }
 }
 

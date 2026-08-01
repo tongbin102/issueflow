@@ -8,6 +8,7 @@ import com.issueflow.mapper.RoleMapper;
 import com.issueflow.mapper.UserMapper;
 import com.issueflow.mapper.UserRoleMapper;
 import com.issueflow.common.Constants;
+import com.issueflow.enums.EnableStatusEnum;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -56,7 +57,7 @@ public class IssueFlowApplication {
             admin.setRoleId(adminRole.getId());
             // Phase8 W3 #11：多角色 —— 同步写 roles 冗余列与 user_role 关系
             admin.setRoles(List.of(Constants.ROLE_ADMIN));
-            admin.setStatus(1);
+            admin.setStatus(EnableStatusEnum.ENABLED.getCode());
             userMapper.insert(admin);
             UserRole adminUserRole = new UserRole();
             adminUserRole.setUserId(admin.getId());

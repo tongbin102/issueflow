@@ -28,7 +28,12 @@ export default {
     download: 'Download',
     enable: 'Enable',
     disable: 'Disable',
-    logout: 'Log Out'
+    logout: 'Log Out',
+    // Phase9 T8: shared actions for empty states / card list
+    retry: 'Retry',
+    clearFilter: 'Reset Filters',
+    viewAll: 'View All',
+    more: 'More'
   },
   status: {
     enabled: 'Enabled',
@@ -62,6 +67,15 @@ export default {
     tip: 'Notice',
     warning: 'Warning',
     loadFailed: 'Failed to load'
+  },
+  // Phase9 T8: IfEmptyState scenes (scene = empty | noResult | error)
+  empty: {
+    emptyTitle: 'No data yet',
+    emptyDesc: 'There is nothing to show here right now',
+    noResultTitle: 'No matching results',
+    noResultDesc: 'Try adjusting or resetting your filters',
+    errorTitle: 'Failed to load',
+    errorDesc: 'Network error or service unavailable, please try again later'
   },
   placeholder: {
     input: 'Please enter',

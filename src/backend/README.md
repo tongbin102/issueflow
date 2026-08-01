@@ -57,7 +57,7 @@ java -jar target/issueflow-backend.jar
 | `spring.datasource.*` | MySQL 连接（位于 `application-dev.yml` / `application-prod.yml`） | `host=${MYSQL_HOST:127.0.0.1}`、`db=${MYSQL_DB:issueflow}`、`user=${MYSQL_USER:root}`、`password=${MYSQL_PASSWORD:root}` |
 | `spring.data.redis.*` | Redis 连接 | `host=${REDIS_HOST:127.0.0.1}`、`port=${REDIS_PORT:6379}` |
 | `mybatis-plus.global-config.db-config` | 逻辑删除字段 `deleted`，自增 `id` | `logic-delete-value:1` / `logic-not-delete-value:0` |
-| `jwt.secret` | JWT 签名密钥（HS256） | `issueflow-secret-key-...`（生产改 `JWT_SECRET`） |
+| `jwt.secret` | JWT 签名密钥（HS256，≥32 字节，启动期由 `JwtUtil#init` 校验） | 开发档：`${JWT_SECRET:issueflow-LOCAL-DEV-ONLY-...}`；**生产档 `application-prod.yml` 为 `${JWT_SECRET}`，无兜底，未注入即启动失败** |
 | `jwt.expiration` | token 有效期（秒） | `7200`（2h，可由 `JWT_EXPIRATION` 覆盖） |
 | `app.attachment-base-path` | 附件落盘根目录 | `${ATTACHMENT_BASE_PATH:/data/attachments}` |
 | `spring.servlet.multipart` | 上传上限 | `max-file-size:20MB`、`max-request-size:60MB` |
@@ -68,7 +68,8 @@ java -jar target/issueflow-backend.jar
 |---|---|---|
 | `admin` | `admin123` | ADMIN（首次启动由 `ApplicationRunner` 自动写入） |
 
-> ⚠️ 首次登录后请立即修改密码；生产部署务必修改 `JWT_SECRET` 与数据库密码。
+> ⚠️ 首次登录后请立即修改密码；生产部署务必设置 `JWT_SECRET`（≥32 字节强随机）与数据库密码。
+> `JWT_SECRET` 为生产强制项，注入方式与持久化策略见根目录 `README.md` §3.4.1 / §3.4.2。
 
 ## 六、如何新增一个业务模块
 

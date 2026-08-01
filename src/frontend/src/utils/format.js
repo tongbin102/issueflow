@@ -124,6 +124,35 @@ export function roleLabel(code) {
   return ROLE_LABELS[code] || code || '未知'
 }
 
+/**
+ * Phase9 T4 / ARCH §七.6：语义色单一事实来源。
+ *
+ * 与 styles/variables.css 的 --if-color-* 令牌逐一对应，二者必须同步修改：
+ *   success    ↔ --if-color-success
+ *   warning    ↔ --if-color-warning
+ *   danger     ↔ --if-color-danger
+ *   info       ↔ --if-color-info
+ *   processing ↔ --if-color-processing
+ *
+ * 为什么这里保留十六进制字面量而不是 var(--if-color-*)：
+ *   ECharts / canvas 无法解析 CSS 变量，图表着色必须拿到真实色值；
+ *   同时 STATUS_COLORS 等常量已有 40+ 调用点，改成变量字符串会造成大面积回归（R1）。
+ * 因此约定：CSS 侧消费令牌，JS 侧消费本常量，取值保持一致。
+ *
+ * 硬约束：语义色固定，不随 light/dark/blue/green 主题变化。
+ * @type {{success: string, warning: string, danger: string, info: string, processing: string}}
+ */
+export const SEMANTIC_COLORS = {
+  success: '#67C23A',
+  warning: '#E6A23C',
+  danger: '#F56C6C',
+  info: '#909399',
+  processing: '#409EFF'
+}
+
+/** 语义色兜底值（未知枚举一律落到 info 灰）。 */
+const FALLBACK_COLOR = SEMANTIC_COLORS.info
+
 // 状态 → el-tag 类型（Element Plus 支持 primary/success/info/warning/danger）
 export const STATUS_TAG_TYPE = {
   0: 'info',
@@ -133,13 +162,26 @@ export const STATUS_TAG_TYPE = {
   4: 'info'
 }
 
+/**
+ * 状态 → 语义键（Phase9 T4 新增，供 IfTag / 统计卡读取语义 CSS 令牌）。
+ * 0 待处理=info / 1 处理中=processing / 2 待验证=warning / 3 验证通过=success / 4 已关闭=info
+ * @type {Object.<number, string>}
+ */
+export const STATUS_SEMANTIC = {
+  0: 'info',
+  1: 'processing',
+  2: 'warning',
+  3: 'success',
+  4: 'info'
+}
+
 // 状态 → 颜色（图表 / 自定义着色使用）
 export const STATUS_COLORS = {
-  0: '#909399',
-  1: '#409EFF',
-  2: '#E6A23C',
-  3: '#67C23A',
-  4: '#909399'
+  0: SEMANTIC_COLORS.info,
+  1: SEMANTIC_COLORS.processing,
+  2: SEMANTIC_COLORS.warning,
+  3: SEMANTIC_COLORS.success,
+  4: SEMANTIC_COLORS.info
 }
 
 // 严重等级 → el-tag 类型
@@ -152,10 +194,21 @@ export const SEVERITY_TAG_TYPE = {
 
 // 严重等级 → 颜色
 export const SEVERITY_COLORS = {
-  0: '#F56C6C',
-  1: '#E6A23C',
-  2: '#409EFF',
-  3: '#909399'
+  0: SEMANTIC_COLORS.danger,
+  1: SEMANTIC_COLORS.warning,
+  2: SEMANTIC_COLORS.processing,
+  3: SEMANTIC_COLORS.info
+}
+
+/**
+ * 严重等级 → 语义键（Phase9 T4 新增）。
+ * @type {Object.<number, string>}
+ */
+export const SEVERITY_SEMANTIC = {
+  0: 'danger',
+  1: 'warning',
+  2: 'processing',
+  3: 'info'
 }
 
 // 优先级 → el-tag 类型（Phase7 决策 B：0 高=danger / 1 中=warning / 2 低=info，
@@ -168,9 +221,19 @@ export const PRIORITY_TAG_TYPE = {
 
 // 优先级 → 颜色（图表 / 自定义着色使用）
 export const PRIORITY_COLORS = {
-  0: '#F56C6C',
-  1: '#E6A23C',
-  2: '#909399'
+  0: SEMANTIC_COLORS.danger,
+  1: SEMANTIC_COLORS.warning,
+  2: SEMANTIC_COLORS.info
+}
+
+/**
+ * 优先级 → 语义键（Phase9 T4 新增）。
+ * @type {Object.<number, string>}
+ */
+export const PRIORITY_SEMANTIC = {
+  0: 'danger',
+  1: 'warning',
+  2: 'info'
 }
 
 export function statusTagType(code) {
@@ -178,7 +241,16 @@ export function statusTagType(code) {
 }
 
 export function statusColor(code) {
-  return STATUS_COLORS[Number(code)] || '#909399'
+  return STATUS_COLORS[Number(code)] || FALLBACK_COLOR
+}
+
+/**
+ * 状态 → 语义键（Phase9 T4 新增，配合 IfTag 的 semantic 属性使用）。
+ * @param {number|string} code 状态码 0-4
+ * @returns {string} success | warning | danger | info | processing
+ */
+export function statusSemantic(code) {
+  return STATUS_SEMANTIC[Number(code)] || 'info'
 }
 
 export function severityTagType(code) {
@@ -186,7 +258,16 @@ export function severityTagType(code) {
 }
 
 export function severityColor(code) {
-  return SEVERITY_COLORS[Number(code)] || '#909399'
+  return SEVERITY_COLORS[Number(code)] || FALLBACK_COLOR
+}
+
+/**
+ * 严重等级 → 语义键（Phase9 T4 新增）。
+ * @param {number|string} code 0 致命 / 1 严重 / 2 一般 / 3 轻微
+ * @returns {string} success | warning | danger | info | processing
+ */
+export function severitySemantic(code) {
+  return SEVERITY_SEMANTIC[Number(code)] || 'info'
 }
 
 /**
@@ -204,7 +285,16 @@ export function priorityTagType(code) {
  * @returns {string} 十六进制色值
  */
 export function priorityColor(code) {
-  return PRIORITY_COLORS[Number(code)] || '#909399'
+  return PRIORITY_COLORS[Number(code)] || FALLBACK_COLOR
+}
+
+/**
+ * 优先级 → 语义键（Phase9 T4 新增）。
+ * @param {number|string} code 0 高 / 1 中 / 2 低
+ * @returns {string} success | warning | danger | info | processing
+ */
+export function prioritySemantic(code) {
+  return PRIORITY_SEMANTIC[Number(code)] || 'info'
 }
 
 /**

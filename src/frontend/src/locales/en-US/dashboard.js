@@ -17,15 +17,37 @@ export default {
     closed: 'Closed',
     total: 'Total Issues',
     open: 'Open',
-    inProgress: 'In Progress'
+    inProgress: 'In Progress',
+    // Phase9 T8: clickable stat card hint (also used as aria-label)
+    clickHint: 'Click to view issues in this status'
   },
   section: {
     recent: 'Recently Updated',
-    mine: 'My Watchlist'
+    mine: 'My Watchlist',
+    // Phase9 T8: new sections on the user workspace
+    overview: 'Overview',
+    quickEntry: 'Quick Actions',
+    myRecent: 'My Recent Issues',
+    trend: 'Submission Trend'
   },
   quick: {
     create: 'Submit Issue',
-    list: 'All Issues'
+    list: 'All Issues',
+    // Phase9 T8: quick entry cards (title + one-line description)
+    myIssues: 'My Issues',
+    stats: 'My Stats',
+    profile: 'Profile',
+    createDesc: 'Report a new issue in seconds',
+    myIssuesDesc: 'Track the issues you submitted',
+    statsDesc: 'Review your submission and progress data',
+    profileDesc: 'Manage your profile and preferences'
+  },
+  recent: {
+    empty: 'You have not submitted any issue yet',
+    emptyDesc: 'Submit your first issue and it will show up here',
+    emptyAction: 'Submit Issue',
+    viewAll: 'View All',
+    updatedAt: 'Updated {time}'
   },
   empty: 'No data',
   user: {

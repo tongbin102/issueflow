@@ -38,4 +38,37 @@ public enum RoleEnum {
         }
         return null;
     }
+
+    /**
+     * 判断给定角色码是否为管理员（2026-08-01 魔法值收敛新增）。
+     *
+     * <p>等价于历史写法 {@code Constants.ROLE_ADMIN.equals(roleCode)}，
+     * 语义完全一致（null-safe，null 返回 false）。</p>
+     *
+     * @param roleCode 角色码，允许 null
+     * @return 是 ADMIN 返回 true
+     */
+    public static boolean isAdmin(String roleCode) {
+        return ADMIN.code.equals(roleCode);
+    }
+
+    /**
+     * 判断给定角色码是否为提交者（2026-08-01 魔法值收敛新增）。
+     *
+     * @param roleCode 角色码，允许 null
+     * @return 是 SUBMITTER 返回 true
+     */
+    public static boolean isSubmitter(String roleCode) {
+        return SUBMITTER.code.equals(roleCode);
+    }
+
+    /**
+     * 当前枚举的角色码是否与给定字符串相等（null-safe）。
+     *
+     * @param roleCode 角色码，允许 null
+     * @return 相等返回 true
+     */
+    public boolean matches(String roleCode) {
+        return this.code.equals(roleCode);
+    }
 }

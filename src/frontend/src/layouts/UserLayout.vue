@@ -1,5 +1,6 @@
 <template>
-  <div class="if-layout if-layout--user">
+  <!-- Phase9 T9：移动端追加 if-mobile-scope，激活 styles/theme.css 的触控热区与控件加高规则 -->
+  <div class="if-layout if-layout--user" :class="{ 'if-mobile-scope': appStore.isMobile }">
     <!-- 侧边栏：桌面常驻 / 移动端抽屉 -->
     <aside
       class="if-sidebar"
@@ -207,13 +208,32 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 4px 16px;
-  padding: 12px 16px;
+  gap: var(--if-space-xs) var(--if-space-md);
+  padding: var(--if-space-sm) var(--if-space-md);
   border-top: 1px solid var(--border-color);
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: var(--if-font-xs);
+  line-height: var(--if-line-base);
   color: var(--el-text-color-secondary);
   text-align: center;
+}
+
+/* Phase9 T9：平板（768~1279px）内容区不再限宽，避免两侧大片留白 */
+@media (max-width: 1279px) {
+  .if-layout--user {
+    --if-content-max: none;
+    --if-radius: 12px;
+  }
+}
+
+/* 移动端：进一步收紧圆角与页脚内边距 */
+@media (max-width: 767px) {
+  .if-layout--user {
+    --if-radius: 10px;
+  }
+
+  .if-layout--user .if-footer {
+    padding: var(--if-space-sm);
+  }
 }
 </style>
 

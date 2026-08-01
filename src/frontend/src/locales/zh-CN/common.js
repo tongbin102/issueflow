@@ -29,7 +29,12 @@ export default {
     download: '下载',
     enable: '启用',
     disable: '停用',
-    logout: '退出登录'
+    logout: '退出登录',
+    // Phase9 T8：空状态 / 卡片流通用动作
+    retry: '重试',
+    clearFilter: '重置筛选',
+    viewAll: '查看全部',
+    more: '更多'
   },
   status: {
     enabled: '启用',
@@ -63,6 +68,15 @@ export default {
     tip: '提示',
     warning: '警告',
     loadFailed: '加载失败'
+  },
+  // Phase9 T8：IfEmptyState 三类场景文案（scene = empty | noResult | error）
+  empty: {
+    emptyTitle: '暂无数据',
+    emptyDesc: '当前还没有可展示的内容',
+    noResultTitle: '没有匹配的结果',
+    noResultDesc: '试试调整或重置筛选条件',
+    errorTitle: '加载失败',
+    errorDesc: '网络异常或服务暂时不可用，请稍后重试'
   },
   placeholder: {
     input: '请输入',

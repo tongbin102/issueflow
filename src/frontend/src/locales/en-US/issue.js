@@ -104,7 +104,20 @@ export default {
       tag: 'Tag',
       version: 'Version',
       keyword: 'Title / description keyword'
-    }
+    },
+    // Phase9 T8: list empty states
+    empty: {
+      title: 'No issues yet',
+      desc: 'Click "Submit Issue" to create your first record',
+      noResultTitle: 'No issues match your filters',
+      noResultDesc: 'Try loosening or resetting the filters'
+    },
+    // Phase9 T8: mobile (<768px) card-flow fallback view
+    mobile: {
+      untitled: '(Untitled)',
+      updatedPrefix: 'Updated'
+    },
+    subtitle: 'Browse and follow up all issues you submitted'
   },
   filter: {
     typeDisabledSuffix: ' (Disabled)'
@@ -118,7 +131,10 @@ export default {
       attachment: 'Attachments',
       relation: 'Related Issues',
       action: 'Flow Actions',
-      history: 'History'
+      history: 'History',
+      // Phase9 T8: extra detail drawer sections
+      content: 'Issue Content',
+      env: 'Environment'
     },
     field: {
       reporter: 'Reporter',

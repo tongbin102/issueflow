@@ -8,6 +8,7 @@ import com.issueflow.dto.resp.LoginVO;
 import com.issueflow.dto.resp.UserVO;
 import com.issueflow.entity.Role;
 import com.issueflow.entity.User;
+import com.issueflow.enums.EnableStatusEnum;
 import com.issueflow.mapper.RoleMapper;
 import com.issueflow.security.JwtUtil;
 import com.issueflow.util.SecurityUtils;
@@ -45,7 +46,8 @@ public class AuthService {
      */
     public LoginVO login(LoginReq req) {
         User user = userService.selectByUsername(req.getUsername());
-        if (user == null || user.getStatus() == null || user.getStatus() == 0) {
+        // 语义与历史写法严格一致：账号不存在 / 状态未知 / 状态为「停用」一律按登录失败处理
+        if (user == null || user.getStatus() == null || EnableStatusEnum.isDisabled(user.getStatus())) {
             throw new BizException(ResultCode.UNAUTHORIZED, "用户名或密码错误");
         }
         if (!passwordEncoder.matches(req.getPassword(), user.getPassword())) {

@@ -72,7 +72,9 @@ services:
       REDIS_PASSWORD: ""
       REDIS_DB: 0
       ATTACHMENT_BASE_PATH: /data/attachments
-      JWT_SECRET: ${JWT_SECRET:-issueflow-secret-key-2024-issueflow-jwt-secure-32bytes!!}
+      # JWT 签名密钥：只允许外部注入（项目根 .env 或 shell 环境变量），仓库内不得出现任何明文兜底值（安全加固 M1）。
+      # 采用 compose 的 `:?` 语法——未设置时直接报错退出，宁可起不来也不用弱密钥对外提供服务。
+      JWT_SECRET: "${JWT_SECRET:?JWT_SECRET 未设置：请在项目根 .env 写入 JWT_SECRET=<≥32 字节强随机串>，生成命令 openssl rand -base64 48}"
       JWT_EXPIRATION: 7200
     ports:
       - "8080:8080"

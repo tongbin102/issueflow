@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -23,9 +24,23 @@ import java.io.IOException;
 
 /**
  * Spring Security 配置：无状态、JWT 校验、白名单放行
+ *
+ * <p><b>M5 方法级安全（2026-08-01）</b>：新增 {@link EnableMethodSecurity}，开启基于
+ * Spring AOP 代理的 {@code @PreAuthorize}/{@code @PostAuthorize} 支持，作为
+ * Service 层手工鉴权之外的<b>第二道门禁</b>（双保险）。</p>
+ *
+ * <p><b>⚠ 编写 {@code @PreAuthorize} 表达式的硬约束</b>：
+ * {@link com.issueflow.security.JwtAuthenticationFilter} 写入 SecurityContext 的
+ * authority 是<b>裸角色码</b>（如 {@code "ADMIN"}），<b>不带 {@code ROLE_} 前缀</b>。
+ * 因此必须使用 {@code hasAuthority('ADMIN')}，<b>严禁使用 {@code hasRole('ADMIN')}</b>
+ * ——后者会自动补 {@code ROLE_} 前缀去匹配 {@code ROLE_ADMIN}，将导致所有请求 403。</p>
+ *
+ * <p>开启本注解本身不改变任何既有接口的行为：未标注 {@code @PreAuthorize} 的方法
+ * 仍只受过滤链的 {@code authenticated()} 约束。</p>
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
 

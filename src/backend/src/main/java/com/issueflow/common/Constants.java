@@ -1,5 +1,7 @@
 package com.issueflow.common;
 
+import com.issueflow.enums.RoleEnum;
+
 import java.util.Set;
 
 /**
@@ -10,14 +12,27 @@ public final class Constants {
     private Constants() {
     }
 
-    /** 角色码 */
-    public static final String ROLE_SUBMITTER = "SUBMITTER";
-    public static final String ROLE_DEVELOPER = "DEVELOPER";
-    public static final String ROLE_TESTER = "TESTER";
-    public static final String ROLE_ADMIN = "ADMIN";
+    /**
+     * 角色码（2026-08-01 魔法值收敛）。
+     *
+     * <p><b>唯一权威来源已上收至 {@link RoleEnum}</b>，此处仅作为兼容别名转发，
+     * 保证既有 20+ 处 {@code Constants.ROLE_*} 调用点零改动、行为完全不变。</p>
+     *
+     * <p><b>新代码请直接使用 {@link RoleEnum}</b>，例如
+     * {@code RoleEnum.isAdmin(roleCode)} 或 {@code RoleEnum.ADMIN.getCode()}。</p>
+     *
+     * <p>注意：这些字段不再是编译期常量（compile-time constant），
+     * 因此<b>不可用于 {@code switch-case} 标签或注解属性值</b>；
+     * 现有调用点均为运行期比较（equals / Set.of / 方法入参），已逐一核对无影响。</p>
+     */
+    public static final String ROLE_SUBMITTER = RoleEnum.SUBMITTER.getCode();
+    public static final String ROLE_DEVELOPER = RoleEnum.DEVELOPER.getCode();
+    public static final String ROLE_TESTER = RoleEnum.TESTER.getCode();
+    public static final String ROLE_ADMIN = RoleEnum.ADMIN.getCode();
 
-    /** 内置角色码集合（禁止删除 / 禁止改角色码） */
-    public static final Set<String> BUILTIN_ROLE_CODES = Set.of("ADMIN", "SUBMITTER", "DEVELOPER", "TESTER");
+    /** 内置角色码集合（禁止删除 / 禁止改角色码），由 {@link RoleEnum} 全量派生 */
+    public static final Set<String> BUILTIN_ROLE_CODES =
+            Set.of(ROLE_ADMIN, ROLE_SUBMITTER, ROLE_DEVELOPER, ROLE_TESTER);
 
     /** Redis Key：角色权限码前缀，完整 key = perm:role:{roleId}，value 为逗号分隔权限码字符串 */
     public static final String REDIS_PERM_ROLE_PREFIX = "perm:role:";

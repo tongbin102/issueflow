@@ -13,6 +13,7 @@ import com.issueflow.entity.Issue;
 import com.issueflow.entity.Project;
 import com.issueflow.entity.Role;
 import com.issueflow.entity.User;
+import com.issueflow.enums.EnableStatusEnum;
 import com.issueflow.enums.IssueStatusEnum;
 import com.issueflow.mapper.IssueMapper;
 import com.issueflow.mapper.ProjectMapper;
@@ -112,7 +113,8 @@ public class ProjectService {
         }
 
         // R4：启用 → 停用 方向校验
-        if (req.getStatus() != null && req.getStatus() == 0 && Objects.equals(exist.getStatus(), 1)) {
+        // isDisabled/isEnabled 均为 null-safe，等价于原「req.status != null && req.status == 0 && exist.status == 1」
+        if (EnableStatusEnum.isDisabled(req.getStatus()) && EnableStatusEnum.isEnabled(exist.getStatus())) {
             long openCount = issueMapper.selectCount(new LambdaQueryWrapper<Issue>()
                     .eq(Issue::getProjectId, id)
                     .ne(Issue::getStatus, IssueStatusEnum.CLOSED.getCode())
@@ -163,7 +165,7 @@ public class ProjectService {
     public List<ProjectOptionVO> listOptions() {
         List<Project> all = projectMapper.selectList(new LambdaQueryWrapper<Project>()
                 .eq(Project::getDeleted, 0)
-                .eq(Project::getStatus, 1)
+                .eq(Project::getStatus, EnableStatusEnum.ENABLED.getCode())
                 .orderByDesc(Project::getCreatedAt));
         return all.stream().map(p -> {
             ProjectOptionVO vo = new ProjectOptionVO();

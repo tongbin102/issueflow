@@ -32,7 +32,9 @@
 #   DB_PASS     专用用户密码（必须设置，脚本不硬编码）
 #   REDIS_HOST  Redis 地址（23 号，默认 10.55.3.23）
 #   REDIS_PORT  Redis 端口（默认 6379）
-#   JWT_SECRET  生产 JWT 密钥（默认随机生成）
+#   JWT_SECRET  生产 JWT 密钥（可选）。不传时优先复用 $PROJECT_DIR/.jwt_secret 持久化文件，
+#               文件不存在才新生成并写入（chmod 600）。显式传入等同「主动轮换」，
+#               会覆盖持久化文件并使全部存量 token 失效，请择低峰执行。
 #
 set -euo pipefail
 
@@ -92,8 +94,6 @@ if [ -z "$DB_PASS" ]; then
   echo "   DB_PASS='你的密码' bash deploy-23.sh"
   exit 1
 fi
-JWT_SECRET="${JWT_SECRET:-$(head -c 48 /dev/urandom | base64 | tr -d '/+=' | head -c 40)}"
-
 if [ "${USE_LOCAL_DIR:-0}" != "1" ]; then
   if [ ! -d "$PROJECT_DIR/.git" ]; then
     echo "→ git clone 项目到 $PROJECT_DIR"
@@ -108,6 +108,53 @@ if [ "${USE_LOCAL_DIR:-0}" != "1" ]; then
 else
   [ -d "$PROJECT_DIR" ] || { echo "❌ USE_LOCAL_DIR=1 但 $PROJECT_DIR 不存在，请先 scp 代码"; exit 1; }
 fi
+
+# ---------- 4.1 JWT 密钥：首次生成并持久化，后续部署复用 ----------
+# 【为什么】此前写法 JWT_SECRET="${JWT_SECRET:-$(随机)}" 会在每次部署时生成新密钥，
+#           导致存量 JWT 全部失效、所有在线用户被强制重新登录。现改为三级优先：
+#             显式传入(主动轮换) > 复用持久化文件 > 首次新生成
+# 【为什么放在这里】必须位于 git clone 之后 —— git clone 要求目标目录为空，
+#           若提前在 $PROJECT_DIR 生成 .jwt_secret，首次部署的 clone 会直接失败。
+# 【安全】.jwt_secret 只落在服务器 $PROJECT_DIR 下（chmod 600），不入 git（仓库 .gitignore 已忽略）；
+#         脚本全程只打印来源与长度，绝不回显密钥本身。
+JWT_SECRET_FILE="$PROJECT_DIR/.jwt_secret"
+JWT_MIN_BYTES=32
+
+# 生成 40 字符强随机密钥（≥32 字节，满足 HS256 / RFC 7518 下限），沿用原有生成逻辑。
+gen_jwt_secret() { head -c 48 /dev/urandom | base64 | tr -d '/+=' | head -c 40; }
+
+# 写入持久化文件：子 shell 内 umask 077 保证创建瞬间即非全局可读，再显式 chmod 600 兜底。
+save_jwt_secret() {
+  ( umask 077; printf '%s\n' "$1" > "$JWT_SECRET_FILE" )
+  chmod 600 "$JWT_SECRET_FILE"
+}
+
+if [ -n "${JWT_SECRET:-}" ]; then
+  if [ "${#JWT_SECRET}" -lt "$JWT_MIN_BYTES" ]; then
+    echo "❌ 显式传入的 JWT_SECRET 只有 ${#JWT_SECRET} 字节，低于 HS256 要求的 ${JWT_MIN_BYTES} 字节，后端启动期会拒绝启动。"
+    echo "   请改用：JWT_SECRET=\"\$(openssl rand -base64 48)\" DB_PASS='...' bash deploy-23.sh"
+    exit 1
+  fi
+  # 同步持久化：否则下次不带该变量部署会退回旧值，等于把本次轮换悄悄回滚。
+  save_jwt_secret "$JWT_SECRET"
+  echo "🔑 JWT 密钥来源：【显式传入】环境变量，已同步持久化到 $JWT_SECRET_FILE 供后续部署复用"
+  echo "   ⚠️  若与旧密钥不同即为一次主动轮换：全部存量 token 立即失效，在线用户需重新登录"
+elif [ -s "$JWT_SECRET_FILE" ]; then
+  JWT_SECRET="$(cat "$JWT_SECRET_FILE")"
+  if [ "${#JWT_SECRET}" -lt "$JWT_MIN_BYTES" ]; then
+    echo "⚠️  $JWT_SECRET_FILE 内容仅 ${#JWT_SECRET} 字节（疑似被截断/损坏），不可用，将重新生成并覆盖"
+    JWT_SECRET="$(gen_jwt_secret)"
+    save_jwt_secret "$JWT_SECRET"
+    echo "🔑 JWT 密钥来源：【新生成】（原持久化文件不合规已覆盖）—— 存量 token 将失效"
+  else
+    echo "🔑 JWT 密钥来源：【复用已持久化】$JWT_SECRET_FILE —— 存量 token 不失效，在线用户无感知"
+  fi
+else
+  JWT_SECRET="$(gen_jwt_secret)"
+  save_jwt_secret "$JWT_SECRET"
+  echo "🔑 JWT 密钥来源：【首次新生成】并持久化到 $JWT_SECRET_FILE（chmod 600）—— 后续部署自动复用"
+fi
+echo "   （不打印密钥内容；当前长度 ${#JWT_SECRET} 字节，满足 ≥${JWT_MIN_BYTES} 字节要求）"
 
 cat > "$PROJECT_DIR/docker-compose.23.yml" <<EOF
 services:
@@ -157,6 +204,8 @@ networks:
   issueflow-net:
     driver: bridge
 EOF
+# 该 compose 文件含明文 DB_PASS / JWT_SECRET，23 号为多项目共用机（同机还跑 ss-assess、domainHub 等），chmod 600 限制为仅属主可读，避免同机他项目可读全局密码
+chmod 600 "$PROJECT_DIR/docker-compose.23.yml"
 echo "✓ 已生成 $PROJECT_DIR/docker-compose.23.yml（MySQL 指向 24 号、Redis 指向 23 号，不启本地 mysql/redis 容器）"
 
 # ---------- 5. 部署并确认 ----------

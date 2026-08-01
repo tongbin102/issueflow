@@ -11,6 +11,7 @@ import com.issueflow.dto.resp.UserVO;
 import com.issueflow.entity.Organization;
 import com.issueflow.entity.Role;
 import com.issueflow.entity.User;
+import com.issueflow.enums.EnableStatusEnum;
 import com.issueflow.mapper.OrganizationMapper;
 import com.issueflow.mapper.RoleMapper;
 import com.issueflow.mapper.UserMapper;
@@ -373,7 +374,7 @@ public class UserService {
     public List<UserBriefVO> listUserOptions(String keyword) {
         Page<User> pg = new Page<>(1, 100);
         LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(User::getStatus, 1).eq(User::getDeleted, 0);
+        wrapper.eq(User::getStatus, EnableStatusEnum.ENABLED.getCode()).eq(User::getDeleted, 0);
         if (keyword != null && !keyword.isBlank()) {
             String kw = keyword.trim();
             wrapper.and(w -> w.like(User::getRealName, kw).or().like(User::getUsername, kw));

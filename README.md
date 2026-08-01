@@ -60,17 +60,77 @@ cd issueflow
 ```bash
 cp .env.example .env
 # 编辑 .env：设置 MYSQL_ROOT_PASSWORD、JWT_SECRET（>=32 字节随机串）等
+# 注意：.env.example 中的 JWT_SECRET 为空值（仓库不放任何密钥明文），必须自行填入，否则 compose 报错退出
 ```
 
 `.env.example` 字段说明：
 
-| 变量 | 含义 | 默认值 |
-|---|---|---|
-| `MYSQL_ROOT_PASSWORD` | MySQL root 密码 | `issueflow123` |
-| `MYSQL_DB` | 数据库名 | `issueflow` |
-| `MYSQL_USER` | 连接用户名 | `root` |
-| `JWT_SECRET` | JWT 签名密钥 | 内置占位串（生产必改） |
-| `JWT_EXPIRATION` | token 有效期（秒） | `7200` |
+| 变量 | 含义 | 生产是否必填 | 默认值 |
+|---|---|---|---|
+| `MYSQL_ROOT_PASSWORD` | MySQL root 密码 | ✅ 必填 | `issueflow123` |
+| `MYSQL_DB` | 数据库名 | 否 | `issueflow` |
+| `MYSQL_USER` | 连接用户名 | 否 | `root` |
+| `JWT_SECRET` | JWT 签名密钥 | 🚨 **必填，全链路无兜底** | 无（`prod` 档、`docker-compose.yml`、`.env.example` 均已移除默认值） |
+| `JWT_EXPIRATION` | token 有效期（秒） | 否 | `7200` |
+
+#### 🚨 3.4.1 部署前置：`JWT_SECRET`（2026-08-01 安全加固 M1 起为强制项）
+
+生产档 `application-prod.yml` 的 `jwt.secret` 已改为 **`${JWT_SECRET}`（无兜底默认值）**。
+**未注入该变量时后端会启动失败**，这是预期行为——宁可不启动，也不带弱密钥对外提供服务。
+
+```bash
+# 1) 生成一个 ≥32 字节的强随机密钥
+openssl rand -base64 48
+
+# 2) 写入部署环境的 .env（该文件不得提交到 git）
+echo "JWT_SECRET=<上一步输出>" >> .env
+
+# 3) 重启后端使其生效
+docker compose up -d backend
+docker compose logs -f backend     # 确认无 "JWT 密钥" 相关启动异常
+```
+
+约束与影响：
+
+- 密钥长度必须 **≥ 32 字节**（HS256 / RFC 7518 下限）。启动期由
+  `com.issueflow.security.JwtUtil#init` 校验：为空或过短即抛异常并打印可操作指引。
+- **更换密钥会使全部存量 token 立即失效**（所有在线用户需重新登录），请择低峰发布。
+- ✅ **M1 已闭环**：`docker-compose.yml` 的硬编码兜底已移除，现为
+  `JWT_SECRET: "${JWT_SECRET:?JWT_SECRET 未设置：...}"`。未注入时 `docker compose up` **直接报错退出**
+  并打印中文指引，**不会**再静默启动一个用弱密钥的服务。`.env.example` 中该项亦已置空。
+
+#### 3.4.2 部署脚本的 JWT 密钥持久化（`scripts/deploy-23.sh`）
+
+23 号服务器用 `scripts/deploy-23.sh` 部署时，`JWT_SECRET` 按**三级优先**取值，
+目的是**避免每次发版都换密钥把在线用户全部踢下线**：
+
+| 优先级 | 来源 | 行为 | 对在线用户的影响 |
+|---|---|---|---|
+| 1 | 显式传入环境变量 `JWT_SECRET=... bash deploy-23.sh` | 使用该值，并**同步写入**持久化文件 | 等同**主动轮换**，全员需重新登录 |
+| 2 | 持久化文件 `/opt/issueflow/.jwt_secret` | 直接复用 | **无影响**，存量 token 继续有效 |
+| 3 | 以上都没有（首次部署） | 生成 40 字符强随机密钥并写入该文件（`chmod 600`） | 首次部署，无存量 token |
+
+- 脚本每次运行都会 echo 出「显式传入 / 复用已持久化 / 首次新生成」中的哪一种及密钥长度，
+  **但绝不打印密钥内容**，便于运维排查。
+- `.jwt_secret` 只存在于 23 号服务器 `/opt/issueflow/` 下，权限 `600`，**不在 git 仓库内**；
+  仓库根 `.gitignore` 已追加同名忽略规则，防止本地误生成后被提交。
+- 需要**主动轮换**密钥时：`JWT_SECRET="$(openssl rand -base64 48)" DB_PASS='...' bash deploy-23.sh`
+  （新值会覆盖持久化文件，后续部署自动沿用新值）。
+- 备份 `/opt/issueflow/.jwt_secret` 即可在重装机器后保持存量 token 不失效；
+  该文件**严禁**随代码或日志外传。
+
+#### 🚨 3.4.3 部署前置：生产 SQL 初始化与日志行为变更（M2 / M3）
+
+| 项 | 生产（`prod` 档） | 开发（基线 `application.yml`） | 部署侧注意 |
+|---|---|---|---|
+| `spring.sql.init.mode` | `never` | `always` | **全新空库部署前必须手工导入** `src/backend/src/main/resources/db/schema.sql` + `data.sql`，否则 `ApplicationRunner` 会抛「ADMIN 角色未初始化」而启动失败。已有库无影响。 |
+| `mybatis-plus.configuration.log-impl` | `NoLoggingImpl` | `StdOutImpl` | 发布后**生产容器日志不再输出任何 SQL**，请提前周知运维；线上排障改用慢查询日志 / APM。 |
+
+> 改 `never` 的原因：`always` 模式下每次重启都会重跑 `schema.sql` / `data.sql`，存在误重建、
+> 覆盖生产数据的风险（2026-08-01 曾发生整库丢失事故，见 `docs/CHANGELOG.md`）。
+> 默认管理员 `admin` 由 `IssueFlowApplication#initAdminUser` 写入，**不依赖 `data.sql`**，改动不影响其创建。
+>
+> 回滚粒度：以上均为**单行配置**，改回原值并重启即可，无需回滚代码。
 
 ---
 
@@ -366,6 +426,52 @@ MYSQL_ROOT_PASS='xxx' REBUILD=1 bash restore-run-order.sh  # 先 DROP/CREATE iss
 - `schema.sql` / `data.sql` 由 Spring `spring.sql.init` 启动时加载：项目未覆盖
   `spring.sql.init.separator`，ScriptUtils 使用默认分隔符 `;`，
   `SET NAMES utf8mb4;` 是合法独立语句，**不影响解析**（已实测验证）。
+- 🚨 **自 2026-08-01 安全加固 M3 起，生产档 `spring.sql.init.mode = never`**，
+  即**生产不再自动加载** `schema.sql` / `data.sql`。全新空库部署必须手工导入，
+  详见 [3.4.2 部署前置](#-342-部署前置生产-sql-初始化与日志行为变更m2--m3)。开发档仍为 `always`，本地不受影响。
+
+---
+
+### 4.12 前台设计令牌与组件库（任务 #116 前台改版）
+
+任务 #116（A 路，2026-08-01）对 `src/frontend/` 做了深度定制，建立了一套统一的设计令牌与基础组件体系，
+便于后续页面复用与四套主题一致适配。**本次仅改动前端，未触碰后端接口契约**（详见 `docs/CHANGELOG.md`）。
+
+**设计令牌（`src/frontend/src/styles/variables.css` 的 `:root`）**：统一 `--if-` 前缀，
+含间距阶梯（`--if-space-xs|sm|md|lg|xl` = 4/8/16/24/32px）、字号（`--if-font-h1|h2|h3|base|sm|xs`）、
+字重、行高、阴影三级（`--if-shadow-sm|md|lg`）、圆角、过渡、交互态叠加层（`--if-hover-bg`/`--if-active-bg`）、
+骨架底色、移动端最小触控热区（`--if-touch-size` = 44px）。**组件层禁止硬编码色值 / 间距 / 阴影，一律 `var(--if-*)`。**
+
+**语义色固定（R4 硬约束）**：状态 / 严重等级 / 优先级语义色
+（`--if-color-{success|warning|danger|info|processing}` 及其 `-soft` 浅底）**固定不随主题变化**，
+与 `src/frontend/src/utils/format.js` 的 `SEMANTIC_COLORS` 常量一一对齐——保证「红=危险、绿=通过」的认知在任意主题下稳定。
+ECharts 无法消费 CSS 变量，故图表中性色由 `utils/chartTheme.js` 在渲染前读取 `body` 计算样式注入。
+
+**四套主题**：`light` / `dark` / `blue` / `green`，由 `themeStore.applyFrontTheme()` 写入
+**仅 `body[data-if-theme=...]`**（严禁写 `document.documentElement`，避免污染后台）。`styles/themes.css` 中
+语义色不覆盖，仅覆盖随主题变化的令牌（阴影 / 交互底 / 骨架）；dark 主题额外提升语义浅底不透明度。
+
+**基础组件库（`src/frontend/src/components/base/`，前缀 `If*`）**：
+
+| 组件 | 用途 | 关键 props / 事件 |
+|---|---|---|
+| `IfLoading` | 加载态（骨架屏 / 圆环） | `loading` / `type` / `rows` / `minHeight` |
+| `IfCard` | 卡片容器（标题 / 副标题 / 扩展 / 底部插槽） | `title` / `hoverable` / `clickable` / `loading` / `@click` |
+| `IfButton` | 按钮封装（移动端 44px 热区 + `block`） | 透传 `el-button` 同名 props / `@click` |
+| `IfTag` | 语义标签（固定语义色） | `semantic` / `label` / `dot` / `plain` |
+| `IfEmptyState` | 空状态（empty / noResult / error） | `scene` / `title` / `description` / `@action` |
+| `IfModal` | 轻量确认 / 信息框（**仅轻量确认**） | `v-model` / `confirmType` / `@confirm` / `@cancel` / `@closed` |
+| `IfPageHeader` | 页面级页头 | `title` / `subtitle` / `showBack` / `#actions` / `@back` |
+
+> 边界约定：`IfModal` **只用于轻量确认 / 简短信息**；任何表单编辑、多字段录入、详情浏览一律继续用
+> `FormDrawer` / `IssueDetailDrawer`，不混用两套容器。
+
+**响应式断点（PRD §2.5）**：桌面 `≥1280px` / 平板 `768–1279px` / 移动 `<768px`。CSS 媒体查询写字面量
+（`styles/theme.css`），与 `:root` 的 `--if-bp-mobile`(768) / `--if-bp-desktop`(1280) 保持一致供 JS 读取；
+移动端列表降级为卡片流、弹层近全屏、按钮 / 分页 / 表单控件触控热区 ≥44px。
+
+**i18n 约定**：新增文案一律走现有 `src/frontend/src/locales/{zh-CN,en-US}` 键体系（中英双语成对），
+模板不硬编码中文；空状态 / 最近问题 / 列表筛选等场景文案已补齐。
 
 ---
 
@@ -419,3 +525,12 @@ issueFlow/
 - 默认管理员 `admin/admin123` 请在首次登录后立即修改密码。
 - 认证采用单 JWT + Redis 黑名单（2h，无 refreshToken）；附件默认存于后端容器卷 `/data/attachments`，单文件 ≤20MB，暂未做病毒扫描与扩展名白名单。
 - 生产部署务必修改 `.env` 中的 `MYSQL_ROOT_PASSWORD` 与 `JWT_SECRET`。
+  自 2026-08-01 安全加固 M1 起 **`JWT_SECRET` 为生产强制项**（`prod` 档、`docker-compose.yml`、
+  `.env.example` 三处兜底默认值均已移除，未注入时 compose 直接报错退出），
+  完整前置步骤见 [3.4.1 部署前置](#-341-部署前置jwt_secret2026-08-01-安全加固-m1-起为强制项)。
+  用 `scripts/deploy-23.sh` 部署时密钥会持久化到服务器 `/opt/issueflow/.jwt_secret` 并在后续发版复用，
+  **发版不再踢掉在线用户**，详见 3.4.2。
+- 方法级安全（`@EnableMethodSecurity`）已开启，但 `@PreAuthorize` **尚未逐接口铺开**。
+  编写表达式时注意：`JwtAuthenticationFilter` 写入的 authority 为**裸角色码**（如 `ADMIN`，
+  **不带 `ROLE_` 前缀**），必须使用 `hasAuthority('ADMIN')`，**严禁 `hasRole('ADMIN')`**
+  ——后者会自动补 `ROLE_` 前缀，导致**所有请求 403**。

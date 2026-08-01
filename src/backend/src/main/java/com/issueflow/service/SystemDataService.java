@@ -3,8 +3,6 @@ package com.issueflow.service;
 import com.issueflow.common.BizException;
 import com.issueflow.common.Constants;
 import com.issueflow.common.ResultCode;
-import com.issueflow.entity.Role;
-import com.issueflow.mapper.RoleMapper;
 import com.issueflow.mapper.SystemDataMapper;
 import com.issueflow.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +44,6 @@ public class SystemDataService {
 
     private final SystemDataMapper systemDataMapper;
     private final PermissionService permissionService;
-    private final RoleMapper roleMapper;
     private final TransactionTemplate transactionTemplate;
 
     /** 功能开关（yml 可关闭，默认开启） */
@@ -68,9 +65,8 @@ public class SystemDataService {
             throw new BizException(ResultCode.FORBIDDEN.getCode(), "数据初始化功能已被系统配置关闭");
         }
         // 双重校验：角色码必须 ADMIN + 权限码 system:reset
-        if (!Constants.ROLE_ADMIN.equals(SecurityUtils.getCurrentRoleCode())) {
-            throw new BizException(ResultCode.PERMISSION_DENIED);
-        }
+        // M4 鉴权收口：原地内联判断收敛到 PermissionService#requireAdmin，语义与错误码完全不变
+        permissionService.requireAdmin();
         permissionService.requirePermission("system:reset");
         if (!CONFIRM_TEXT.equals(confirmText == null ? null : confirmText.trim())) {
             throw new BizException(ResultCode.VALID_ERROR, "确认文本不正确，请输入 RESET");
@@ -109,15 +105,11 @@ public class SystemDataService {
         // 递归删除磁盘附件（保留根目录）
         deleteAttachmentFiles();
 
-        // 失效全部角色权限 Redis 缓存（perm:role:{roleId}）
-        try {
-            List<Role> roles = roleMapper.selectList(null);
-            for (Role role : roles) {
-                permissionService.invalidate(role.getId());
-            }
-        } catch (Exception e) {
-            log.warn("data reset: invalidate role permission cache failed: {}", e.getMessage());
-        }
+        // 失效全部角色权限 Redis 缓存（perm:role:*）
+        // M5：改用 PermissionService#invalidateAll，按 key 前缀整体清理，
+        // 不再依赖「先查全量角色再逐个 invalidate」——避免角色表已被改动时漏清理；
+        // 该方法内部已吞异常并告警，此处无需再包 try/catch。
+        permissionService.invalidateAll();
         log.info("data reset: completed, counts={}", counts);
         return counts;
     }

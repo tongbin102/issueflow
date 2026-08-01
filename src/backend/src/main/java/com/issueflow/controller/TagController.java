@@ -1,12 +1,9 @@
 package com.issueflow.controller;
 
-import com.issueflow.common.BizException;
-import com.issueflow.common.Constants;
 import com.issueflow.common.Result;
-import com.issueflow.common.ResultCode;
 import com.issueflow.entity.Tag;
+import com.issueflow.service.PermissionService;
 import com.issueflow.service.TagService;
-import com.issueflow.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +27,11 @@ public class TagController {
     private final TagService tagService;
 
     /**
+     * 鉴权统一入口（M4，2026-08-01）：替代本类此前的私有 requireAdmin 副本。
+     */
+    private final PermissionService permissionService;
+
+    /**
      * 标签列表
      */
     @GetMapping
@@ -42,7 +44,7 @@ public class TagController {
      */
     @PostMapping
     public Result<Tag> create(@RequestBody Tag tag) {
-        requireAdmin();
+        permissionService.requireAdmin();
         return Result.success(tagService.create(tag));
     }
 
@@ -51,7 +53,7 @@ public class TagController {
      */
     @PutMapping
     public Result<Tag> update(@RequestBody Tag tag) {
-        requireAdmin();
+        permissionService.requireAdmin();
         return Result.success(tagService.update(tag));
     }
 
@@ -60,14 +62,8 @@ public class TagController {
      */
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
-        requireAdmin();
+        permissionService.requireAdmin();
         tagService.delete(id);
         return Result.success();
-    }
-
-    private void requireAdmin() {
-        if (!Constants.ROLE_ADMIN.equals(SecurityUtils.getCurrentRoleCode())) {
-            throw new BizException(ResultCode.PERMISSION_DENIED);
-        }
     }
 }

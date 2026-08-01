@@ -21,6 +21,85 @@
 
 ---
 
+## 生产事故恢复 & 备份加固（2026-08-01）
+
+**issueFlow 生产数据库 `issueflow_db` 整库丢失事故**的恢复与善后。
+本条目如实记录事故经过与代价，供后续追溯，请勿删改。
+
+### 事故记录（Incident）
+
+- **2026-08-01 11:13**，24 号机（`10.55.3.24`）MySQL 容器 `mysql-gihtg`
+  被外部项目 **domainHub 的 reset 脚本重建**，`issueflow_db` **整库消失**。
+- **无任何备份可恢复**：`/home/jsadmin/db-backups/` 历史上只备份了
+  `quiz_test` 与 `weekly_report`，**从未包含 `issueflow_db`**。
+- **后果**：**7/30 上线以来的全部业务数据永久丢失，不可找回**
+  （issue / 附件记录 / 操作历史 / 用户自建数据等）。
+- **恢复方式**：经授权后用仓库内 16 个 SQL 迁移脚本**从零重建**库结构与种子数据，
+  共 26 张表，线上服务已恢复；**业务数据未恢复、也无法恢复**。
+- **同实例其他项目库（`quiz_test` / `weekly_report` / `mysql` / `sys`）未受影响**，
+  已用 `scripts/verify-other-dbs.sh` 只读佐证。
+
+### Added
+
+- **新增 `scripts/backup-issueflow-db.sh`：`issueflow_db` 每日自动备份**
+  （事故直接整改项）。已部署到 24 号机并安装 cron `0 2 * * *`（每日 02:00）。
+  - 产物 `/home/jsadmin/db-backups/issueflow_db-YYYYMMDD-HHMMSS.sql.gz`；
+    `mysqldump` 参数含 `--default-character-set=utf8mb4` `--single-transaction`
+    `--routines` `--triggers` `--events`，只导 `--databases issueflow_db`
+    （**严禁 `--all-databases`**，该实例多项目共用）。
+  - **保留最近 7 天**：只匹配 `issueflow_db-` 前缀，再用
+    `^issueflow_db-[0-9]{8}-[0-9]{6}\.sql\.gz$` 严格校验，时间取自**文件名**而非
+    `mtime`；命名不符者一律跳过不删；**永远至少保留最新 1 份**。
+    `pre-reinstall-*` / `business-only-*` / `restore-users.sql` 等其他项目备份**绝不触碰**。
+  - **密码不落库、不进 `ps`**：经 `MYSQL_ROOT_PASSWORD` 环境变量或
+    `/home/jsadmin/.issueflow-backup.env`（`chmod 600`，属主 `jsadmin`，不入 git）读取，
+    运行期通过 `--defaults-extra-file` 临时文件传给 `mysqldump`，`trap` 保证用完即删。
+  - **产物校验**：非空 + 大小下限 + `gzip -t` + 抽检含 `CREATE TABLE`，
+    任一不过即**丢弃半成品并非 0 退出**；先写 `.partial` 再改名，杜绝半成品冒充可用备份。
+  - 日志追加至 `/home/jsadmin/db-backups/backup.log`。
+- **新增 `scripts/restore-run-order.sh`**：固化 16 个 SQL 的**正确执行顺序**并逐个校验，
+  失败即停；支持 `REBUILD=1` 重建（**库名硬编码 `issueflow_db`，不接受外部传参**，防误 DROP 他库）。
+- **新增 `scripts/verify-other-dbs.sh`**：只读佐证脚本，逐表统计
+  `quiz_test` / `weekly_report` 行数，证明灌库未误伤同实例其他项目。
+
+### Fixed
+
+- **补齐 7 个 SQL 缺失的 `SET NAMES utf8mb4;` 声明**（中文双重编码缺陷）：
+  `src/backend/src/main/resources/db/schema.sql`、`db/data.sql`、
+  `scripts/migrate-add-updated-at.sql`、
+  `scripts/V20260801_issueflow_phase8_wave1.sql`、
+  `scripts/V20260802_issueflow_phase8_wave2.sql`、
+  `scripts/V20260803_issueflow_phase8_wave3.sql`、
+  `scripts/V20260804_issueflow_phase8_wave4.sql`。
+  至此仓库 **16 个 SQL 全部覆盖**。
+  - **成因**：容器内 mysql 客户端 `default-character-set=auto` 实测解析为 **latin1**，
+    他人用 `mysql < xxx.sql` 手工执行时，中文字面量按 latin1 解释后转存 utf8mb4，
+    产生双重编码（`管理员` 应为 `E7AEA1E79086E59198`，实测写成 `C3A7C2AEC2A1...`）。
+  - **Spring 兼容性已确认**：`schema.sql` / `data.sql` 由 `spring.sql.init` 加载，
+    项目未覆盖 `spring.sql.init.separator`，Spring Boot 3.2.5 的 ScriptUtils
+    使用默认分隔符 `;`，`SET NAMES utf8mb4;` 为合法独立语句；两文件均不含
+    `DELIMITER`，切分后首条语句即 `SET NAMES utf8mb4`，**解析不受影响**（已实测）。
+  - **验证方式**：在临时库 `issueflow_charset_check` 中**故意不加**
+    `--default-character-set` 执行 `schema.sql` + `data.sql`，
+    `HEX(name)` 输出 `E7AEA1E79086E59198`（正确），校验后该临时库已 DROP。
+
+### Security
+
+- 备份凭据以 `chmod 600` 独立文件存放于服务器，**仓库内不含任何 root 密码明文**；
+  crontab 中亦不含密码。
+
+### Docs
+
+- `README.md` 新增 **4.11 数据库备份与恢复**：备份脚本与 cron 计划、灾难恢复步骤、
+  **SQL 正确执行顺序表**（含「**文件名字母序 ≠ 执行顺序**」警告，
+  典型反例：Phase7 字母序在 Phase6 之前但依赖 Phase6 的 `issue.type_id`）、
+  以及 `SET NAMES utf8mb4` 约定；4.3 常用脚本补充三个新脚本。
+
+> **遗留项**：本次仅恢复库结构与种子数据，**业务数据无法找回**。
+> 另建议推动 domainHub 侧收敛其 reset 脚本的作用域，避免再次波及共用实例内的他方库。
+
+---
+
 ## Code Review & 清理（2026-08-01）
 
 基于 Code Review 报告执行的一轮**安全、最小变更**清理，属纯工程整洁度整理，

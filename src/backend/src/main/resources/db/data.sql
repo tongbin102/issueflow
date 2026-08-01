@@ -6,6 +6,7 @@
 --       避免明文/硬编码密文。
 --       管理员角色码 ADMIN，默认角色_id 取 ADMIN 记录。
 -- ============================================================
+SET NAMES utf8mb4;
 
 -- 4 条角色字典
 INSERT IGNORE INTO `role` (`code`, `name`, `description`) VALUES

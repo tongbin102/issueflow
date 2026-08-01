@@ -4,6 +4,7 @@
 -- 约定：逻辑删除字段 deleted，自增主键 id
 -- 说明：使用 CREATE TABLE IF NOT EXISTS 以支持重复启动不报错
 -- ============================================================
+SET NAMES utf8mb4;
 
 CREATE TABLE IF NOT EXISTS `role` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,

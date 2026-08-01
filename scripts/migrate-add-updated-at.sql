@@ -8,6 +8,7 @@
 -- 执行方式（命令行示例）：
 --   mysql -u<user> -p<pass> <db_name> < scripts/migrate-add-updated-at.sql
 -- ============================================================
+SET NAMES utf8mb4;
 
 DELIMITER $$
 

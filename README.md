@@ -117,6 +117,11 @@ bash scripts/deploy.sh up        # 等价于 docker compose up -d --build
 bash scripts/deploy.sh down
 bash scripts/db-init.sh          # 手动将 schema.sql/data.sql 导入本地 MySQL
 bash scripts/migrate.sh x.sql    # 执行指定增量迁移 SQL
+
+# —— 数据库备份 / 灾难恢复（详见 4.11）——
+bash scripts/backup-issueflow-db.sh   # 备份 issueflow_db（24 号机，cron 每日 02:00 自动执行）
+bash scripts/restore-run-order.sh     # 灾难恢复：按正确顺序重建 issueflow_db 结构
+bash scripts/verify-other-dbs.sh      # 只读佐证：确认未误伤同实例其他项目库
 ```
 
 ### 4.4 API 快速验证
@@ -244,6 +249,123 @@ bash tests/api/test-api.sh
 > 存量数据迁移见 `scripts/V20260803_issueflow_phase8_wave3.sql`（幂等，可重复执行）：
 > 建 `user_role` 表、`user` 表加 `roles` 列、按 `user.role_id` 回填两处关系与冗余列、最后执行一组 SELECT 自检。
 > **已有数据库必须在 24 号机 MySQL 执行该脚本后再部署后端**，全新库（首次启动自动建表）不受影响。
+
+---
+
+### 4.11 数据库备份与恢复（运维必读）
+
+> **本节源于 2026-08-01 的真实生产事故**：24 号 MySQL 容器 `mysql-gihtg` 被外部项目
+> （domainHub）的 reset 脚本重建，`issueflow_db` **整库消失**；而当时
+> `/home/jsadmin/db-backups/` 只备份了 `quiz_test` 与 `weekly_report`，
+> **从未包含 `issueflow_db`**，导致 7/30 上线以来的业务数据**永久丢失、无法恢复**。
+> 最终只能用迁移脚本重建库结构与种子数据。请勿轻视本节。
+
+#### 4.11.1 每日自动备份
+
+| 项 | 值 |
+|---|---|
+| 脚本 | `scripts/backup-issueflow-db.sh`（部署路径 `/home/jsadmin/backup-issueflow-db.sh`） |
+| 执行机 | 24 号（`10.55.3.24`），用户 `jsadmin` |
+| cron 计划 | `0 2 * * *`（每日凌晨 **02:00**） |
+| 产物 | `/home/jsadmin/db-backups/issueflow_db-YYYYMMDD-HHMMSS.sql.gz` |
+| 保留策略 | **最近 7 天**，且**永远至少保留最新 1 份** |
+| 日志 | `/home/jsadmin/db-backups/backup.log`（追加，含时间戳）；cron 层致命 stderr 落 `backup.cron.err` |
+| 凭据 | `/home/jsadmin/.issueflow-backup.env`（`chmod 600`，属主 `jsadmin`，**不入库**） |
+
+```bash
+# 手工立即备份一次（读取受保护凭据文件）
+/home/jsadmin/backup-issueflow-db.sh
+
+# 或显式传密码（不会落到 ps / 命令行）
+MYSQL_ROOT_PASSWORD='xxx' /home/jsadmin/backup-issueflow-db.sh
+
+# 只跑保留策略、不连库（自检用）
+DRY_RUN=1 BACKUP_DIR=/tmp/xxx /home/jsadmin/backup-issueflow-db.sh --prune-only
+```
+
+**安全与红线约束（改脚本前务必读懂）**
+
+- `mysql-gihtg` 是**多项目共用实例**（还有 `quiz_test` / `weekly_report` 等）。
+  备份只传 `--databases issueflow_db`，**严禁 `--all-databases`**。
+- 清理旧备份**只匹配 `issueflow_db-` 前缀**，并额外用
+  `^issueflow_db-[0-9]{8}-[0-9]{6}\.sql\.gz$` 严格校验；时间取自**文件名**而非 `mtime`。
+  `pre-reinstall-*` / `business-only-*` / `restore-users.sql` 是**其他项目仅存的备份**，
+  误删即二次事故。
+- 密码**禁止硬编码进仓库**，也**禁止出现在命令行参数**（`ps` 可见）。
+  脚本通过 `--defaults-extra-file` 临时配置文件传参，`trap` 保证用完即删。
+
+#### 4.11.2 灾难恢复
+
+**优先用备份恢复**（有备份时永远优先，可恢复业务数据）：
+
+```bash
+# 1. 校验备份完整性
+gzip -t /home/jsadmin/db-backups/issueflow_db-YYYYMMDD-HHMMSS.sql.gz
+
+# 2. 灌回（dump 内含 CREATE DATABASE / USE，不会波及其他库）
+gzip -cd /home/jsadmin/db-backups/issueflow_db-YYYYMMDD-HHMMSS.sql.gz \
+  | sudo docker exec -i mysql-gihtg mysql -uroot -p --default-character-set=utf8mb4
+```
+
+**无备份时**，才用 `scripts/restore-run-order.sh` 从迁移脚本重建
+（⚠ **只能重建表结构与种子数据，业务数据无法找回**）：
+
+```bash
+# 把仓库 16 个 SQL 传到 24 号机 /home/jsadmin/issueflow-restore/ 后：
+MYSQL_ROOT_PASS='xxx' bash restore-run-order.sh            # 在已存在的空库上灌
+MYSQL_ROOT_PASS='xxx' REBUILD=1 bash restore-run-order.sh  # 先 DROP/CREATE issueflow_db 再灌
+```
+
+#### 4.11.3 ⚠️ SQL 执行顺序：文件名字母序 ≠ 执行顺序
+
+**这是 2026-08-01 恢复过程中踩过的真实坑，务必遵守。**
+
+`scripts/` 下的文件名日期前缀（`V2026xxxx`）与 phase 逻辑序**并不一致**，
+按 `ls` 的字母序执行会因「表不存在 / 字段缺失」而中途失败。
+典型反例：`V20260731_issueflow_phase7.sql`（Phase7）字母序排在
+`V20260803_issueflow_phase6.sql`（Phase6）**之前**，但 Phase7 依赖 Phase6 建的
+`issue.type_id`，先跑 Phase7 必然报错。
+
+**唯一正确顺序**（已固化在 `scripts/restore-run-order.sh` 的 `FILES` 数组中，
+请以脚本为准，勿手工拼顺序）：
+
+| # | 文件 | 说明 |
+|---|---|---|
+| 1 | `db/schema.sql` | Phase1 基线建表 |
+| 2 | `db/data.sql` | Phase1 种子：4 条角色字典 |
+| 3 | `migrate-add-updated-at.sql` | 补 `updated_at`（须在基线表建好之后） |
+| 4 | `V20250730_issueflow_p0.sql` | P0：project / organization / menu + `issue.project_id` |
+| 5 | `V20250801_issueflow_phase2.sql` | Phase2：issue_relation / permission / role_permission + `menu.type` |
+| 6 | `V20260730_issueflow_phase3.sql` | Phase3：依赖 phase2 的 `menu.type` |
+| 7 | `V20260801_issueflow_phase4.sql` | Phase4：module / module_dependency |
+| 8 | `V20260802_issueflow_phase5.sql` | Phase5：flow_node / flow_transition |
+| 9 | `V20260803_issueflow_phase6.sql` | Phase6：issue_type + `issue.type_id` |
+| 10 | `V20260803b_fix_issuetype_unique.sql` | Phase6 补丁，**须紧跟 #9** |
+| 11 | `V20260731_issueflow_phase7.sql` | **Phase7 在此，不是第 6 位** —— 依赖 #9 的 `type_id` |
+| 12 | `V20260801_issueflow_phase8_wave1.sql` | W1 |
+| 13 | `V20260802_issueflow_phase8_wave2.sql` | W2 |
+| 14 | `V20260803_issueflow_phase8_wave3.sql` | W3 |
+| 15 | `V20260804_issueflow_phase8_wave4.sql` | W4 |
+| 16 | `V20260805_issueflow_phase6_whitelist_fix.sql` | W5，**须在 #15 之后** |
+
+> **另一处坑**：单独重跑 Phase6（#9）会把 W4（#15）设置的
+> `FolderOpened / Share / Files / SetUp` 四个菜单图标刷回 `Grid`。
+> 任何时候单独重跑 Phase6，**必须紧接着重跑一次 W4**。
+
+#### 4.11.4 字符集：`SET NAMES utf8mb4`
+
+仓库内 **16 个 SQL 已全部**在文件开头声明 `SET NAMES utf8mb4;`。
+
+事故恢复时曾发现其中 7 个缺失该声明（`schema.sql` / `data.sql` /
+`migrate-add-updated-at.sql` / `phase8_wave1~4`）。容器内 mysql 客户端的
+`default-character-set` 为 `auto`，实测会解析成 **latin1**，导致用
+`mysql < xxx.sql` 手工执行时中文被**双重编码**
+（`管理员` 正确应为 `E7AEA1E79086E59198`，实测被写成 `C3A7C2AEC2A1...`）。
+
+- 新增迁移脚本时**必须**沿用该声明，位置在注释头之后、第一条业务语句之前。
+- `schema.sql` / `data.sql` 由 Spring `spring.sql.init` 启动时加载：项目未覆盖
+  `spring.sql.init.separator`，ScriptUtils 使用默认分隔符 `;`，
+  `SET NAMES utf8mb4;` 是合法独立语句，**不影响解析**（已实测验证）。
 
 ---
 

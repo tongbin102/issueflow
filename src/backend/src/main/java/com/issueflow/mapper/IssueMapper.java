@@ -32,9 +32,13 @@ public interface IssueMapper extends BaseMapper<Issue> {
 
     /**
      * 状态分布
+     *
+     * <p>BUG-01：聚合列别名必须为 {@code count}（原为 {@code cnt}），与前端
+     * {@code d.count} 的读取口径一致，否则看板全部统计恒为 0。
+     * {@code count} 在 MySQL 中非保留字，但为规避 sql_mode 差异一律用反引号包裹。</p>
      */
     @Select("<script>"
-            + "SELECT status AS status, COUNT(*) AS cnt FROM issue WHERE deleted = 0 "
+            + "SELECT status AS status, COUNT(*) AS `count` FROM issue WHERE deleted = 0 "
             + "<if test='reporterId != null'> AND reporter_id = #{reporterId} </if>"
             + "<if test='version != null and version != \"\"'> AND env_app_version = #{version} </if>"
             + "<if test='start != null'> AND created_at &gt;= #{start} </if>"
@@ -48,9 +52,11 @@ public interface IssueMapper extends BaseMapper<Issue> {
 
     /**
      * 每日创建趋势
+     *
+     * <p>BUG-01：聚合列别名 {@code cnt} → {@code count}，与前端 TrendChart 的 {@code d.count} 对齐。</p>
      */
     @Select("<script>"
-            + "SELECT DATE(created_at) AS day, COUNT(*) AS cnt FROM issue WHERE deleted = 0 "
+            + "SELECT DATE(created_at) AS day, COUNT(*) AS `count` FROM issue WHERE deleted = 0 "
             + "<if test='reporterId != null'> AND reporter_id = #{reporterId} </if>"
             + "<if test='version != null and version != \"\"'> AND env_app_version = #{version} </if>"
             + "<if test='start != null'> AND created_at &gt;= #{start} </if>"
@@ -109,9 +115,11 @@ public interface IssueMapper extends BaseMapper<Issue> {
 
     /**
      * 严重等级占比
+     *
+     * <p>BUG-01：聚合列别名 {@code cnt} → {@code count}，与前端 DistributionChart 的 {@code d.count} 对齐。</p>
      */
     @Select("<script>"
-            + "SELECT severity AS severity, COUNT(*) AS cnt FROM issue WHERE deleted = 0 "
+            + "SELECT severity AS severity, COUNT(*) AS `count` FROM issue WHERE deleted = 0 "
             + "<if test='reporterId != null'> AND reporter_id = #{reporterId} </if>"
             + "<if test='version != null and version != \"\"'> AND env_app_version = #{version} </if>"
             + "<if test='start != null'> AND created_at &gt;= #{start} </if>"

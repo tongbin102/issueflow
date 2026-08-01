@@ -1,8 +1,8 @@
 <template>
   <div class="user-dashboard">
-    <el-row :gutter="16">
+    <el-row :gutter="16" v-loading="loading">
       <el-col v-for="card in cards" :key="card.status" :xs="12" :sm="8" :md="4">
-        <el-card class="stat-card" shadow="hover" :body-style="{ padding: '16px' }">
+        <el-card class="stat-card" shadow="hover" :body-style="{ padding: '16px' }" @click="goList(card.status)" style="cursor: pointer">
           <div class="stat-label">
             <span class="dot" :style="{ background: statusColor(card.status) }"></span>
             {{ card.label }}
@@ -20,11 +20,11 @@
       </el-col>
     </el-row>
 
-    <el-card class="page-card" shadow="never" style="margin-top: 16px">
+    <el-card class="page-card" shadow="never" style="margin-top: 16px" v-loading="loading">
       <template #header>
         <div class="card-head">
           <span>{{ t('dashboard.user.myTrend') }}</span>
-          <el-button text type="primary" @click="goList">{{ t('dashboard.user.viewMy') }}</el-button>
+          <el-button text type="primary" @click="goList()">{{ t('dashboard.user.viewMy') }}</el-button>
         </div>
       </template>
       <TrendChart :data="trend" :title="t('dashboard.user.submitTrend')" />
@@ -55,13 +55,23 @@ const cards = computed(() =>
   }))
 )
 const total = ref(0)
+const loading = ref(false)
 const trend = ref([])
 
-function goList() {
-  router.push('/user/my-issues')
+// BUG-02：统计卡片点击跳转到「我的问题」并带上 status 筛选；无 status 时跳全量列表
+// 回归修复：加数值守卫，避免调用方误把事件对象（MouseEvent/PointerEvent）当 status 传入，
+// 导致 URL ?status=[object PointerEvent] → 后端 Number 解析 NaN → 400。
+function goList(status) {
+  if (status == null || Number.isNaN(Number(status))) {
+    router.push({ path: '/user/my-issues' })
+    return
+  }
+  router.push({ path: '/user/my-issues', query: { status: Number(status) } })
 }
 
+// BUG-06：加载态以 loading.value = true 起始、finally 收尾，配合模板 <el-row v-loading>
 async function load() {
+  loading.value = true
   try {
     const data = await overview({})
     const dist = (data && data.statusDistribution) || []
@@ -74,6 +84,8 @@ async function load() {
     trend.value = (data && (data.trendByDay || data.trend)) || []
   } catch (e) {
     ElMessage.error(t('dashboard.admin.loadFailed'))
+  } finally {
+    loading.value = false
   }
 }
 

@@ -22,12 +22,13 @@ public class DashboardService {
     private final IssueMapper issueMapper;
 
     /**
-     * 组装看板数据（SUBMITTER 仅统计自己提交的问题）
+     * 组装看板数据（ADMIN 统计全站，其余角色仅统计自己提交的问题）
      */
     public DashboardVO overview(DashboardQueryReq req, Long currentUser, String roleCode) {
         LocalDateTime start = DateTimeUtils.parseDate(req.getStart(), true);
         LocalDateTime end = DateTimeUtils.parseDate(req.getEnd(), false);
-        Long reporterId = Constants.ROLE_SUBMITTER.equals(roleCode) ? currentUser : null;
+        // BUG-03 口径对齐（真·我的）：ADMIN 看全站，其余角色（SUBMITTER/DEVELOPER/TESTER）只看自己提交的，与列表页一致
+        Long reporterId = Constants.ROLE_ADMIN.equals(roleCode) ? null : currentUser;
         String version = (req.getVersion() != null && !req.getVersion().isBlank()) ? req.getVersion() : null;
 
         DashboardVO vo = new DashboardVO();

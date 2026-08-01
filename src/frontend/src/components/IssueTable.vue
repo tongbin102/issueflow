@@ -455,6 +455,31 @@ watch(timeRange, (val) => {
   filters.endTime = val && val[1] ? val[1] : ''
 })
 
+// BUG-07：父组件外部传入的 filters 变化（如工作台卡片点击跳转带 status）需即时反映并重新拉取
+watch(
+  () => props.filters,
+  (nv) => {
+    if (nv) {
+      Object.assign(filters, {
+        status: nv.status ?? '',
+        typeId: nv.typeId ?? null,
+        severity: nv.severity ?? '',
+        priority: nv.priority ?? '',
+        source: nv.source ?? '',
+        projectId: nv.projectId ?? '',
+        tags: nv.tags || [],
+        version: nv.version || '',
+        keyword: nv.keyword || '',
+        startTime: nv.startTime || '',
+        endTime: nv.endTime || ''
+      })
+    }
+    page.value = 1
+    fetchData()
+  },
+  { deep: true }
+)
+
 onMounted(async () => {
   try {
     await issueTypeStore.fetchAllOptions()

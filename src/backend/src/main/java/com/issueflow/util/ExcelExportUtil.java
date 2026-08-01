@@ -113,17 +113,17 @@ public final class ExcelExportUtil {
 
         if (vo.getStatusDistribution() != null) {
             for (Map<String, Object> m : vo.getStatusDistribution()) {
-                data.add(List.of("状态分布", String.valueOf(m.get("status")), String.valueOf(m.get("cnt"))));
+                data.add(List.of("状态分布", String.valueOf(m.get("status")), String.valueOf(m.get("count"))));
             }
         }
         if (vo.getTrendByDay() != null) {
             for (Map<String, Object> m : vo.getTrendByDay()) {
-                data.add(List.of("每日趋势", String.valueOf(m.get("day")), String.valueOf(m.get("cnt"))));
+                data.add(List.of("每日趋势", String.valueOf(m.get("day")), String.valueOf(m.get("count"))));
             }
         }
         if (vo.getSeverityRatio() != null) {
             for (Map<String, Object> m : vo.getSeverityRatio()) {
-                data.add(List.of("严重占比", String.valueOf(m.get("severity")), String.valueOf(m.get("cnt"))));
+                data.add(List.of("严重占比", String.valueOf(m.get("severity")), String.valueOf(m.get("count"))));
             }
         }
         data.add(List.of("平均解决周期(小时)", "-", String.valueOf(vo.getAvgResolveCycle())));

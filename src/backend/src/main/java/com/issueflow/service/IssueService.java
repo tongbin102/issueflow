@@ -286,6 +286,16 @@ public class IssueService {
         if (Constants.ROLE_SUBMITTER.equals(roleCode)) {
             wrapper.eq(Issue::getReporterId, currentUser);
         }
+
+        // BUG-03：scope=mine 口径（真·我的）
+        // SUBMITTER 已在上方被强制收窄为仅自己，此处仅对「非 ADMIN 且 非 SUBMITTER」用户生效。
+        // ADMIN 传 scope=mine 视为看全站（不加过滤），保留管理员全局排障能力。
+        if (Constants.SCOPE_MINE.equals(req.getScope())
+                && !Constants.ROLE_ADMIN.equals(roleCode)
+                && !Constants.ROLE_SUBMITTER.equals(roleCode)) {
+            wrapper.eq(Issue::getReporterId, currentUser);
+        }
+
         wrapper.orderByDesc(Issue::getCreatedAt);
 
         issueMapper.selectPage(page, wrapper);

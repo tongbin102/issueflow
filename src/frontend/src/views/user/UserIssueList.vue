@@ -14,6 +14,7 @@
       <IssueTable
         ref="tableRef"
         scope="mine"
+        :filters="listFilters"
         @view="openDetail"
         @edit="openEdit"
       />
@@ -63,7 +64,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
@@ -74,6 +76,7 @@ import FormDrawer from '@/components/FormDrawer.vue'
 import { createIssue, updateIssue } from '@/api/issue'
 
 const { t } = useI18n()
+const route = useRoute()
 const tableRef = ref(null)
 const drawerVisible = ref(false)
 const currentId = ref(null)
@@ -89,6 +92,19 @@ const editRow = ref(null)
 const editFormRef = ref(null)
 
 const flowConfig = ref({ rejectEnabled: true, reopenEnabled: true })
+
+// BUG-02：工作台卡片点击跳转携带 status 查询参数，此处读 route.query.status 沉淀为筛选条件，
+// 下传给 IssueTable 的 filters prop。useStatusOptions() 的 value 为数字（STATUS_CODES = [0..4]），
+// 故统一 Number() 转换，保证与 IssueTable 状态下拉 v-model 的类型一致（字符串则筛选不生效）。
+const listFilters = reactive({
+  status: route.query.status != null ? Number(route.query.status) : ''
+})
+watch(
+  () => route.query.status,
+  (nv) => {
+    listFilters.status = nv != null ? Number(nv) : ''
+  }
+)
 
 function openDetail(row) {
   currentId.value = row.id

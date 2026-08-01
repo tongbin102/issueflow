@@ -43,6 +43,15 @@ public final class Constants {
     public static final int DEFAULT_PAGE = 1;
     public static final int DEFAULT_SIZE = 10;
 
+    /**
+     * 列表数据范围口径（BUG-03）：仅看「我提交的」。
+     * <p>与前端 {@code IssueTable} 的 {@code scope} prop 取值严格一致，改动须双端同步。</p>
+     */
+    public static final String SCOPE_MINE = "mine";
+
+    /** 列表数据范围口径（BUG-03）：看全站（默认值，等价于不传） */
+    public static final String SCOPE_ALL = "all";
+
     /** JWT 默认有效期(秒) 2 小时 */
     public static final long JWT_EXPIRATION_SECONDS = 7200L;
 

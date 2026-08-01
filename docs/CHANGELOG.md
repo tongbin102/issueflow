@@ -14,7 +14,54 @@
 - （无）
 
 ### Fixed
-- （无）
+- **BUG-03 / scope 接线（后端，`IssueService#pageQuery`）**：现读取 `IssuePageReq.scope`，当
+  `scope=mine` 且当前用户**非 ADMIN、非 SUBMITTER** 时追加 `reporter_id = 当前用户` 过滤（真·我的问题）。
+  SUBMITTER 仍由上方「仅查自己」逻辑兜底（安全底线）；ADMIN 传 `scope=mine` 视为看全站、不加过滤
+  （保留管理员全局排障能力）。与上一轮新增的 `Constants.SCOPE_MINE/SCOPE_ALL`、
+  `IssuePageReq.scope` 字段、前端 `IssueTable` 下发 `scope` 形成完整闭环。
+- **BUG-02（前端）：工作台卡片点击跳转筛选**。`UserDashboard.vue` 统计卡片加
+  `@click="goList(card.status)"` 与 `cursor:pointer`，`goList(status)` 跳转
+  `/user/my-issues?status={status}`；`UserIssueList.vue` 读取 `route.query.status` 沉淀为
+  `listFilters.status` 并下传 `IssueTable` 的 `filters` prop。类型对齐 `useStatusOptions()`
+  （value 为数字），`route.query.status` 统一 `Number()` 转换，避免跳转后筛选不生效。
+- **BUG-06（前端）：`UserDashboard` 加载态**。新增 `loading` ref，`load()` 以 `loading.value = true`
+  起始、`finally` 收尾；`<el-row>` 加 `v-loading="loading"`，卡片加载期间显示遮罩。
+- **BUG-07（前端）：`IssueTable` 响应外部 `filters` 变化**。新增对 `props.filters` 的 `watch`（deep），
+  父组件传入的筛选（如工作台卡片跳转带 status）即时合并到本地 `filters` 并重拉数据；用户本地手动改筛选只动
+  本地 `filters`、不触发该 watch，无死循环。
+- **回归修复（Round 2，QA 第 2 轮回归验证）**：本轮针对 8/1 接线修复的 A / B / C 三项回归问题，
+  与上方 BUG-02 / 03 / 06 / 07 同源（同一 `UserDashboard` / `DashboardService` / `IssueService` 链路），
+  未回退既有改动。
+  - **A（P0 回归）— 修复「查看我的」按钮事件参数 bug**（`src/frontend/src/views/user/UserDashboard.vue` L27）：
+    原 `@click="goList"` 为裸函数引用，Vue 会把 `MouseEvent`（`PointerEvent`）作为首个实参传入
+    `goList(event)`，导致跳转 URL 出现 `?status=[object PointerEvent]` → `Number()` 得 `NaN`
+    → 后端返回 400。改为 `@click="goList()"`，并在 `goList(status)` 内增加空值 / `NaN` 守卫：
+    当 `status == null || Number.isNaN(Number(status))` 时走无参分支（查全量 / 默认态）。
+    **边界已验证**：`status=0`（待处理）经 `Number(0)` 得 `0`，非 `NaN`，守卫不误吞，正常命中「待处理」筛选。
+  - **B（P1 行为变更，⚠️ 用户可见）— 工作台统计口径与列表页对齐为「真·我的」**
+    （`src/backend/.../service/DashboardService.java` L31）：
+    由 `Constants.ROLE_SUBMITTER.equals(roleCode) ? currentUser : null`
+    改为 `Constants.ROLE_ADMIN.equals(roleCode) ? null : currentUser`。
+    **行为变更说明**：ADMIN 仍统计全站（`currentUser=null` 不加过滤）；
+    SUBMITTER / DEVELOPER / TESTER 由原先统计「全站」收窄为统计「本人提交的问题」
+    （`reporter_id = 当前用户`），与 `IssueService#pageQuery` 的 `scope=mine` 口径对称。
+    **⚠️ 提示**：从不提单的 DEVELOPER / TESTER 打开工作台可能看到全 0，这是口径变更的预期结果，
+    **不是数据丢失**（8/1 曾有整库丢失事故，请勿据此误判为故障）。
+  - **C（P2）— 加载态覆盖补全**（`UserDashboard.vue` L23）：趋势图卡片补加 `v-loading="loading"`，
+    此前 `loading` 仅覆盖状态卡片行，趋势图在加载期间无遮罩；现与状态卡片行一致显示加载态。
+
+> **本期修复日期：2026-08-01**（与上一轮 BUG-01 `cnt→count` 别名、scope 字段/常量补丁同源，本次补齐
+> BUG-02/03/06/07 接线，未回退、未重复修改上一轮已落盘改动）。
+
+### Known Issues
+- **B-R3（待 PM 确认）— 「真·我的」口径维度与角色职责错配**：
+  DEVELOPER / TESTER 的工作对象通常是「指派给自己的问题」（`assignee_id`），
+  而当前「真·我的」口径按「本人提交」（`reporter_id`）过滤，二者语义不同——
+  DEVELOPER / TESTER 即便自己不提单，也可能被指派大量问题，
+  现行 `reporter_id` 口径会令其工作台 / 列表看不到这些被指派的问题。
+  产品语义待 PM 确认，可能后续调整为**按角色区分 reporter / assignee 维度**
+  （如 DEVELOPER / TESTER 默认走 `assignee_id`、SUBMITTER 走 `reporter_id`）。
+  本轮未做该调整，仅作为已知残留记录，留待 PM 决策。
 
 ### Security
 - （无）

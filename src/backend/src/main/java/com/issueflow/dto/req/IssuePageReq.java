@@ -56,4 +56,19 @@ public class IssuePageReq implements Serializable {
 
     /** 结束日期 yyyy-MM-dd（按 created_at） */
     private String endDate;
+
+    /**
+     * 数据范围口径（BUG-03）：{@code mine} 仅看自己提交的 / {@code all} 看全站，默认 {@code all}。
+     *
+     * <p>历史缺陷：前端「我的问题」一直在发 {@code scope=mine}，但本 DTO 无该字段，
+     * Spring 参数绑定静默丢弃，导致管理员进入「我的问题」实际看到全站数据。</p>
+     *
+     * <p>生效规则（见 {@code IssueService#pageQuery}）：</p>
+     * <ul>
+     *   <li>SUBMITTER 角色恒被收窄为仅看自己，与本字段无关（安全底线）；</li>
+     *   <li>非 ADMIN 用户传 {@code mine} → 追加 reporter_id = 当前用户；</li>
+     *   <li>ADMIN 传 {@code mine} → 视为看全站，不加过滤（保留管理员全局排障能力）。</li>
+     * </ul>
+     */
+    private String scope = "all";
 }

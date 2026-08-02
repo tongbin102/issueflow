@@ -189,11 +189,26 @@
       v-model="typeDrawerVisible"
       :title="typeEditing ? t('dict.drawer.editType') : t('dict.drawer.createType')"
       size="sm"
+      :width="DRAWER_WIDTH"
+      :subtitle="typeDrawerSubtitle"
       :loading="typeSaving"
       @confirm="onSaveType"
       @closed="resetTypeForm"
     >
-      <el-form ref="typeFormRef" :model="typeForm" :rules="typeRules" label-width="96px">
+      <!-- 头部徽标：系统预设 / 枚举镜像，避免误改预设类型 -->
+      <template v-if="typeDrawerTag" #header-extra>
+        <el-tag :type="typeDrawerTag.type" size="small" effect="light">
+          {{ typeDrawerTag.label }}
+        </el-tag>
+      </template>
+
+      <el-form
+        ref="typeFormRef"
+        :model="typeForm"
+        :rules="typeRules"
+        label-width="96px"
+        class="dict-drawer-form"
+      >
         <el-form-item :label="t('dict.form.typeName')" prop="name">
           <el-input
             v-model="typeForm.name"
@@ -239,14 +254,27 @@
       v-model="itemDrawerVisible"
       :title="itemEditing ? t('dict.drawer.editItem') : t('dict.drawer.createItem')"
       size="sm"
+      :width="DRAWER_WIDTH"
+      :subtitle="itemDrawerSubtitle"
       :loading="itemSaving"
       @confirm="onSaveItem"
       @closed="resetItemForm"
     >
-      <el-form ref="itemFormRef" :model="itemForm" :rules="itemRules" label-width="96px">
-        <el-form-item :label="t('dict.form.belongType')">
-          <el-input :model-value="activeType ? activeType.name : ''" disabled />
-        </el-form-item>
+      <!-- 头部徽标：所属类型是系统预设 / 枚举镜像 / 自定义 -->
+      <template v-if="itemDrawerTag" #header-extra>
+        <el-tag :type="itemDrawerTag.type" size="small" effect="light">
+          {{ itemDrawerTag.label }}
+        </el-tag>
+      </template>
+
+      <el-form
+        ref="itemFormRef"
+        :model="itemForm"
+        :rules="itemRules"
+        label-width="96px"
+        class="dict-drawer-form"
+      >
+        <!-- 「所属类型」已上移至抽屉头部 subtitle + 徽标，此处不再重复占位 -->
         <el-form-item :label="t('dict.form.itemName')" prop="name">
           <el-input
             v-model="itemForm.name"
@@ -310,11 +338,33 @@ import {
 import { useDictStore } from '@/store/dict'
 import { useAppStore } from '@/store/app'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const dictStore = useDictStore()
 const appStore = useAppStore()
 
 const isMobile = computed(() => appStore.isMobile)
+
+/* --------------------------------------------------------------- 抽屉外观 */
+/**
+ * 字典抽屉统一宽度：比 sm 档（480px）更舒适，窄屏自适应收敛。
+ * 通过 FormDrawer 的 width prop 覆盖 size 档位；移动端仍由组件内部强制满宽。
+ */
+const DRAWER_WIDTH = 'min(560px, 92vw)'
+
+/** 「标签 + 取值」分隔符：中文用全角冒号，其余语言用半角冒号 + 空格 */
+const labelSep = computed(() => (String(locale.value).startsWith('zh') ? '：' : ': '))
+
+/**
+ * 解析字典类型的属性徽标：枚举镜像 > 系统预设 > 自定义。
+ * @param {object|null} type 字典类型行数据
+ * @returns {{label: string, type: string}|null} el-tag 的文案与色型；无类型时返回 null
+ */
+function resolveTypeTag(type) {
+  if (!type) return null
+  if (type.mirror) return { label: t('dict.tag.mirror'), type: 'warning' }
+  if (type.isSystem) return { label: t('dict.tag.system'), type: 'info' }
+  return { label: t('dict.tag.custom'), type: 'success' }
+}
 
 /* ------------------------------------------------------------------ 类型 */
 const typeLoading = ref(false)
@@ -330,6 +380,16 @@ const typeSaving = ref(false)
 const typeFormRef = ref(null)
 const typeEditing = ref(null)
 const typeForm = reactive({ name: '', code: '', description: '', sort: 0, enabled: true })
+
+/** 类型抽屉副标题：编辑态展示不可变更的类型编码；新增态为空（不渲染） */
+const typeDrawerSubtitle = computed(() =>
+  typeEditing.value && typeEditing.value.code
+    ? `${t('dict.form.typeCode')}${labelSep.value}${typeEditing.value.code}`
+    : ''
+)
+
+/** 类型抽屉头部徽标：仅编辑态渲染，明示系统预设 / 枚举镜像，避免误操作 */
+const typeDrawerTag = computed(() => resolveTypeTag(typeEditing.value))
 
 const typeRules = computed(() => ({
   name: [{ required: true, message: t('dict.rules.nameRequired'), trigger: 'blur' }],
@@ -457,6 +517,14 @@ const itemEditing = ref(null)
 const itemForm = reactive({ name: '', code: '', description: '', sort: 0, enabled: true })
 
 const isSystemItemEditing = computed(() => !!(itemEditing.value && itemEditing.value.isSystem))
+
+/** 选项抽屉副标题：选项必属某类型，头部固定展示所属类型名 */
+const itemDrawerSubtitle = computed(() =>
+  activeType.value ? `${t('dict.form.belongType')}${labelSep.value}${activeType.value.name}` : ''
+)
+
+/** 选项抽屉头部徽标：展示所属类型的属性（系统预设 / 枚举镜像 / 自定义） */
+const itemDrawerTag = computed(() => resolveTypeTag(activeType.value))
 
 const itemRules = computed(() => ({
   name: [{ required: true, message: t('dict.rules.nameRequired'), trigger: 'blur' }],
@@ -720,10 +788,24 @@ fetchTypes()
 }
 
 .form-tip {
-  margin-top: 4px;
-  font-size: 12px;
+  margin-top: var(--if-space-xs);
+  font-size: var(--if-font-xs);
   line-height: 1.4;
-  color: var(--el-text-color-secondary);
+  color: var(--text-secondary);
+}
+
+/* ---- 抽屉内表单：字段间距更匀，最后一项贴底不留白 ---- */
+.dict-drawer-form :deep(.el-form-item) {
+  margin-bottom: var(--if-space-lg);
+}
+
+.dict-drawer-form :deep(.el-form-item:last-child) {
+  margin-bottom: 0;
+}
+
+/* 数字/开关类控件在 560px 宽度下保持左对齐紧凑排布 */
+.dict-drawer-form :deep(.el-input-number) {
+  width: 160px;
 }
 
 @media (max-width: 768px) {

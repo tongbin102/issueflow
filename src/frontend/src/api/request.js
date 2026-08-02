@@ -80,6 +80,10 @@ instance.interceptors.response.use(
       return res.data
     }
     // 业务异常
+    // 401/403 只做跳转，不弹消息：跳转到登录页/403 页本身已是足够明显的反馈。
+    // 其余错误在此统一弹一次消息，并通过 shown 标记告知调用方「已提示过」，
+    // 避免业务页面 catch 里再弹一条，出现重复红条。
+    let shown = false
     if (res.code === 401) {
       removeToken()
       redirectLogin()
@@ -87,17 +91,21 @@ instance.interceptors.response.use(
       redirect403()
     } else {
       ElMessage.error(res.message || '请求失败')
+      shown = true
     }
     return Promise.reject(
       Object.assign(new Error(res.message || 'error'), {
         code: res.code,
-        data: res.data
+        data: res.data,
+        shown
       })
     )
   },
   (error) => {
     const res = error.response && error.response.data
     if (res && typeof res === 'object' && 'code' in res && res.code !== 200) {
+      // 同上：401/403 仅跳转，不弹消息；其余错误弹一次并标记 shown
+      let shown = false
       if (res.code === 401) {
         removeToken()
         redirectLogin()
@@ -105,12 +113,20 @@ instance.interceptors.response.use(
         redirect403()
       } else {
         ElMessage.error(res.message || '请求失败')
+        shown = true
       }
       return Promise.reject(
-        Object.assign(new Error(res.message || 'error'), { code: res.code })
+        Object.assign(new Error(res.message || 'error'), {
+          code: res.code,
+          shown
+        })
       )
     }
+    // 网络层错误（部署后后端尚未就绪时常见的 502/504/timeout 等）
     ElMessage.error((error && error.message) || '网络错误')
+    if (error && typeof error === 'object') {
+      error.shown = true
+    }
     return Promise.reject(error)
   }
 )

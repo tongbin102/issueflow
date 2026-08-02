@@ -130,8 +130,6 @@ export const MENU_KEY_BY_PATH = {
   '/admin/business': 'menu.admin.business',
   '/admin/issues': 'menu.admin.issueList',
   '/admin/dicts': 'menu.admin.dict',
-  // Phase9：/admin/issue-types 映射移除（问题类型改由字典 ISSUE_TYPE 维护）；
-  // 新增「字段配置」，与「字典配置」同属业务管理分组
   '/admin/field-configs': 'menu.admin.fieldConfigs',
   '/admin/infra': 'menu.admin.infra',
   '/admin/infra/file': 'menu.admin.infraFile',
@@ -165,17 +163,6 @@ export function menuLabelI18n(node) {
   const key = node.path ? MENU_KEY_BY_PATH[node.path] : null
   if (key && i18n.global.te(key)) return t(key)
   return node.name || ''
-}
-
-/**
- * 问题类型下拉项显示名：停用项追加「(已停用)」i18n 后缀（Q6）。
- * @param {{name?:string,enabled?:boolean}} row IssueTypeOptionVO
- * @returns {string}
- */
-export function issueTypeLabelI18n(row) {
-  if (!row) return ''
-  const name = row.name || ''
-  return row.enabled === false ? name + t('issue.filter.typeDisabledSuffix') : name
 }
 
 /**

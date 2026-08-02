@@ -16,7 +16,6 @@ export default {
     business: '业务管理',
     issueList: '问题列表',
     dict: '字典配置',
-    // Phase9：issueTypes（问题类型）键下线，问题类型改由字典 ISSUE_TYPE 维护
     fieldConfigs: '字段配置',
     infra: '基础设施',
     infraFile: '文件管理',

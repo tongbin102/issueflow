@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { getDictOptions } from '@/api/dict'
 
 /**
- * 字典下拉缓存 store（按 typeCode 分片，结构与 store/issueType.js 对齐）。
+ * 字典下拉缓存 store（按 typeCode 分片）。
  *
  * options[typeCode]    = 仅启用项（新建/编辑表单数据源）
  * allOptions[typeCode] = 全量含停用项（筛选下拉数据源，「(已停用)」后缀由组件按 i18n 拼接）

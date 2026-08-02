@@ -19,7 +19,6 @@ import com.issueflow.entity.FieldConfig;
 import com.issueflow.entity.Issue;
 import com.issueflow.entity.IssueAttachment;
 import com.issueflow.entity.IssueFieldValue;
-import com.issueflow.entity.IssueType;
 import com.issueflow.enums.DictTypeCodeEnum;
 import com.issueflow.enums.FieldType;
 import com.issueflow.enums.HistoryActionEnum;
@@ -64,8 +63,6 @@ public class IssueService {
     private final ProjectService projectService;
     private final ModuleService moduleService;
     private final PermissionService permissionService;
-    /** 仅用于 typeCode 解析失败时回落旧 issue_type 表（灰度兼容层，Phase9 后可随表一并下线） */
-    private final IssueTypeService issueTypeService;
     private final DictService dictService;
     /** ISSUE_TYPE 字典项读取入口（两级缓存，回填 typeName / 校验 typeCode 全程 0 次额外查库） */
     private final DictCache dictCache;
@@ -80,9 +77,9 @@ public class IssueService {
     @Transactional
     public IssueVO createIssue(IssueCreateReq req, Long currentUser) {
         permissionService.requirePermission("issue:create");
-        // Phase9：类型主源改为 typeCode（ISSUE_TYPE 字典项编码），typeId 仅作旧客户端兼容入口。
-        // 必填校验从 DTO 的 @NotNull 下沉到此处：两者全空即报错，语义与 Phase6 一致。
-        String typeCode = resolveTypeCodeForWrite(req.getTypeCode(), req.getTypeId());
+        // Phase9：类型主源为 typeCode（ISSUE_TYPE 字典项编码）。
+        // 必填校验从 DTO 的 @NotNull 下沉到此处：typeCode 为空即报错，语义与 Phase6 一致。
+        String typeCode = resolveTypeCodeForWrite(req.getTypeCode());
         if (typeCode == null) {
             throw new BizException(ResultCode.ISSUE_TYPE_NOT_FOUND, "请选择问题类型");
         }
@@ -92,8 +89,6 @@ public class IssueService {
         Issue issue = new Issue();
         issue.setIssueNo(issueNo);
         issue.setTypeCode(typeCode);
-        // 旧列尽力同步：反解不到旧 id（字典页新建的类型）时留 null，不阻断创建
-        issue.setTypeId(resolveLegacyTypeId(typeCode, req.getTypeId()));
         issue.setTitle(req.getTitle());
         issue.setDescription(req.getDescription());
         issue.setSeverity(req.getSeverity() == null ? SeverityEnum.NORMAL.getCode() : req.getSeverity());
@@ -165,25 +160,14 @@ public class IssueService {
             issue.setTitle(req.getTitle());
         }
         // 类型：非空才更新；变更时要求目标类型处于启用状态。
-        // Phase9 优先级 typeCode > typeId；两者皆空时保持原值不动。
-        if (hasText(req.getTypeCode()) || req.getTypeId() != null) {
-            String submitted = hasText(req.getTypeCode()) ? req.getTypeCode().trim() : null;
-            if (submitted != null && submitted.equals(issue.getTypeCode())) {
+        if (hasText(req.getTypeCode())) {
+            String submitted = req.getTypeCode().trim();
+            if (submitted.equals(issue.getTypeCode())) {
                 // 等值提交（类型未变更）直接放行，即便该字典项已被停用。
                 // 否则类型一旦停用，其存量问题将连标题都改不了。口径与上方 source 分支一致。
-                // 注：豁免仅覆盖新的 typeCode 路径，旧 typeId 路径的严格校验保持原样，零回归。
                 issue.setTypeCode(submitted);
             } else {
-                String newTypeCode = resolveTypeCodeForWrite(req.getTypeCode(), req.getTypeId());
-                if (newTypeCode != null) {
-                    issue.setTypeCode(newTypeCode);
-                    Long legacyTypeId = resolveLegacyTypeId(newTypeCode, req.getTypeId());
-                    // 旧列仅在能反解出 id 时同步；反解不到就保留原值（updateById 跳过 null，
-                    // 强行清空需额外 UpdateWrapper，而 type_id 已废弃，不值得为此加一次 UPDATE）
-                    if (legacyTypeId != null) {
-                        issue.setTypeId(legacyTypeId);
-                    }
-                }
+                issue.setTypeCode(resolveTypeCodeForWrite(submitted));
             }
         }
         if (req.getDescription() != null) {
@@ -288,10 +272,6 @@ public class IssueService {
         // Phase9：类型筛选主口径为 type_code（命中 idx_issue_type_code）
         if (hasText(req.getTypeCode())) {
             wrapper.eq(Issue::getTypeCode, req.getTypeCode().trim());
-        }
-        // 旧 type_id 分支原样保留，向后兼容仍在下发 typeId 的旧客户端
-        if (req.getTypeId() != null) {
-            wrapper.eq(Issue::getTypeId, req.getTypeId());
         }
         if (req.getTag() != null && !req.getTag().isBlank()) {
             wrapper.like(Issue::getTags, req.getTag());
@@ -500,7 +480,7 @@ public class IssueService {
     }
 
     /**
-     * 类型三字段回填（typeId/typeCode/typeName）。
+     * 类型字段回填（typeCode/typeName）。
      *
      * <p>Phase9 起 {@code typeName} 的取数来源由「JOIN issue_type 表」改为
      * 「按 {@code issue.type_code} 命中 ISSUE_TYPE 字典项」，映射表由调用方一次性备好，
@@ -515,7 +495,6 @@ public class IssueService {
      * @param typeNameMap itemCode → name 映射，可为 null
      */
     private void fillTypeFields(IssueVO vo, Issue issue, Map<String, String> typeNameMap) {
-        vo.setTypeId(issue.getTypeId());
         String code = issue.getTypeCode();
         vo.setTypeCode(code);
         if (!hasText(code) || typeNameMap == null) {
@@ -526,24 +505,20 @@ public class IssueService {
     }
 
     /**
-     * 解析写入用的问题类型编码，优先级 <b>typeCode &gt; typeId</b>。
+     * 解析写入用的问题类型编码。
      *
-     * <p>三条分支：</p>
+     * <p>两条分支：</p>
      * <ol>
      *   <li>{@code typeCode} 非空 → 在 ISSUE_TYPE 字典项中精确匹配 {@code item_code}，
      *       不存在抛 {@code ISSUE_TYPE_NOT_FOUND}，已停用抛 {@code ISSUE_TYPE_DISABLED}；</li>
-     *   <li>仅 {@code typeId} 非空 → 按 {@code dict_item.extra}（迁移时写入的旧 {@code issue_type.id}）
-     *       反解出 {@code item_code}；字典里找不到时回落旧 {@code issue_type} 表校验取 code，
-     *       兼容「迁移脚本尚未执行」的环境；</li>
-     *   <li>两者皆空 → 返回 {@code null}，由调用方决定是否报「必填」。</li>
+     *   <li>{@code typeCode} 为空 → 返回 {@code null}，由调用方决定是否报「必填」。</li>
      * </ol>
      *
      * @param reqTypeCode 请求中的类型编码，可为空
-     * @param reqTypeId   请求中的旧类型 id，可为空
-     * @return 合法且启用的类型编码；两个入参皆空时返回 null
-     * @throws BizException 编码/ id 不存在或对应类型已停用
+     * @return 合法且启用的类型编码；入参为空时返回 null
+     * @throws BizException 编码不存在或对应类型已停用
      */
-    private String resolveTypeCodeForWrite(String reqTypeCode, Long reqTypeId) {
+    private String resolveTypeCodeForWrite(String reqTypeCode) {
         List<DictItem> items = dictCache.items(Constants.DICT_TYPE_ISSUE_TYPE);
         if (hasText(reqTypeCode)) {
             String code = reqTypeCode.trim();
@@ -554,60 +529,13 @@ public class IssueService {
             requireItemEnabled(hit);
             return hit.getItemCode();
         }
-        if (reqTypeId != null) {
-            DictItem hit = findByLegacyId(items, reqTypeId);
-            if (hit != null) {
-                requireItemEnabled(hit);
-                return hit.getItemCode();
-            }
-            // 字典中无对应项：回落旧表（含存在性 + 启用态校验），保证旧接口在未迁移环境下仍可用
-            IssueType legacy = issueTypeService.requireEnabled(reqTypeId);
-            return legacy.getCode();
-        }
         return null;
-    }
-
-    /**
-     * 反解已废弃的 {@code issue.type_id}，用于灰度期同步旧列。
-     *
-     * @param typeCode  已确定的类型编码
-     * @param reqTypeId 请求显式携带的旧 id，非空时直接采用
-     * @return 旧类型 id；字典项 {@code extra} 为空或非数字时返回 null
-     */
-    private Long resolveLegacyTypeId(String typeCode, Long reqTypeId) {
-        if (reqTypeId != null) {
-            return reqTypeId;
-        }
-        if (!hasText(typeCode)) {
-            return null;
-        }
-        DictItem hit = findByItemCode(dictCache.items(Constants.DICT_TYPE_ISSUE_TYPE), typeCode);
-        if (hit == null || !hasText(hit.getExtra())) {
-            return null;
-        }
-        try {
-            return Long.valueOf(hit.getExtra().trim());
-        } catch (NumberFormatException e) {
-            // extra 被字典页改成了非数字（颜色标记等自定义用途），旧列放弃同步即可
-            return null;
-        }
     }
 
     /** 内存精确匹配 item_code，未命中返回 null */
     private DictItem findByItemCode(List<DictItem> items, String itemCode) {
         for (DictItem row : items) {
             if (itemCode.equals(row.getItemCode())) {
-                return row;
-            }
-        }
-        return null;
-    }
-
-    /** 内存匹配 extra（迁移时写入的旧 issue_type.id 字符串），未命中返回 null */
-    private DictItem findByLegacyId(List<DictItem> items, Long legacyId) {
-        String wanted = String.valueOf(legacyId);
-        for (DictItem row : items) {
-            if (row.getExtra() != null && wanted.equals(row.getExtra().trim())) {
                 return row;
             }
         }

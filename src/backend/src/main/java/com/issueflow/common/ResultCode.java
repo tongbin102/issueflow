@@ -44,7 +44,6 @@ public enum ResultCode {
     USER_LEADER_CYCLE(40045, "上级领导不能为自己或形成循环"),
     SYSTEM_RESET_DENIED(40046, "无数据初始化权限"),
     ISSUE_TYPE_NOT_FOUND(40060, "问题类型不存在"),
-    ISSUE_TYPE_CODE_DUPLICATE(40061, "类型编码已存在"),
     ISSUE_TYPE_HAS_USAGE(40062, "该类型下存在关联问题，无法删除，可改为停用"),
     ISSUE_TYPE_DISABLED(40063, "该问题类型已停用，不可选择"),
     DICT_TYPE_NOT_FOUND(40070, "字典类型不存在"),

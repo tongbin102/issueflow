@@ -21,21 +21,8 @@ public class IssueCreateReq implements Serializable {
     private String title;
 
     /**
-     * 问题类型 id（<b>已过时</b>，Phase9 起由 {@link #typeCode} 取代）。
-     *
-     * <p>保留用于兼容旧客户端：仅 {@link #typeCode} 为空时才生效，服务端会按
-     * {@code dict_item.extra} 反解出对应 {@code item_code} 回填 {@code typeCode}。</p>
-     *
-     * <p><b>校验位置变更</b>：原先此处有 {@code @NotNull}，动态表单只提交 {@code typeCode}
-     * 会被 Bean Validation 直接拒绝，故必填校验下沉到 {@code IssueService#createIssue}
-     * ——{@code typeCode} 与 {@code typeId} 全为空时抛 {@code ISSUE_TYPE_NOT_FOUND}。</p>
-     */
-    @Deprecated
-    private Long typeId;
-
-    /**
      * 问题类型编码（{@code dict_code='ISSUE_TYPE'} 的 {@code dict_item.item_code}），Phase9 起的主入参。
-     * <p>与 {@link #typeId} 同时存在时<b>以本字段为准</b>；必须为启用状态的字典项。</p>
+     * <p>必须为启用状态的字典项；为空时由 {@code IssueService#createIssue} 抛 {@code ISSUE_TYPE_NOT_FOUND}。</p>
      */
     private String typeCode;
 

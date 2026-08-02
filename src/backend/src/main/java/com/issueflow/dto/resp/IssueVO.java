@@ -33,10 +33,7 @@ public class IssueVO implements Serializable {
     /** 状态描述 */
     private String statusDesc;
 
-    /** 问题类型 id */
-    private Long typeId;
-
-    /** 问题类型名称（由 IssueTypeService.nameMap 批量回填；停用类型仍正常回显） */
+    /** 问题类型名称（由 DictService 按字典项编码批量回填；停用类型仍正常回显） */
     private String typeName;
 
     /** 问题类型 code（前端 i18n 枚举文案映射用，如 BUG/FEATURE/OTHER） */

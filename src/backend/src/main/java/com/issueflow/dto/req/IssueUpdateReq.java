@@ -17,15 +17,8 @@ public class IssueUpdateReq implements Serializable {
     private String title;
 
     /**
-     * 问题类型 id（<b>已过时</b>，Phase9 起由 {@link #typeCode} 取代）。
-     * <p>非空才更新；仅 {@link #typeCode} 为空时才生效（服务端按 {@code dict_item.extra} 反解）。</p>
-     */
-    @Deprecated
-    private Long typeId;
-
-    /**
      * 问题类型编码（{@code dict_code='ISSUE_TYPE'} 的 {@code dict_item.item_code}），Phase9 起的主入参。
-     * <p>非空才更新；与 {@link #typeId} 同时存在时<b>以本字段为准</b>；目标字典项必须处于启用状态。</p>
+     * <p>非空才更新；目标字典项必须处于启用状态（等值提交即未变更时放行）。</p>
      */
     private String typeCode;
 

@@ -101,9 +101,6 @@ public final class Constants {
     /** 站点语言合法值（Q4：中英双语） */
     public static final Set<String> SITE_LOCALES = Set.of("zh-CN", "en-US");
 
-    /** 内置兜底问题类型 code（存量问题回填 / 禁止删除语义由引用计数天然保证） */
-    public static final String ISSUE_TYPE_CODE_OTHER = "OTHER";
-
     // ======================= Phase 7 =======================
 
     /** 文件配置键（sys_config 的 file.* 4 键） */
@@ -158,7 +155,6 @@ public final class Constants {
 
     /**
      * 字典类型编码：问题类型（Phase9 由 {@code issue_type} 表迁入 {@code dict_item}）。
-     * <p>{@code dict_item.extra} 存旧 {@code issue_type.id} 字符串，供灰度期按旧 typeId 反解 itemCode。</p>
      */
     public static final String DICT_TYPE_ISSUE_TYPE = "ISSUE_TYPE";
 

@@ -66,3 +66,5 @@ src/frontend/*_t05*.txt
 docs/*.tmp.md
 # Windows 下误把 NUL 当文件名重定向产生的空文件
 nul
+.cache-shots/
+tmp_src.tar.gz

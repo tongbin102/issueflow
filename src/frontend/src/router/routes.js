@@ -5,9 +5,7 @@
 //   2. /user/submit-issue 改为 redirect 到 /user/my-issues（提交入口收敛为列表页抽屉，兼容旧书签）；
 //   3. 新增 /admin/system/site（网站设置）。
 // Phase9（动态字段配置）：
-//   1. /admin/issue-types（Phase6 的「问题类型」菜单）下线 —— 问题类型改由字典（dict_code=ISSUE_TYPE）维护，
-//      路由与菜单映射一并摘除；DB 侧软删见 scripts/V20260806_dynamic_field.sql；
-//   2. 新增 /admin/field-configs（业务管理 > 字段配置），承接问题表单动态字段元数据维护。
+//   1. 新增 /admin/field-configs（业务管理 > 字段配置），承接问题表单动态字段元数据维护。
 const USER_ROLES = ['SUBMITTER', 'DEVELOPER', 'TESTER', 'ADMIN']
 
 const routes = [
@@ -109,8 +107,7 @@ const routes = [
         meta: { title: 'menu.admin.dict', roles: ['ADMIN'] }
       },
       {
-        // Phase9 新增：字段配置（业务管理 > 字段配置，维护问题表单的动态字段元数据）。
-        // 占位于原 /admin/issue-types 的位置：该路由已随「问题类型改由字典 ISSUE_TYPE 维护」下线。
+        // Phase9 新增：字段配置（业务管理 > 字段配置，维护问题表单的动态字段元数据）
         path: 'field-configs',
         name: 'field-config-manage',
         component: () => import('@/views/admin/FieldConfigManage.vue'),

@@ -115,7 +115,7 @@ public interface IssueMapper extends BaseMapper<Issue> {
 
     /**
      * 按问题类型编码（item_code）批量统计引用数（一次 GROUP BY，禁止 N+1）。
-     * <p>供 {@code IssueTypeRefCounter} 平移自 {@code IssueTypeService} 的删除阻断能力：
+     * <p>供 {@code IssueTypeRefCounter} 的删除阻断能力：
      * 统计 {@code issue.type_code IN (...)} 的未删除问题数，回填引用计数。</p>
      *
      * @param typeCodes 类型编码集合（dict_item.ISSUE_TYPE.item_code）

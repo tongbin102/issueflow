@@ -15,7 +15,6 @@ export default {
     business: 'Business',
     issueList: 'Issue List',
     dict: 'Dictionaries',
-    // Phase9: issueTypes key retired, issue types are now maintained via dict ISSUE_TYPE
     fieldConfigs: 'Field Config',
     infra: 'Infrastructure',
     infraFile: 'File Management',

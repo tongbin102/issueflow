@@ -1,9 +1,7 @@
 package com.issueflow.service;
 
 import com.issueflow.common.BizException;
-import com.issueflow.common.Constants;
 import com.issueflow.common.ResultCode;
-import com.issueflow.entity.DictItem;
 import com.issueflow.entity.FieldConfig;
 import com.issueflow.entity.IssueFieldValue;
 import com.issueflow.enums.FieldType;
@@ -27,7 +25,6 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +33,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -53,7 +49,6 @@ import static org.mockito.Mockito.when;
  *   <li>{@code validateRequiredFields}：<b>null（局部更新，跳过校验）</b> vs
  *       <b>空 Map（表单提交，严格校验）</b> 的语义区分；</li>
  *   <li>{@code buildCustomFields}：详情回填按类型取真实值，配置缺失回退 TEXT；</li>
- *   <li>{@code resolveLegacyTypeId}：dict_item.extra 回填旧 type_id 的半失效边界。</li>
  * </ul>
  */
 @DisplayName("IssueService 自定义字段读写链路")
@@ -69,7 +64,6 @@ class IssueServiceCustomFieldTest {
     @Mock private ProjectService projectService;
     @Mock private ModuleService moduleService;
     @Mock private PermissionService permissionService;
-    @Mock private IssueTypeService issueTypeService;
     @Mock private DictService dictService;
     @Mock private DictCache dictCache;
     @Mock private IssueFieldValueService fieldValueService;
@@ -109,11 +103,6 @@ class IssueServiceCustomFieldTest {
         return (Map<String, Object>) invokePrivate("buildCustomFields", new Class<?>[]{Long.class}, issueId);
     }
 
-    private Long resolveLegacyTypeId(String typeCode, Long reqTypeId) {
-        return (Long) invokePrivate("resolveLegacyTypeId",
-                new Class<?>[]{String.class, Long.class}, typeCode, reqTypeId);
-    }
-
     // ------------------------------------------------------------ 数据工厂
 
     /** 三列都填满的竖表行，用于验证「按类型只取对应列」而非全量返回 */
@@ -137,16 +126,6 @@ class IssueServiceCustomFieldTest {
         c.setEnabled(1);
         c.setIsSystem(0);
         return c;
-    }
-
-    private static DictItem dictItem(String itemCode, String extra) {
-        DictItem d = new DictItem();
-        d.setDictCode(Constants.DICT_TYPE_ISSUE_TYPE);
-        d.setItemCode(itemCode);
-        d.setName(itemCode);
-        d.setEnabled(1);
-        d.setExtra(extra);
-        return d;
     }
 
     private static Map<String, Object> map(Object... kv) {
@@ -383,56 +362,6 @@ class IssueServiceCustomFieldTest {
             Map<String, Object> result = buildCustomFields(1001L);
 
             assertThat(result).containsEntry("removedField", "TXT");
-        }
-    }
-
-    // ============================================================ resolveLegacyTypeId
-
-    @Nested
-    @DisplayName("resolveLegacyTypeId 旧 type_id 回填（已知遗留风险）")
-    class ResolveLegacyTypeId {
-
-        private void givenDictItems(DictItem... items) {
-            when(dictCache.items(anyString())).thenReturn(new ArrayList<>(Arrays.asList(items)));
-        }
-
-        @Test
-        @DisplayName("请求显式带 typeId 时原样采用（旧客户端路径）")
-        void explicitReqTypeIdWins() {
-            assertThat(resolveLegacyTypeId("BUG", 7L)).isEqualTo(7L);
-        }
-
-        @Test
-        @DisplayName("迁移过来的字典项（extra 存旧 issue_type.id）可正确反解")
-        void resolvesFromDictExtra() {
-            givenDictItems(dictItem("BUG", "3"), dictItem("TASK", "4"));
-            assertThat(resolveLegacyTypeId("BUG", null)).isEqualTo(3L);
-            assertThat(resolveLegacyTypeId("TASK", null)).isEqualTo(4L);
-        }
-
-        @Test
-        @DisplayName("【已知遗留】字典页新建的类型 extra 为空 → 回填 null（issue.type_id 将写空）")
-        void newDictItemYieldsNullLegacyId() {
-            givenDictItems(dictItem("NEW_TYPE", null), dictItem("BLANK_EXTRA", "  "));
-            assertThat(resolveLegacyTypeId("NEW_TYPE", null)).isNull();
-            assertThat(resolveLegacyTypeId("BLANK_EXTRA", null)).isNull();
-        }
-
-        @Test
-        @DisplayName("extra 被改成非数字（如颜色标记）时安全降级为 null，不抛异常")
-        void nonNumericExtraDegradesToNull() {
-            givenDictItems(dictItem("COLORED", "#FF0000"));
-            assertThatCode(() -> assertThat(resolveLegacyTypeId("COLORED", null)).isNull())
-                    .doesNotThrowAnyException();
-        }
-
-        @Test
-        @DisplayName("typeCode 为空或字典无此项时返回 null")
-        void blankOrUnknownCodeReturnsNull() {
-            givenDictItems(dictItem("BUG", "3"));
-            assertThat(resolveLegacyTypeId(null, null)).isNull();
-            assertThat(resolveLegacyTypeId("  ", null)).isNull();
-            assertThat(resolveLegacyTypeId("NOT_EXISTS", null)).isNull();
         }
     }
 

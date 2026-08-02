@@ -11,7 +11,6 @@ import theme from './theme'
 import login from './login'
 import error from './error'
 import issue from './issue'
-import issueType from './issueType'
 import dashboard from './dashboard'
 import project from './project'
 import moduleDict from './module'
@@ -38,7 +37,6 @@ export default {
   login,
   error,
   issue,
-  issueType,
   dashboard,
   project,
   module: moduleDict,

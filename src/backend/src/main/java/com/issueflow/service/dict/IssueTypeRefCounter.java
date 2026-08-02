@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * ISSUE_TYPE 字典项引用计数（平移自原 {@code IssueTypeService} 的删除阻断，ARCH §3.5）。
+ * ISSUE_TYPE 字典项引用计数（ARCH §3.5）。
  * <p>统计「未删除问题中 type_code 命中该 item_code」的数量；复用 {@code IssueMapper.countGroupByTypeCode}
  * 一次 GROUP BY 出全量，内存过滤出本次关心的编码，杜绝 N+1。</p>
  */

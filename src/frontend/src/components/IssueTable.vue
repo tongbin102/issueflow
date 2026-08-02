@@ -377,8 +377,6 @@ const priorityOptions = usePriorityOptions()
 const sourceFilterOptions = useDictCodeOptions(SOURCE_DICT_CODE, true)
 /**
  * 类型筛选下拉：全量含停用项（value = item_code，与 issue.type_code 落库口径一致）。
- * Phase9 前此处走 issue_type 老表的 /api/issue-types/options，字典页新增的类型不会出现在下拉里，
- * 且筛选参数走 type_id（对字典新增项恒为 null）——「下拉里没有 + 就算有也筛不到」双重失效，故改走字典。
  */
 const typeFilterOptions = useDictCodeOptions(TYPE_DICT_CODE, true)
 

@@ -56,3 +56,13 @@ docker-compose.23.yml
 # 前端临时构建产物：dist_/dist- 前缀的验证/QA 临时目录（勿误伤正式 dist/，sandbox 守卫下无法自动删除）
 src/frontend/dist[_-]*/
 vite.config.js.timestamp-*
+
+# ===== 一次性排查取证文件（sandbox 守卫下删不掉，只能忽略）=====
+# 构建/编译日志摘录（*.log 已覆盖，这里补 .txt 形式的 grep 取证产物）
+mvn-*.txt
+src/frontend/*_check.txt
+src/frontend/*_t05*.txt
+# 中间态设计草稿（.tmp.md 不被 *.tmp 规则覆盖）
+docs/*.tmp.md
+# Windows 下误把 NUL 当文件名重定向产生的空文件
+nul

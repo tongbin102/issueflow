@@ -132,6 +132,20 @@
 - **`RoleEnum` 新增 null-safe 判定助手**：`isAdmin(String)` / `isSubmitter(String)` / `matches(String)`。
 - **`PermissionService` 新增 `requireAdmin()` / `invalidateAll()`**（详见上方 M4 / M5）。
 
+- **Phase9「问题字段动态可配置」**（本组变更日期：2026-08-06，迁移脚本 `scripts/V20260806_dynamic_field.sql`）
+  - **`field_config` 表与字段配置管理页（新增）**：后端新增 `FieldConfig` 实体 / `FieldConfigMapper` /
+    `FieldConfigService` 及 `/api/field-configs` 系列接口（含 `schema` 表单渲染契约、`ref-options` 引用候选项）；
+    前端新增管理页 `src/frontend/src/views/admin/FieldConfigManage.vue`，可维护问题表单字段的
+    类型、必填、排序、可见性等元数据。
+  - **动态字段渲染引擎（新增）**：问题表单由「字段硬编码」改为按 `GET /api/field-configs/schema`
+    返回的契约动态渲染，**新增业务字段不再需要改前端代码**。
+  - **「字段配置」菜单（新增）**：`/admin/field-configs` 挂在「业务管理」分组下、与「字典配置」同级，
+    权限标识 `field:config:list`，仅 `ADMIN` 可见。路由名 `field-config-manage`（`src/frontend/src/router/routes.js`），
+    菜单文案键 `menu.admin.fieldConfigs`（中文「字段配置」/ 英文 "Field Config"）。
+  - **`issue` 表新增 `type_code` 列**：问题类型由外键 `type_id`（指向 `issue_type` 表）改为存字典编码
+    `type_code`（`dict_code='ISSUE_TYPE'` 的 `dict_item.item_code`）。存量数据由迁移脚本回填；
+    `type_id` **暂保留不删**以便回滚，接口层入参优先级为 **`typeCode` > `typeId`**。
+
 ### Changed
 - **大文件拆分：`ModuleService`（约 907 行）→ 三层职责（纯结构调整，public API 不变）**
   - `ModuleService` 保留**编排 + 写事务入口**：`create` / `update` / `delete` / `move` / `batchDelete` /
@@ -156,6 +170,16 @@
     `UserService#listUserOptions`、`DynamicTaskScheduler#registerAll`、`ScheduledTaskService`（下次执行时间）。
     **逐处核对为语义严格等价**（`isEnabled` / `isDisabled` 均 null-safe，不改变原 null 分支走向）。
   - **`Constants.SCOPE_MINE` / `SCOPE_ALL` 保持原样未动**（`fcac757` 前端 bugfix 依赖）。
+
+- **「问题类型」独立菜单下线，改由字典（`dict_code=ISSUE_TYPE`）维护（Phase9）**
+  - 前端摘除路由 `/admin/issue-types`（`src/frontend/src/router/routes.js`）与菜单映射
+    `MENU_KEY_BY_PATH['/admin/issue-types']`（`src/frontend/src/utils/i18nEnum.js`）；
+    i18n 键 `menu.admin.issueTypes` 在 `zh-CN` / `en-US` 两侧同步删除，改为 `menu.admin.fieldConfigs`。
+    DB 侧对应菜单行由 `scripts/V20260806_dynamic_field.sql` **软删**（`deleted=1`），原位改挂「字段配置」。
+  - 问题类型的增删改查统一走「业务管理 > 字典配置」中 `code=ISSUE_TYPE` 的字典项，不再有独立维护页。
+  - ⚠️ **本轮刻意保留** `views/admin/IssueTypeManage.vue`、`api/issueType.js`、`store/issueType.js`
+    三个文件本体（**仅摘除路由与菜单入口，页面已无导航可达**）：`components/IssueTable.vue` 等消费方
+    仍在改造中，过早物理删除会导致编译中断。文件的物理删除留待全链路验证通过后单独一轮清理。
 
 ### Fixed
 - **`PermissionService#refreshAll()` 缓存滞留缺陷（M5 附带修复）**：原实现「先加载映射、再调

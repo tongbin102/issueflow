@@ -60,6 +60,26 @@
               <el-descriptions-item :label="t('issue.list.col.tags')">{{ detail.tags || '-' }}</el-descriptions-item>
               <el-descriptions-item :label="t('common.field.createdAt')">{{ formatDate(detail.createdAt) }}</el-descriptions-item>
             </el-descriptions>
+
+            <!-- 自定义字段：按 schema 顺序、按区域分组只读展示；
+                 已停用（enabled=false）但仍有历史值的字段打灰色「已停用」标签 -->
+            <template v-for="grp in customGroups" :key="grp.section.code">
+              <h4 class="if-section-title detail-sub">{{ sectionLabel(grp.section) }}</h4>
+              <el-descriptions :column="1" border size="small">
+                <el-descriptions-item
+                  v-for="f in grp.fields"
+                  :key="f.code"
+                  :label="fieldLabel(f)"
+                >
+                  {{ formatCustomValue(f, customValue(f.code)) }}
+                  <IfTag
+                    v-if="f.enabled === false && hasCustomValue(f.code)"
+                    semantic="info"
+                    :label="t('fieldConfig.tag.disabled')"
+                  />
+                </el-descriptions-item>
+              </el-descriptions>
+            </template>
           </template>
 
           <!-- ===== 标签 2：问题描述（描述 + 复现步骤 + 环境信息）===== -->
@@ -123,6 +143,7 @@ import {
 import { getIssue, getHistory } from '@/api/issue'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
+import { useFieldSchemaStore } from '@/store/fieldSchema'
 import IfTag from '@/components/base/IfTag.vue'
 import IfLoading from '@/components/base/IfLoading.vue'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
@@ -131,7 +152,8 @@ import StatusTimeline from '@/components/StatusTimeline.vue'
 import IssueRelationPanel from '@/components/IssueRelationPanel.vue'
 import IssueFormSections from '@/components/IssueFormSections.vue'
 
-const { t } = useI18n()
+const { t, te } = useI18n()
+const schemaStore = useFieldSchemaStore()
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -180,11 +202,62 @@ async function loadDetail() {
     attachments.value = (res && res.attachments) || []
     const his = await getHistory(props.issueId, { page: 1, size: 50 })
     history.value = (his && his.list) || []
+    // 拉取字段渲染契约（带缓存）：用于按 schema 顺序展示自定义字段只读值
+    try {
+      await schemaStore.loadSchema()
+    } catch (e) {
+      // 契约拉取失败不影响内置字段详情展示
+    }
   } catch (e) {
     detail.value = null
   } finally {
     loading.value = false
   }
+}
+
+/**
+ * 自定义字段分组（按 schema 顺序）：仅取 system=false 的字段，
+ * 供详情页「基本信息」页签内按区域分组展示只读值。
+ * @returns {Array<{section:object, fields:Array}>}
+ */
+const customGroups = computed(() => {
+  const schema = schemaStore.schema
+  if (!schema || !Array.isArray(schema.sections)) return []
+  const result = []
+  schema.sections.forEach((section) => {
+    const fields = (section.fields || []).filter((f) => f && f.system === false)
+    if (fields.length) result.push({ section, fields })
+  })
+  return result
+})
+
+/** 取某自定义字段的回显值（来自 IssueDetailVO.customFields，可能缺省） */
+function customValue(code) {
+  const cf = detail.value && detail.value.customFields
+  return cf ? cf[code] : undefined
+}
+/** 是否存在非空历史值 */
+function hasCustomValue(code) {
+  const v = customValue(code)
+  return v != null && v !== ''
+}
+/** 只读值格式化：空值回退 '-'，数组用逗号拼接 */
+function formatCustomValue(field, value) {
+  if (value == null || value === '') return '-'
+  if (Array.isArray(value)) return value.length ? value.join(', ') : '-'
+  return String(value)
+}
+/** 区域展示名：i18nKey 优先回退 name/code */
+function sectionLabel(section) {
+  if (!section) return ''
+  if (section.i18nKey && te(section.i18nKey)) return t(section.i18nKey)
+  return section.name || section.code || ''
+}
+/** 字段展示名：i18nKey 优先回退 name/code */
+function fieldLabel(field) {
+  if (!field) return ''
+  if (field.i18nKey && te(field.i18nKey)) return t(field.i18nKey)
+  return field.name || field.code || ''
 }
 
 function onOpen() {

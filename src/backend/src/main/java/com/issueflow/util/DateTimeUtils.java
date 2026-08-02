@@ -12,6 +12,9 @@ public final class DateTimeUtils {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
+    private static final DateTimeFormatter DATETIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
     private DateTimeUtils() {
     }
 
@@ -32,5 +35,38 @@ public final class DateTimeUtils {
         } catch (DateTimeParseException e) {
             return null;
         }
+    }
+
+    /**
+     * 将 LocalDateTime 格式化为 {@code yyyy-MM-dd} 字符串（无时分秒）。
+     *
+     * <p>用于 DATE 类型自定义字段的出参，对齐前端
+     * {@code DynamicField.vue} 中 DATE 控件的 {@code valueFormat='YYYY-MM-DD'} 契约。
+     *
+     * @param dt 待格式化的日期时间，可为 null
+     * @return 格式化后的日期字符串；{@code dt} 为 null 时返回 null
+     */
+    public static String formatDate(LocalDateTime dt) {
+        if (dt == null) {
+            return null;
+        }
+        return dt.format(DATE_FORMATTER);
+    }
+
+    /**
+     * 将 LocalDateTime 格式化为 {@code yyyy-MM-dd HH:mm:ss} 字符串。
+     *
+     * <p>用于 DATETIME 类型自定义字段的出参，对齐前端
+     * {@code DynamicField.vue} 中 DATETIME 控件的
+     * {@code valueFormat='YYYY-MM-DD HH:mm:ss'} 契约。
+     *
+     * @param dt 待格式化的日期时间，可为 null
+     * @return 格式化后的日期时间字符串；{@code dt} 为 null 时返回 null
+     */
+    public static String formatDateTime(LocalDateTime dt) {
+        if (dt == null) {
+            return null;
+        }
+        return dt.format(DATETIME_FORMATTER);
     }
 }

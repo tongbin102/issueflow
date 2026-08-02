@@ -24,8 +24,19 @@ public class IssuePageReq implements Serializable {
     /** 严重等级筛选 */
     private Integer severity;
 
-    /** 问题类型 id 筛选（Q6：筛选下拉含停用项，停用项由前端追加「(已停用)」标记） */
+    /**
+     * 问题类型 id 筛选（<b>已过时</b>，Phase9 起改用 {@link #typeCode}）。
+     * <p>分支保留不动，向后兼容旧客户端；新前端不再下发本参数。</p>
+     */
+    @Deprecated
     private Long typeId;
+
+    /**
+     * 问题类型编码筛选（{@code dict_code='ISSUE_TYPE'} 的 {@code dict_item.item_code}）。
+     * <p>Phase9 起前端筛选下拉的唯一口径，非空时按 {@code issue.type_code} 精确过滤
+     * （命中索引 {@code idx_issue_type_code}）。筛选下拉含停用项，「(已停用)」后缀由前端拼接。</p>
+     */
+    private String typeCode;
 
     /** 标签名称筛选（模糊匹配逗号分隔串） */
     private String tag;

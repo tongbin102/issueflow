@@ -371,7 +371,7 @@ gzip -cd /home/jsadmin/db-backups/issueflow_db-YYYYMMDD-HHMMSS.sql.gz \
 （⚠ **只能重建表结构与种子数据，业务数据无法找回**）：
 
 ```bash
-# 把仓库 16 个 SQL 传到 24 号机 /home/jsadmin/issueflow-restore/ 后：
+# 把仓库 17 个 SQL 传到 24 号机 /home/jsadmin/issueflow-restore/ 后：
 MYSQL_ROOT_PASS='xxx' bash restore-run-order.sh            # 在已存在的空库上灌
 MYSQL_ROOT_PASS='xxx' REBUILD=1 bash restore-run-order.sh  # 先 DROP/CREATE issueflow_db 再灌
 ```
@@ -407,6 +407,7 @@ MYSQL_ROOT_PASS='xxx' REBUILD=1 bash restore-run-order.sh  # 先 DROP/CREATE iss
 | 14 | `V20260803_issueflow_phase8_wave3.sql` | W3 |
 | 15 | `V20260804_issueflow_phase8_wave4.sql` | W4 |
 | 16 | `V20260805_issueflow_phase6_whitelist_fix.sql` | W5，**须在 #15 之后** |
+| 17 | `V20260806_dynamic_field.sql` | Phase9：动态字段配置四张表 + ISSUE_TYPE 字典化 + `issue.type_code` + 菜单 `field-configs`。**须最后执行** —— 依赖 #9 的 `issue_type`、#11 的 `dict/dict_item`、#15/#16 的 menu 终态 |
 
 > **另一处坑**：单独重跑 Phase6（#9）会把 W4（#15）设置的
 > `FolderOpened / Share / Files / SetUp` 四个菜单图标刷回 `Grid`。
@@ -414,7 +415,7 @@ MYSQL_ROOT_PASS='xxx' REBUILD=1 bash restore-run-order.sh  # 先 DROP/CREATE iss
 
 #### 4.11.4 字符集：`SET NAMES utf8mb4`
 
-仓库内 **16 个 SQL 已全部**在文件开头声明 `SET NAMES utf8mb4;`。
+仓库内 **17 个 SQL 已全部**在文件开头声明 `SET NAMES utf8mb4;`。
 
 事故恢复时曾发现其中 7 个缺失该声明（`schema.sql` / `data.sql` /
 `migrate-add-updated-at.sql` / `phase8_wave1~4`）。容器内 mysql 客户端的

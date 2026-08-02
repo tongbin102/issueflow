@@ -22,7 +22,8 @@
 #   【2026-08-01 已修复】当时有 7 个 SQL 未声明 `SET NAMES utf8mb4`：
 #     schema.sql / data.sql / migrate-add-updated-at.sql /
 #     phase8_wave1 / wave2 / wave3 / wave4
-#   现已逐个补齐，仓库 16 个 SQL 全部覆盖（详见 CHANGELOG 2026-08-01）。
+#   现已逐个补齐，仓库 17 个 SQL 全部覆盖（详见 CHANGELOG 2026-08-01；
+#   2026-08-01 新增 Phase9 的 V20260806_dynamic_field.sql，已含 SET NAMES utf8mb4）。
 #
 #   即便如此，本脚本**仍然保留**对每次 mysql 调用强制
 #   --default-character-set=utf8mb4 —— 作为客户端层的第二道防线，
@@ -54,6 +55,9 @@ FILES=(
   "V20260803_issueflow_phase8_wave3.sql"        # W3：user_role + user.roles + 存量回填
   "V20260804_issueflow_phase8_wave4.sql"        # W4：菜单 sort/icon 订正 + 清理墓碑行
   "V20260805_issueflow_phase6_whitelist_fix.sql" # W5：Phase6 图标白名单缺口补齐（须在 W4 之后）
+  "V20260806_dynamic_field.sql"                 # Phase9：动态字段配置（field_section/field_config/issue_field_value/ref_source_registry
+                                                #        + ISSUE_TYPE 字典化迁移 + issue.type_code + 菜单 field-configs）
+                                                #        必须最后执行：依赖 phase6 的 issue_type、phase7 的 dict/dict_item、W4/W5 的 menu 终态
 )
 
 echo "==================================================================" | tee "$LOG"

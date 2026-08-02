@@ -1,272 +1,88 @@
 <template>
   <!-- 问题表单（提交 / 编辑 / 查看共用）。
-       Phase8 W2 #12：容器由 4 分区折叠改为左侧竖形标签页（IssueFormSections），
-       5 个标签：基本信息 / 问题描述 / 附件上传 / 关联信息 / 操作历史。
-       - 「基本信息」→ 其他标签前会校验基本信息，不通过则阻止切换；
-       - 问题描述改为非必填；所属项目改为必填（#6）；
-       - 环境信息随复现步骤并入「问题描述」标签，字段一个不少。
-       Phase6 起不再内置提交按钮：由父级 FormDrawer 底部按钮触发 submit()（defineExpose）。 -->
-  <el-form
-    ref="formRef"
-    :model="model"
-    :rules="rules"
-    :disabled="readonly"
-    label-width="96px"
-    label-position="right"
+       T05a：硬编码表单整体下线，改为由 FieldSchemaVO 驱动的 DynamicFormRenderer 渲染。
+       - 外层不再包 <el-form>：每个业务页签内各放一个 DynamicFormRenderer（自带 el-form），各自独立校验；
+       - 业务页签（基本信息 / 详细描述 / 环境信息 …）由 schema.sections 动态生成，sectionCode 一一对应；
+       - 系统页签（附件 / 关联 / 历史）仍走 IssueFormSections 的固定具名插槽，实现不变；
+       - 内置字段（title/typeCode/source/severity/priority/projectId/moduleId/tags/description/
+         reproduceSteps/envOs/envBrowser/envAppVersion/envDevice）平铺在提交体顶层；
+         自定义字段（system=false）统一收进 customFields: { [code]: value }；
+       - 项目→模块联动由 DynamicField 的 dependsOn 机制接管（种子里 moduleId.dependsOn=projectId）。
+       自 Phase6 起不再内置提交按钮：由父级 FormDrawer 底部按钮触发 submit()（defineExpose）。 -->
+  <IssueFormSections
+    ref="sectionsRef"
+    :schema="schemaStore.schema"
+    :filled-tabs="filledTabs"
+    @change="onTabChange"
   >
-    <IssueFormSections
-      ref="sectionsRef"
-      :filled-tabs="filledTabs"
-      @change="onTabChange"
-    >
-      <!-- ===== 标签 1：基本信息 ===== -->
-      <template #basic>
-        <el-form-item :label="t('issue.form.title')" prop="title">
-          <el-input
-            v-model="model.title"
-            :placeholder="t('issue.placeholder.title')"
-            maxlength="200"
-            show-word-limit
-          />
-        </el-form-item>
+    <!-- ===== 业务页签：由 schema.sections 动态生成，每个页签内一个 DynamicFormRenderer ===== -->
+    <template v-for="section in schemaSections" :key="section.code" #[section.code]>
+      <DynamicFormRenderer
+        :ref="(el) => setRendererRef(section.code, el)"
+        :section-code="section.code"
+        :schema="schemaStore.schema"
+        :show-section-title="false"
+        :model-value="model"
+        :disabled="readonly"
+        @update:model-value="onModelPatch"
+      />
+    </template>
 
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <!-- Phase6：问题类型必选；下拉仅启用项（Q6），编辑回显停用项时追加只读展示项 -->
-            <el-form-item :label="t('issue.form.type')" prop="typeId">
-              <el-select
-                v-model="model.typeId"
-                :placeholder="t('issue.placeholder.selectType')"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="opt in typeOptions"
-                  :key="opt.id"
-                  :label="opt.label"
-                  :value="opt.id"
-                  :disabled="opt.disabled"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <!-- Phase7 T3：来源（字典 ISSUE_SOURCE，value = item_code，与后端落库口径一致）。
-                 新建留空由后端填默认来源；编辑回显停用来源时追加只读展示项。 -->
-            <el-form-item :label="t('issue.form.source')" prop="source">
-              <el-select
-                v-model="model.source"
-                :placeholder="t('issue.placeholder.selectSource')"
-                clearable
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="opt in sourceSelectOptions"
-                  :key="opt.value"
-                  :label="opt.label"
-                  :value="opt.value"
-                  :disabled="opt.disabled"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <!-- Phase7 T3（ARCH 硬要求）：严重等级与优先级同一 el-row 的两个 span=12，
-             同为 el-select、同必填星号、同校验提示风格 -->
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item :label="t('issue.form.severity')" prop="severity">
-              <el-select
-                v-model="model.severity"
-                :placeholder="t('issue.placeholder.selectSeverity')"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="opt in severityOptions"
-                  :key="opt.value"
-                  :label="opt.label"
-                  :value="opt.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('issue.form.priority')" prop="priority">
-              <el-select
-                v-model="model.priority"
-                :placeholder="t('issue.placeholder.selectPriority')"
-                style="width: 100%"
-              >
-                <el-option
-                  v-for="opt in priorityOptions"
-                  :key="opt.value"
-                  :label="opt.label"
-                  :value="opt.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <!-- Phase8 W2 #6：所属项目必填（红星由 rules.projectId.required 渲染），不再可清空 -->
-        <el-form-item :label="t('issue.form.project')" prop="projectId">
-          <el-select
-            v-model="model.projectId"
-            :placeholder="t('issue.placeholder.selectProject')"
-            filterable
-            style="width: 100%"
-          >
-            <el-option v-for="p in projectOptions" :key="p.id" :label="p.name" :value="p.id" />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item :label="t('issue.form.module')" prop="moduleId">
-          <el-tree-select
-            v-model="model.moduleId"
-            :data="moduleTree"
-            :props="{ label: 'name', children: 'children' }"
-            node-key="id"
-            :render-after-expand="false"
-            filterable
-            clearable
-            :placeholder="t('issue.placeholder.selectModule')"
-            style="width: 100%"
-          >
-            <template #default="{ data }">
-              <span>{{ data.pathLabel }}</span>
-            </template>
-          </el-tree-select>
-        </el-form-item>
-
-        <el-form-item :label="t('issue.form.tags')" prop="tags">
-          <el-select
-            v-model="model.tags"
-            multiple
-            filterable
-            allow-create
-            default-first-option
-            :placeholder="t('issue.placeholder.tags')"
-            style="width: 100%"
-          >
-            <el-option v-for="tg in tagOptions" :key="tg.value" :label="tg.label" :value="tg.value" />
-          </el-select>
-        </el-form-item>
-      </template>
-
-      <!-- ===== 标签 2：问题描述（非必填）+ 复现步骤 + 环境信息 ===== -->
-      <template #detail>
-        <el-form-item :label="t('issue.form.description')" prop="description">
-          <el-input
-            v-model="model.description"
-            type="textarea"
-            :rows="5"
-            :placeholder="t('issue.placeholder.description')"
-          />
-        </el-form-item>
-        <el-form-item :label="t('issue.form.steps')" prop="reproduceSteps">
-          <el-input
-            v-model="model.reproduceSteps"
-            type="textarea"
-            :rows="3"
-            :placeholder="t('issue.placeholder.steps')"
-          />
-        </el-form-item>
-
-        <el-divider content-position="left">{{ t('issue.form.section.env') }}</el-divider>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item :label="t('issue.form.envOs')" prop="envOs">
-              <el-input v-model="model.envOs" placeholder="Windows 11" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('issue.form.envBrowser')" prop="envBrowser">
-              <el-input v-model="model.envBrowser" placeholder="Chrome 120" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item :label="t('issue.form.envAppVersion')" prop="envAppVersion">
-              <el-input v-model="model.envAppVersion" placeholder="v1.2.0" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item :label="t('issue.form.envDevice')" prop="envDevice">
-              <el-input v-model="model.envDevice" placeholder="iPhone 14" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </template>
-
-      <!-- ===== 标签 3：附件上传 =====
-           新建态：本地暂存，随表单 multipart 一起提交；
-           编辑/查看态：带 issueId 走服务端即时上传/删除。 -->
-      <template #attachment>
-        <el-form-item :label="t('issue.form.attachment')">
-          <AttachmentUploader
-            v-if="!issueId"
-            ref="uploaderRef"
-            @change="onFilesChange"
-          />
-          <AttachmentUploader
-            v-else
-            :issue-id="issueId"
-            :attachments="attachments"
-            @uploaded="onAttachmentUploaded"
-            @removed="onAttachmentRemoved"
-          />
-        </el-form-item>
-      </template>
-
-      <!-- ===== 标签 4：关联信息 ===== -->
-      <template #relation>
-        <IssueRelationPanel
-          v-if="issueId"
-          :issue-id="issueId"
-          :can-edit="isEdit"
+    <!-- ===== 系统页签：附件上传 =====
+         新建态：本地暂存，随表单 multipart 一起提交；
+         编辑/查看态：带 issueId 走服务端即时上传/删除。 -->
+    <template #attachment>
+      <el-form-item :label="t('issue.form.attachment')">
+        <AttachmentUploader
+          v-if="!issueId"
+          ref="uploaderRef"
+          @change="onFilesChange"
         />
-        <el-empty v-else :description="t('issue.tabTip.relationPending')" :image-size="72" />
-      </template>
+        <AttachmentUploader
+          v-else
+          :issue-id="issueId"
+          :attachments="attachments"
+          @uploaded="onAttachmentUploaded"
+          @removed="onAttachmentRemoved"
+        />
+      </el-form-item>
+    </template>
 
-      <!-- ===== 标签 5：操作历史 ===== -->
-      <template #history>
-        <div v-if="issueId" v-loading="historyLoading">
-          <StatusTimeline :history="history" />
-        </div>
-        <el-empty v-else :description="t('issue.tabTip.historyPending')" :image-size="72" />
-      </template>
-    </IssueFormSections>
-  </el-form>
+    <!-- ===== 系统页签：关联信息 ===== -->
+    <template #relation>
+      <IssueRelationPanel
+        v-if="issueId"
+        :issue-id="issueId"
+        :can-edit="isEdit"
+      />
+      <el-empty v-else :description="t('issue.tabTip.relationPending')" :image-size="72" />
+    </template>
+
+    <!-- ===== 系统页签：操作历史 ===== -->
+    <template #history>
+      <div v-if="issueId" v-loading="historyLoading">
+        <StatusTimeline :history="history" />
+      </div>
+      <el-empty v-else :description="t('issue.tabTip.historyPending')" :image-size="72" />
+    </template>
+  </IssueFormSections>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import {
-  useSeverityOptions,
-  usePriorityOptions,
-  useDictCodeOptions,
-  dictCodeLabelI18n,
-  issueTypeLabelI18n,
-  DICT_TYPE,
-  DEFAULT_PRIORITY,
-  DEFAULT_SOURCE_CODE
-} from '@/utils/i18nEnum'
-import { useIssueTypeStore } from '@/store/issueType'
-import { useDictStore } from '@/store/dict'
-import { listTags } from '@/api/tag'
-import { listProjectOptions } from '@/api/project'
-import { listModuleTree } from '@/api/module'
+import { DEFAULT_PRIORITY, DEFAULT_SOURCE_CODE } from '@/utils/i18nEnum'
 import { getIssue, getHistory } from '@/api/issue'
+import { useFieldSchemaStore } from '@/store/fieldSchema'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
 import IssueFormSections from '@/components/IssueFormSections.vue'
 import IssueRelationPanel from '@/components/IssueRelationPanel.vue'
 import StatusTimeline from '@/components/StatusTimeline.vue'
+import DynamicFormRenderer from '@/components/dynamic/DynamicFormRenderer.vue'
 
 const props = defineProps({
-  // 编辑/查看回显对象（含 tags 逗号字符串 / typeId / id）
+  // 编辑/查看回显对象（含 tags 逗号字符串 / typeCode / id / customFields）
   initial: { type: Object, default: null },
   /**
    * 表单模式：submit 提交 / edit 编辑 / view 只读查看。
@@ -281,8 +97,7 @@ const props = defineProps({
 const emit = defineEmits(['submit', 'cancel'])
 
 const { t } = useI18n()
-const issueTypeStore = useIssueTypeStore()
-const dictStore = useDictStore()
+const schemaStore = useFieldSchemaStore()
 
 /** 生效模式：显式 mode 优先，其次按 initial 推断 */
 const mode = computed(() => {
@@ -294,20 +109,23 @@ const readonly = computed(() => mode.value === 'view')
 /** 已存在的问题 id（编辑/查看态才有，新建为 null） */
 const issueId = computed(() => (props.initial && props.initial.id) || null)
 
-const uploaderRef = ref(null)
 const sectionsRef = ref(null)
-const formRef = ref(null)
-const localFiles = ref([])
+const uploaderRef = ref(null)
+/** 各业务区域 DynamicFormRenderer 实例（按 section.code 索引） */
+const rendererRefs = {}
+function setRendererRef(code, el) {
+  if (el) rendererRefs[code] = el
+  else delete rendererRefs[code]
+}
 
-const severityOptions = useSeverityOptions()
-const priorityOptions = usePriorityOptions()
-/** 来源下拉：仅启用项（表单场景，Q6 同款口径） */
-const sourceOptions = useDictCodeOptions(DICT_TYPE.ISSUE_SOURCE, false)
-
+/**
+ * 扁平值模型（单一数据源）。内置字段在此预声明默认键，确保 DynamicFormRenderer
+ * 的 v-model 绑定在 schema 异步就绪前就存在；自定义字段键在 schema 就绪后由
+ * ensureModelKeys 补齐。提交时按 schema 把内置 / 自定义字段拆分到不同位置。
+ */
 const model = reactive({
   title: '',
-  typeId: null,
-  // Phase7 T3：新建默认来源 SYSTEM、默认优先级 中（与后端兜底口径一致）
+  typeCode: '',
   source: DEFAULT_SOURCE_CODE,
   priority: DEFAULT_PRIORITY,
   severity: 2,
@@ -322,17 +140,10 @@ const model = reactive({
   envDevice: ''
 })
 
-const tagOptions = ref([])
-const projectOptions = ref([])
-const moduleTree = ref([])
-const moduleLoading = ref(false)
-const lastProject = ref(null)
-/** 编辑回显补充项：当前值为停用类型时追加的只读展示项 */
-const extraTypeOption = ref(null)
-/** 编辑回显补充项：当前来源已停用/已删除时追加的只读展示项（code + label） */
-const extraSourceOption = ref(null)
+const schemaSections = computed(() => schemaStore.sections)
 
 /* ---------------- 附件 / 历史（编辑、查看态懒加载） ---------------- */
+const localFiles = ref([])
 const attachments = ref([])
 const attachmentsLoaded = ref(false)
 const history = ref([])
@@ -340,116 +151,81 @@ const historyLoading = ref(false)
 const historyLoaded = ref(false)
 
 /**
- * 来源下拉最终数据源：启用项 + （编辑态）当前停用来源只读项。
- * 保证编辑旧数据时不会因来源被停用而把已有值清空。
+ * 单个字段的「已填写」判定：值与 schema 默认值相等（或空 / 空数组）视为未填写。
+ *
+ * @param {object} field FieldConfigVO
+ * @param {*} value 当前值
+ * @returns {boolean}
  */
-const sourceSelectOptions = computed(() => {
-  const base = (sourceOptions.value || []).map((o) => ({
-    value: o.value,
-    label: o.label,
-    disabled: false
-  }))
-  const extra = extraSourceOption.value
-  if (extra && !base.some((o) => o.value === extra.value)) {
-    base.push({ value: extra.value, label: extra.label, disabled: true })
-  }
-  return base
-})
-
-/** 类型下拉：启用项 + （编辑态）当前停用值只读展示项（Q6） */
-const typeOptions = computed(() => {
-  const base = (issueTypeStore.options || []).map((o) => ({
-    id: o.id,
-    label: o.name,
-    disabled: false
-  }))
-  if (
-    extraTypeOption.value &&
-    !base.some((o) => o.id === extraTypeOption.value.id)
-  ) {
-    base.push({
-      id: extraTypeOption.value.id,
-      label: issueTypeLabelI18n(extraTypeOption.value),
-      disabled: true
-    })
-  }
-  return base
-})
-
-/**
- * 校验规则（i18n，语言切换时 computed 重建）。
- * Phase8 W2：#6 所属项目必填；#12 问题描述取消必填。
- */
-const rules = computed(() => ({
-  title: [{ required: true, message: t('issue.rules.titleRequired'), trigger: 'blur' }],
-  typeId: [{ required: true, message: t('issue.rules.typeRequired'), trigger: 'change' }],
-  severity: [{ required: true, message: t('issue.rules.severityRequired'), trigger: 'change' }],
-  // Phase7 T3：优先级与严重等级同为必选，校验强度保持一致
-  priority: [{ required: true, message: t('issue.rules.priorityRequired'), trigger: 'change' }],
-  source: [{ required: true, message: t('issue.rules.sourceRequired'), trigger: 'change' }],
-  projectId: [{ required: true, message: t('issue.rules.projectRequired'), trigger: 'change' }]
-}))
-
-/**
- * #3.1：各标签「已填写」状态（驱动 IssueFormSections 标签红点）。
- * 基于 model 响应式：填写即亮，标签切换不清空（内容持久保存在 model 中）。
- * - basic：标题非空，或类型/来源/严重/优先级/项目/模块任一非默认值，或标签为非空数组；
- * - detail：描述 / 复现步骤 / 四项环境信息任一非空；
- * - attachment：新建态本地暂存文件 > 0，编辑态已上传附件 > 0。
- */
-const filledTabs = computed(() => {
-  const basic =
-    !!(model.title && model.title.trim()) ||
-    model.typeId != null ||
-    model.source !== DEFAULT_SOURCE_CODE ||
-    model.severity !== 2 ||
-    model.priority !== DEFAULT_PRIORITY ||
-    model.projectId != null ||
-    model.moduleId != null ||
-    (Array.isArray(model.tags) && model.tags.length > 0)
-  const detail =
-    !!(model.description && model.description.trim()) ||
-    !!(model.reproduceSteps && model.reproduceSteps.trim()) ||
-    !!(model.envOs && model.envOs.trim()) ||
-    !!(model.envBrowser && model.envBrowser.trim()) ||
-    !!(model.envAppVersion && model.envAppVersion.trim()) ||
-    !!(model.envDevice && model.envDevice.trim())
-  const attachment = issueId.value
-    ? (attachments.value && attachments.value.length > 0)
-    : (localFiles.value && localFiles.value.length > 0)
-  return { basic, detail, attachment }
-})
-
-/** 校验字段 → 所属标签映射（校验失败自动切标签 + 滚动定位） */
-const SECTION_BY_FIELD = {
-  title: 'basic',
-  typeId: 'basic',
-  source: 'basic',
-  priority: 'basic',
-  severity: 'basic',
-  projectId: 'basic',
-  moduleId: 'basic',
-  tags: 'basic',
-  description: 'detail',
-  reproduceSteps: 'detail',
-  envOs: 'detail',
-  envBrowser: 'detail',
-  envAppVersion: 'detail',
-  envDevice: 'detail'
+function isFilled(field, value) {
+  if (Array.isArray(value)) return value.length > 0
+  if (value == null) return false
+  if (typeof value === 'string') return value.trim().length > 0
+  const def = field && field.defaultValue != null ? field.defaultValue : null
+  if (value === def) return false
+  if (value === '' && def == null) return false
+  return true
 }
 
+/**
+ * #3.1：各标签「已填写」状态（驱动 IssueFormSections 标签红点），按 section.code 索引。
+ * 业务页签：该区域任一字段值与默认值不同即亮；系统页签 attachment：有附件即亮。
+ */
+const filledTabs = computed(() => {
+  const result = {}
+  schemaStore.sections.forEach((section) => {
+    const filled = (section.fields || []).some(
+      (f) => f && isFilled(f, model[f.code])
+    )
+    result[section.code] = filled
+  })
+  result.attachment = issueId.value
+    ? attachments.value && attachments.value.length > 0
+    : localFiles.value && localFiles.value.length > 0
+  return result
+})
+
+/**
+ * schema 就绪后，为 model 补齐 schema 中声明、但 model 尚未存在的字段键
+ * （主要是自定义字段），用 schema defaultValue 兜底，避免提交时丢字段。
+ */
+function ensureModelKeys() {
+  schemaStore.sections.forEach((section) => {
+    ;(section.fields || []).forEach((f) => {
+      if (f && f.code != null && !(f.code in model)) {
+        model[f.code] = f.defaultValue != null ? f.defaultValue : null
+      }
+    })
+  })
+}
+
+/**
+ * 字段默认值（schema 驱动，带少量内置语义兜底）。
+ *
+ * @param {object} field FieldConfigVO
+ * @returns {*}
+ */
+function defaultForField(field) {
+  if (field && field.defaultValue != null) return field.defaultValue
+  if (field && field.code === 'tags') return []
+  if (field && field.code === 'severity') return 2
+  if (field && field.code === 'source') return DEFAULT_SOURCE_CODE
+  if (field && field.code === 'priority') return DEFAULT_PRIORITY
+  return null
+}
+
+/** 回显：内置字段按 code 从 initial 顶层取，自定义字段从 initial.customFields 取 */
 function applyInitial() {
   if (!props.initial) return
   const src = props.initial
   model.title = src.title || ''
-  model.typeId = src.typeId ?? null
+  // 问题类型改用 typeCode（String）；后端 typeId 已 @Deprecated，优先取 typeCode
+  model.typeCode = src.typeCode != null ? src.typeCode : src.typeId != null ? src.typeId : ''
   model.source = src.source || DEFAULT_SOURCE_CODE
-  model.priority = src.priority ?? DEFAULT_PRIORITY
-  model.severity = src.severity ?? 2
+  model.priority = src.priority != null ? src.priority : DEFAULT_PRIORITY
+  model.severity = src.severity != null ? src.severity : 2
   model.projectId = src.projectId || null
   model.moduleId = src.moduleId || null
-  lastProject.value = model.projectId
-  if (model.projectId) loadModules(model.projectId) // 编辑回显时保留 moduleId
   model.tags = Array.isArray(src.tags)
     ? src.tags.slice()
     : src.tags
@@ -464,6 +240,11 @@ function applyInitial() {
   model.envBrowser = src.envBrowser || ''
   model.envAppVersion = src.envAppVersion || ''
   model.envDevice = src.envDevice || ''
+  // 自定义字段：从 customFields 取（按 schema 顺序，仅覆盖已下发的键）
+  const cf = src.customFields || {}
+  schemaStore.customCodes.forEach((code) => {
+    if (code in cf) model[code] = cf[code]
+  })
   // 列表行对象自带附件时直接用，否则等切到附件标签再懒加载
   if (Array.isArray(src.attachments)) {
     attachments.value = src.attachments
@@ -471,38 +252,10 @@ function applyInitial() {
   }
 }
 
-/** 编辑态：当前 typeId 不在启用项内（已停用）时，从全量下拉补一条只读展示项 */
-async function resolveExtraTypeOption() {
-  extraTypeOption.value = null
-  if (!props.initial || model.typeId == null) return
-  const enabledHit = (issueTypeStore.options || []).some((o) => o.id === model.typeId)
-  if (enabledHit) return
-  try {
-    const all = await issueTypeStore.fetchAllOptions()
-    extraTypeOption.value = (all || []).find((o) => o.id === model.typeId) || null
-  } catch (e) {
-    extraTypeOption.value = null
-  }
-}
-
-/**
- * 编辑态：当前 source 不在启用项内（已停用/已删除）时补一条只读展示项，
- * 名称优先取后端返回的 sourceDesc，再退回字典缓存 / code 原值。
- */
-async function resolveExtraSourceOption() {
-  extraSourceOption.value = null
-  if (!props.initial || !model.source) return
-  const enabledHit = (sourceOptions.value || []).some((o) => o.value === model.source)
-  if (enabledHit) return
-  try {
-    await dictStore.fetchAllOptions(DICT_TYPE.ISSUE_SOURCE)
-  } catch (e) {
-    // 全量字典拉取失败时仍用 sourceDesc 兜底展示
-  }
-  const fallback = (props.initial && props.initial.sourceDesc) || model.source
-  extraSourceOption.value = {
-    value: model.source,
-    label: dictCodeLabelI18n(DICT_TYPE.ISSUE_SOURCE, model.source, fallback)
+/** DynamicFormRenderer 单字段变更回传：合并进 model（不整体替换，保住响应式引用） */
+function onModelPatch(payload) {
+  if (payload && typeof payload === 'object') {
+    Object.assign(model, payload)
   }
 }
 
@@ -517,7 +270,6 @@ function onAttachmentRemoved(id) {
 }
 
 /* ---------------- 标签切换：懒加载（#3.2 起自由切换，不再离开校验） ---------------- */
-/** 切到附件 / 操作历史标签时按需拉取数据（仅编辑、查看态） */
 function onTabChange(name) {
   if (!issueId.value) return
   if (name === 'attachment') loadAttachments()
@@ -549,141 +301,97 @@ async function loadHistory() {
   }
 }
 
-/* ---------------- 模块树（R2：随项目联动） ---------------- */
-function annotateModulePaths(nodes, parentPath) {
-  ;(nodes || []).forEach((n) => {
-    n.pathLabel = parentPath ? `${parentPath} > ${n.name}` : n.name
-    annotateModulePaths(n.children, n.pathLabel)
-  })
-}
-async function loadModules(projectId) {
-  if (!projectId) {
-    moduleTree.value = []
-    return
-  }
-  moduleLoading.value = true
-  try {
-    const data = await listModuleTree(projectId)
-    const tree = Array.isArray(data) ? data : []
-    annotateModulePaths(tree, '')
-    moduleTree.value = tree
-  } catch (e) {
-    moduleTree.value = []
-  } finally {
-    moduleLoading.value = false
-  }
-}
-// 切换项目 → 清空已选模块并重新加载对应模块树
-watch(
-  () => model.projectId,
-  (val) => {
-    if (val === lastProject.value) return
-    lastProject.value = val
-    model.moduleId = null
-    loadModules(val)
-  }
-)
-
-/** 重置表单（父级抽屉 @closed 调用） */
+/** 重置表单（父级抽屉 @closed 调用）：遍历 schema 把所有字段复位到默认值 */
 function reset() {
-  Object.assign(model, {
-    title: '',
-    typeId: null,
-    source: DEFAULT_SOURCE_CODE,
-    priority: DEFAULT_PRIORITY,
-    severity: 2,
-    projectId: null,
-    moduleId: null,
-    tags: [],
-    description: '',
-    reproduceSteps: '',
-    envOs: '',
-    envBrowser: '',
-    envAppVersion: '',
-    envDevice: ''
+  schemaStore.sections.forEach((section) => {
+    ;(section.fields || []).forEach((field) => {
+      if (field && field.code != null) model[field.code] = defaultForField(field)
+    })
   })
   if (uploaderRef.value && uploaderRef.value.clear) {
     uploaderRef.value.clear()
   }
   localFiles.value = []
-  extraTypeOption.value = null
-  extraSourceOption.value = null
   attachments.value = []
   attachmentsLoaded.value = false
   history.value = []
   historyLoaded.value = false
-  if (sectionsRef.value) sectionsRef.value.expand('basic')
-  if (formRef.value) formRef.value.clearValidate()
+  // 清掉各区域校验态并回到首个业务页签
+  Object.keys(rendererRefs).forEach((code) => {
+    const r = rendererRefs[code]
+    if (r && r.clearValidate) r.clearValidate()
+  })
+  if (sectionsRef.value) {
+    const first = schemaStore.sections[0]
+    sectionsRef.value.expand(first ? first.code : 'attachment')
+  }
 }
 
 /**
- * 校验并提交：失败时自动切到首个错误字段所在标签并滚动定位；
- * 成功时 emit('submit', { data, files }) 交由父级发请求。
+ * 组装提交数据：内置字段平铺顶层，自定义字段收进 customFields。
+ *
+ * @returns {object}
  */
-function submit() {
-  if (!formRef.value || readonly.value) return
-  formRef.value.validate((valid, fields) => {
-    if (!valid) {
-      const firstField = fields ? Object.keys(fields)[0] : null
-      if (firstField) {
-        const section = SECTION_BY_FIELD[firstField]
-        if (section && sectionsRef.value) sectionsRef.value.expand(section)
-        nextTick(() => {
-          if (formRef.value && formRef.value.scrollToField) {
-            formRef.value.scrollToField(firstField)
-          }
-        })
-      }
-      // #3.2 / #3.4：全量校验未过时给出明确提示，且不发起请求
-      // （空表单点提交只会命中此分支，不会触碰后端而弹「系统错误」）
-      ElMessage.warning(t('issue.tabTip.submitInvalid'))
-      return
-    }
-    const data = {
-      title: model.title,
-      typeId: model.typeId,
-      // 来源留空时不下发字段，由后端 DictService.defaultSourceCode() 填默认值
-      source: model.source || null,
-      priority: model.priority,
-      severity: model.severity,
-      tags: model.tags.join(','),
-      description: model.description,
-      reproduceSteps: model.reproduceSteps,
-      envOs: model.envOs,
-      envBrowser: model.envBrowser,
-      envAppVersion: model.envAppVersion,
-      envDevice: model.envDevice,
-      projectId: model.projectId,
-      moduleId: model.moduleId || null
-    }
-    // 编辑/查看态附件走服务端即时上传，不随表单再提交一次
-    const files = issueId.value ? [] : localFiles.value
-    emit('submit', { data, files })
+function assembleData() {
+  const data = {
+    title: model.title || '',
+    // 问题类型改用 typeCode（String）
+    typeCode: model.typeCode || null,
+    // 来源留空时不下发字段，由后端 DictService.defaultSourceCode() 填默认值
+    source: model.source || null,
+    priority: model.priority,
+    severity: model.severity,
+    projectId: model.projectId || null,
+    moduleId: model.moduleId || null,
+    tags: Array.isArray(model.tags) ? model.tags.join(',') : '',
+    description: model.description || '',
+    reproduceSteps: model.reproduceSteps || '',
+    envOs: model.envOs || '',
+    envBrowser: model.envBrowser || '',
+    envAppVersion: model.envAppVersion || '',
+    envDevice: model.envDevice || ''
+  }
+  const customFields = {}
+  schemaStore.customCodes.forEach((code) => {
+    customFields[code] = model[code] !== undefined ? model[code] : null
   })
+  data.customFields = customFields
+  return data
+}
+
+/**
+ * 校验并提交：并发校验每个业务区域 DynamicFormRenderer，全部通过才组装数据；
+ * 任一失败则切到首个失败的页签并提示，不发起请求。
+ */
+async function submit() {
+  if (readonly.value) return
+  const sections = schemaStore.sections
+  const refs = sections.map((s) => rendererRefs[s.code]).filter(Boolean)
+  const results = await Promise.all(refs.map((r) => r.validate()))
+  const failedIdx = results.findIndex((ok) => !ok)
+  if (failedIdx >= 0) {
+    const failedSection = sections[failedIdx]
+    if (failedSection && sectionsRef.value) sectionsRef.value.expand(failedSection.code)
+    // 空表单点提交只会命中此分支，不会触碰后端而弹「系统错误」
+    ElMessage.warning(t('issue.tabTip.submitInvalid'))
+    return
+  }
+  const data = assembleData()
+  // 编辑/查看态附件走服务端即时上传，不随表单再提交一次
+  const files = issueId.value ? [] : localFiles.value
+  emit('submit', { data, files })
 }
 
 defineExpose({ submit, reset })
 
 onMounted(async () => {
+  // schema 异步就绪（带缓存）：业务页签与字段依赖均来自它
+  try {
+    await schemaStore.loadSchema()
+  } catch (e) {
+    // schema 拉取失败时降级：仅系统页签可用，业务字段不可填（由后端/网络问题导致）
+  }
+  ensureModelKeys()
   applyInitial()
-  try {
-    await issueTypeStore.fetchOptions()
-  } catch (e) {
-    // 下拉加载失败不阻塞表单其余部分
-  }
-  await resolveExtraTypeOption()
-  await resolveExtraSourceOption()
-  try {
-    const tags = await listTags()
-    tagOptions.value = (tags || []).map((tg) => ({ label: tg.name, value: tg.name }))
-  } catch (e) {
-    tagOptions.value = []
-  }
-  try {
-    const projects = await listProjectOptions()
-    projectOptions.value = projects || []
-  } catch (e) {
-    projectOptions.value = []
-  }
 })
 </script>

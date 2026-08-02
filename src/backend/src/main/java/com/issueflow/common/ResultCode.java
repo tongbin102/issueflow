@@ -56,7 +56,22 @@ public enum ResultCode {
     DICT_ITEM_CODE_DUPLICATE(40076, "该类型下选项编码已存在"),
     DICT_ITEM_SYSTEM_PROTECTED(40077, "系统预设项不可删除，可改为停用"),
     DICT_ITEM_HAS_USAGE(40078, "该选项下存在关联问题，无法删除，可改为停用"),
-    DICT_ITEM_DISABLED(40079, "该选项已停用，不可选择");
+    DICT_ITEM_DISABLED(40079, "该选项已停用，不可选择"),
+
+    // ===== Phase9 动态字段配置（注：原 §7.6 拟用的 40070-40079 已被 DICT_* 占用，整体顺延至 40090-40100，见 ARCH §8.8）=====
+    FIELD_TYPE_IMMUTABLE(40090, "字段类型创建后不可修改"),
+    FIELD_CODE_DUPLICATE(40091, "字段编码已存在"),
+    FIELD_SYSTEM_PROTECTED(40092, "内置字段不可删除或修改编码/类型"),
+    FIELD_DEPENDS_SELF(40093, "字段不可依赖自身"),
+    FIELD_DEPENDS_CYCLE(40094, "存在循环依赖：{path}"),
+    FIELD_DEPENDS_MULTI_NOT_ALLOWED(40095, "多选字段不可作为依赖源"),
+    FIELD_DEPENDS_LEVEL_EXCEEDED(40096, "本期仅支持单级依赖"),
+    FIELD_DEPENDS_SOURCE_INVALID(40097, "依赖源字段不存在或已停用"),
+    FIELD_DEPENDS_SCOPE_MISMATCH(40098, "依赖源与当前字段生效范围不一致"),
+    REF_SOURCE_NOT_ALLOWED(40099, "引用源不在白名单中"),
+    REF_SOURCE_ILLEGAL_IDENTIFIER(40100, "引用源配置非法"),
+    /** 自定义字段必填校验失败（落库前兜底，severity 与 Phase9 段一致） */
+    FIELD_VALUE_REQUIRED(40101, "必填字段未填写");
 
     private final Integer code;
     private final String message;

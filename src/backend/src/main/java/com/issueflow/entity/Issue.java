@@ -65,8 +65,25 @@ public class Issue extends BaseEntity {
     /** 所属模块 id（关联 module.id，可空；必须与 projectId 同项目） */
     private Long moduleId;
 
-    /** 问题类型 id（关联 issue_type.id；Phase6 起新建必填，存量已回填 OTHER） */
+    /**
+     * 问题类型 id（关联 issue_type.id）。
+     *
+     * <p><b>已过时</b>：Phase9 起写入主源改为 {@link #typeCode}，本字段仅作为灰度期的
+     * 兼容镜像保留（旧接口 / 旧统计仍在读），能反解出旧 id 时由服务层顺带同步，
+     * 反解不到（字典页新建的类型，{@code dict_item.extra} 为空）时保持 null，不影响业务。
+     * 新代码一律以 {@link #typeCode} 为准。</p>
+     */
+    @Deprecated
     private Long typeId;
+
+    /**
+     * 问题类型编码（{@code dict_code='ISSUE_TYPE'} 的 {@code dict_item.item_code}），
+     * Phase9 起为写入主源。
+     *
+     * <p>对应列 {@code issue.type_code VARCHAR(64)}，已由迁移脚本按旧 {@code type_id} 全量回填并建索引
+     * {@code idx_issue_type_code}。</p>
+     */
+    private String typeCode;
 
     /** 来源编码（存 dict_item 的 item_code，字典类型 ISSUE_SOURCE；Phase7 新增，存量已回填 SYSTEM） */
     private String source;

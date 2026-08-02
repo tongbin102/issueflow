@@ -15,9 +15,13 @@ import com.issueflow.entity.DictItem;
 import com.issueflow.enums.DictTypeCodeEnum;
 import com.issueflow.mapper.DictItemMapper;
 import com.issueflow.mapper.DictMapper;
+import com.issueflow.service.dict.DictItemRefCounter;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.concurrent.ConcurrentHashMap;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -51,6 +55,22 @@ public class DictService {
     private final DictItemMapper dictItemMapper;
     private final PermissionService permissionService;
     private final DictCache dictCache;
+
+    /**
+     * 字典项引用计数注册表（Phase9 平移自 ISSUE_TYPE/ISSUE_SOURCE 专属逻辑，ARCH §3.5）。
+     * <p>所有 {@link DictItemRefCounter} 实现由 Spring 自动装配并登记，删除字典项时按 dictCode 命中阻断。</p>
+     */
+    private final List<DictItemRefCounter> refCounterList;
+
+    /** dictCode -> counter，@PostConstruct 预热 */
+    private final Map<String, DictItemRefCounter> refCounters = new ConcurrentHashMap<>();
+
+    @PostConstruct
+    public void initRefCounters() {
+        for (DictItemRefCounter c : refCounterList) {
+            refCounters.put(c.dictCode(), c);
+        }
+    }
 
     // ============================ 字典类型 ============================
 
@@ -214,10 +234,12 @@ public class DictService {
         wrapper.orderByAsc(DictItem::getSort).orderByAsc(DictItem::getId);
         List<DictItem> rows = dictItemMapper.selectList(wrapper);
 
-        // 引用计数：一条 GROUP BY 出全量，内存回填，严禁按行 COUNT（N+1）
+        // 引用计数：注册表中的字典类型一次 GROUP BY 出全量，内存回填，严禁按行 COUNT（N+1）
         Map<String, Long> refMap = new HashMap<>();
-        if (Constants.DICT_TYPE_ISSUE_SOURCE.equals(typeCode)) {
-            refMap = countIssueBySourceCode();
+        DictItemRefCounter counter = refCounters.get(typeCode);
+        if (counter != null) {
+            refMap = counter.countByItemCodes(
+                    rows.stream().map(DictItem::getItemCode).collect(Collectors.toList()));
         }
         Map<String, Long> finalRefMap = refMap;
         return rows.stream().map(row -> {
@@ -313,15 +335,36 @@ public class DictService {
         if (entity.getIsSystem() != null && entity.getIsSystem() == 1) {
             throw new BizException(ResultCode.DICT_ITEM_SYSTEM_PROTECTED);
         }
-        if (Constants.DICT_TYPE_ISSUE_SOURCE.equals(entity.getDictCode())) {
-            long refCount = countIssueBySourceCode().getOrDefault(entity.getItemCode(), 0L);
+        // 引用计数删除阻断（注册表驱动，一次 GROUP BY，支持 ISSUE_TYPE / ISSUE_SOURCE 等多类型）
+        DictItemRefCounter counter = refCounters.get(entity.getDictCode());
+        if (counter != null) {
+            long refCount = counter.countByItemCodes(List.of(entity.getItemCode()))
+                    .getOrDefault(entity.getItemCode(), 0L);
             if (refCount > 0) {
-                throw new BizException(ResultCode.DICT_ITEM_HAS_USAGE,
-                        "该选项下存在 " + refCount + " 条问题，无法删除，可改为停用");
+                throw new BizException(counter.errorCode(), counter.message(refCount));
             }
         }
         dictItemMapper.deleteById(id);
         dictCache.evict(entity.getDictCode());
+    }
+
+    /**
+     * 列表页批量回填 refCount（注册表驱动的一次 GROUP BY 防 N+1，行为与原 ISSUE_SOURCE 一致）。
+     *
+     * @param dictCode 字典类型编码
+     * @param items    字典项视图列表（原地填充 refCount）
+     */
+    public void fillRefCount(String dictCode, List<DictItemVO> items) {
+        DictItemRefCounter counter = refCounters.get(dictCode);
+        if (counter == null || items == null || items.isEmpty()) {
+            if (items != null) {
+                items.forEach(i -> i.setRefCount(0L));
+            }
+            return;
+        }
+        Map<String, Long> m = counter.countByItemCodes(
+                items.stream().map(DictItemVO::getCode).collect(Collectors.toList()));
+        items.forEach(i -> i.setRefCount(m.getOrDefault(i.getCode(), 0L)));
     }
 
     // ============================ 供业务侧调用（无权限校验，全部走缓存） ============================
@@ -470,20 +513,6 @@ public class DictService {
             Object cnt = row.get("cnt");
             if (dc != null && cnt != null) {
                 result.put(String.valueOf(dc), Long.valueOf(cnt.toString()));
-            }
-        }
-        return result;
-    }
-
-    /** 统计每个来源（item_code）被多少条未删除问题引用（一次 GROUP BY） */
-    private Map<String, Long> countIssueBySourceCode() {
-        Map<String, Long> result = new HashMap<>();
-        List<Map<String, Object>> rows = dictItemMapper.countIssueBySourceCode();
-        for (Map<String, Object> row : rows) {
-            Object sc = row.get("sourceCode");
-            Object cnt = row.get("cnt");
-            if (sc != null && cnt != null) {
-                result.put(String.valueOf(sc), Long.valueOf(cnt.toString()));
             }
         }
         return result;

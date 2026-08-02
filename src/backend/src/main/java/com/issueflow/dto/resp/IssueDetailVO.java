@@ -7,6 +7,7 @@ import lombok.EqualsAndHashCode;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 问题详情视图对象（含附件列表 + 最近操作历史）
@@ -35,4 +36,10 @@ public class IssueDetailVO extends IssueVO implements Serializable {
 
     /** 最近操作历史（按时间倒序，最多 20 条） */
     private List<IssueHistoryVO> recentHistory;
+
+    /**
+     * 自定义字段值（仅 {@code field_config.is_system=0} 的字段，按 {@code field_config.type} 从对应列取出真实值）。
+     * <p>key = {@code field_config.code}，value = 真实值（NUMBER→数字，DATE/DATETIME→ISO 字符串，TEXT/DICT/REF→字符串）。</p>
+     */
+    private Map<String, Object> customFields;
 }

@@ -1,6 +1,7 @@
 package com.issueflow.dto.req;
 
 import jakarta.validation.constraints.NotNull;
+import java.util.Map;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -15,8 +16,18 @@ public class IssueUpdateReq implements Serializable {
 
     private String title;
 
-    /** 问题类型 id（非空才更新；更新时校验类型必须启用） */
+    /**
+     * 问题类型 id（<b>已过时</b>，Phase9 起由 {@link #typeCode} 取代）。
+     * <p>非空才更新；仅 {@link #typeCode} 为空时才生效（服务端按 {@code dict_item.extra} 反解）。</p>
+     */
+    @Deprecated
     private Long typeId;
+
+    /**
+     * 问题类型编码（{@code dict_code='ISSUE_TYPE'} 的 {@code dict_item.item_code}），Phase9 起的主入参。
+     * <p>非空才更新；与 {@link #typeId} 同时存在时<b>以本字段为准</b>；目标字典项必须处于启用状态。</p>
+     */
+    private String typeCode;
 
     private String description;
 
@@ -55,4 +66,11 @@ public class IssueUpdateReq implements Serializable {
 
     /** 优先级：0高 1中 2低（非空才更新） */
     private Integer priority;
+
+    /**
+     * 自定义字段值（仅 {@code field_config.is_system=0} 的字段）。
+     * <p>key = {@code field_config.code}，value = 原始值。新增/修改走 upsert，空值软删旧值。</p>
+     * <p>不加 {@code @NotNull}：允许请求不携带（如仅改标题的局部更新，此时不触发必填校验）。</p>
+     */
+    private Map<String, Object> customFields;
 }

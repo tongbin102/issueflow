@@ -27,6 +27,9 @@ export const DEFAULT_PRIORITY = 1
  * 值必须与 dict 表 dict_code / 后端 DictTypeCodeEnum 完全一致。
  */
 export const DICT_TYPE = {
+  // Phase9：问题类型由 issue_type 独立表迁入字典维护，
+  // 值与后端 Constants.DICT_TYPE_ISSUE_TYPE 及迁移 SQL 的 dict_code 严格一致
+  ISSUE_TYPE: 'ISSUE_TYPE',
   ISSUE_SOURCE: 'ISSUE_SOURCE',
   ISSUE_STATUS: 'ISSUE_STATUS',
   ISSUE_PRIORITY: 'ISSUE_PRIORITY',
@@ -127,6 +130,9 @@ export const MENU_KEY_BY_PATH = {
   '/admin/business': 'menu.admin.business',
   '/admin/issues': 'menu.admin.issueList',
   '/admin/dicts': 'menu.admin.dict',
+  // Phase9：/admin/issue-types 映射移除（问题类型改由字典 ISSUE_TYPE 维护）；
+  // 新增「字段配置」，与「字典配置」同属业务管理分组
+  '/admin/field-configs': 'menu.admin.fieldConfigs',
   '/admin/infra': 'menu.admin.infra',
   '/admin/infra/file': 'menu.admin.infraFile',
   '/admin/infra/file/config': 'menu.admin.infraFileConfig',
@@ -134,7 +140,6 @@ export const MENU_KEY_BY_PATH = {
   '/admin/infra/config': 'menu.admin.infraConfig',
   '/admin/infra/redis': 'menu.admin.infraRedis',
   '/admin/infra/job': 'menu.admin.infraJob',
-  '/admin/issue-types': 'menu.admin.issueTypes',
   '/admin/project': 'menu.admin.projectGroup',
   '/admin/projects': 'menu.admin.projects',
   // Phase8 W1 #8：/admin/modules（模块配置）已下线，映射一并移除

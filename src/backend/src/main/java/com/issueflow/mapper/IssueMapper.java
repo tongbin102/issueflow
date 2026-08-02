@@ -114,6 +114,22 @@ public interface IssueMapper extends BaseMapper<Issue> {
                      @Param("end") LocalDateTime end);
 
     /**
+     * 按问题类型编码（item_code）批量统计引用数（一次 GROUP BY，禁止 N+1）。
+     * <p>供 {@code IssueTypeRefCounter} 平移自 {@code IssueTypeService} 的删除阻断能力：
+     * 统计 {@code issue.type_code IN (...)} 的未删除问题数，回填引用计数。</p>
+     *
+     * @param typeCodes 类型编码集合（dict_item.ISSUE_TYPE.item_code）
+     * @return 每行含 typeCode / cnt 两个键
+     */
+    @Select("<script>"
+            + "SELECT type_code AS typeCode, COUNT(*) AS cnt FROM issue WHERE deleted = 0 "
+            + "<if test='typeCodes != null and typeCodes.size() > 0'> AND type_code IN "
+            + "<foreach collection='typeCodes' item='c' open='(' separator=',' close=')'>#{c}</foreach> </if>"
+            + "GROUP BY type_code"
+            + "</script>")
+    List<Map<String, Object>> countGroupByTypeCode(@Param("typeCodes") java.util.Collection<String> typeCodes);
+
+    /**
      * 严重等级占比
      *
      * <p>BUG-01：聚合列别名 {@code cnt} → {@code count}，与前端 DistributionChart 的 {@code d.count} 对齐。</p>

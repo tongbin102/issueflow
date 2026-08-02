@@ -2,6 +2,7 @@ package com.issueflow.dto.req;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.util.Map;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -19,9 +20,24 @@ public class IssueCreateReq implements Serializable {
     @NotBlank(message = "标题不能为空")
     private String title;
 
-    /** 问题类型 id（Phase6 起必填，且必须为启用状态的类型） */
-    @NotNull(message = "问题类型不能为空")
+    /**
+     * 问题类型 id（<b>已过时</b>，Phase9 起由 {@link #typeCode} 取代）。
+     *
+     * <p>保留用于兼容旧客户端：仅 {@link #typeCode} 为空时才生效，服务端会按
+     * {@code dict_item.extra} 反解出对应 {@code item_code} 回填 {@code typeCode}。</p>
+     *
+     * <p><b>校验位置变更</b>：原先此处有 {@code @NotNull}，动态表单只提交 {@code typeCode}
+     * 会被 Bean Validation 直接拒绝，故必填校验下沉到 {@code IssueService#createIssue}
+     * ——{@code typeCode} 与 {@code typeId} 全为空时抛 {@code ISSUE_TYPE_NOT_FOUND}。</p>
+     */
+    @Deprecated
     private Long typeId;
+
+    /**
+     * 问题类型编码（{@code dict_code='ISSUE_TYPE'} 的 {@code dict_item.item_code}），Phase9 起的主入参。
+     * <p>与 {@link #typeId} 同时存在时<b>以本字段为准</b>；必须为启用状态的字典项。</p>
+     */
+    private String typeCode;
 
     /** 详细描述 */
     private String description;
@@ -62,4 +78,12 @@ public class IssueCreateReq implements Serializable {
 
     /** 优先级：0高 1中 2低（为空时服务端兜底为 1=中，见 PriorityEnum） */
     private Integer priority;
+
+    /**
+     * 自定义字段值（仅 {@code field_config.is_system=0} 的字段）。
+     * <p>key = {@code field_config.code}，value = 原始值（TEXT/DICT/REF 为字符串，NUMBER 为数字，
+     * DATE/DATETIME 为 ISO 字符串）。由 {@code IssueFieldValueService} 落库，内置字段不进此 Map。</p>
+     * <p>不加 {@code @NotNull}：允许请求不携带（局部更新场景）。</p>
+     */
+    private Map<String, Object> customFields;
 }

@@ -14,10 +14,14 @@ import com.issueflow.dto.resp.AttachmentVO;
 import com.issueflow.dto.resp.IssueDetailVO;
 import com.issueflow.dto.resp.IssueHistoryVO;
 import com.issueflow.dto.resp.IssueVO;
+import com.issueflow.entity.DictItem;
+import com.issueflow.entity.FieldConfig;
 import com.issueflow.entity.Issue;
 import com.issueflow.entity.IssueAttachment;
+import com.issueflow.entity.IssueFieldValue;
 import com.issueflow.entity.IssueType;
 import com.issueflow.enums.DictTypeCodeEnum;
+import com.issueflow.enums.FieldType;
 import com.issueflow.enums.HistoryActionEnum;
 import com.issueflow.enums.IssueStatusEnum;
 import com.issueflow.enums.PriorityEnum;
@@ -35,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -59,8 +64,15 @@ public class IssueService {
     private final ProjectService projectService;
     private final ModuleService moduleService;
     private final PermissionService permissionService;
+    /** 仅用于 typeCode 解析失败时回落旧 issue_type 表（灰度兼容层，Phase9 后可随表一并下线） */
     private final IssueTypeService issueTypeService;
     private final DictService dictService;
+    /** ISSUE_TYPE 字典项读取入口（两级缓存，回填 typeName / 校验 typeCode 全程 0 次额外查库） */
+    private final DictCache dictCache;
+    /** 自定义字段值读写（竖表 issue_field_value，与 IssueService 解耦） */
+    private final IssueFieldValueService fieldValueService;
+    /** 字段配置查询（取「生效+必填+自定义」集合做落库前校验） */
+    private final FieldConfigService fieldConfigService;
 
     /**
      * 新建问题（生成编号、reporter=当前用户、status=OPEN、写 CREATE 历史）
@@ -68,12 +80,20 @@ public class IssueService {
     @Transactional
     public IssueVO createIssue(IssueCreateReq req, Long currentUser) {
         permissionService.requirePermission("issue:create");
-        // Phase6：类型必填且必须启用（停用类型仅存量展示，不可新选）
-        issueTypeService.requireEnabled(req.getTypeId());
+        // Phase9：类型主源改为 typeCode（ISSUE_TYPE 字典项编码），typeId 仅作旧客户端兼容入口。
+        // 必填校验从 DTO 的 @NotNull 下沉到此处：两者全空即报错，语义与 Phase6 一致。
+        String typeCode = resolveTypeCodeForWrite(req.getTypeCode(), req.getTypeId());
+        if (typeCode == null) {
+            throw new BizException(ResultCode.ISSUE_TYPE_NOT_FOUND, "请选择问题类型");
+        }
+        // 自定义字段落库前必填校验（在写入主表之前，避免产生脏数据）
+        validateRequiredFields(req.getCustomFields());
         String issueNo = issueNoGenerator.nextIssueNo();
         Issue issue = new Issue();
         issue.setIssueNo(issueNo);
-        issue.setTypeId(req.getTypeId());
+        issue.setTypeCode(typeCode);
+        // 旧列尽力同步：反解不到旧 id（字典页新建的类型）时留 null，不阻断创建
+        issue.setTypeId(resolveLegacyTypeId(typeCode, req.getTypeId()));
         issue.setTitle(req.getTitle());
         issue.setDescription(req.getDescription());
         issue.setSeverity(req.getSeverity() == null ? SeverityEnum.NORMAL.getCode() : req.getSeverity());
@@ -117,11 +137,14 @@ public class IssueService {
             throw new BizException(ResultCode.SYSTEM_ERROR);
         }
 
+        // 自定义字段值 upsert 竖表（必填校验已于写入主表前完成）
+        fieldValueService.saveValues(issue.getId(), req.getCustomFields());
+
         historyService.record(issue.getId(), HistoryActionEnum.CREATE.getCode(),
                 null, IssueStatusEnum.OPEN.getCode(), currentUser, null);
         return toIssueVO(issue, userService.userNameMap(), projectService.nameMap(),
                 moduleService.pathMap(Collections.singletonList(issue.getModuleId())),
-                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())),
+                typeNameMapOf(issue.getTypeCode()),
                 sourceNameMapOf(issue.getSource()));
     }
 
@@ -141,10 +164,27 @@ public class IssueService {
         if (req.getTitle() != null) {
             issue.setTitle(req.getTitle());
         }
-        // 类型：非空才更新；变更时同样要求目标类型处于启用状态
-        if (req.getTypeId() != null) {
-            issueTypeService.requireEnabled(req.getTypeId());
-            issue.setTypeId(req.getTypeId());
+        // 类型：非空才更新；变更时要求目标类型处于启用状态。
+        // Phase9 优先级 typeCode > typeId；两者皆空时保持原值不动。
+        if (hasText(req.getTypeCode()) || req.getTypeId() != null) {
+            String submitted = hasText(req.getTypeCode()) ? req.getTypeCode().trim() : null;
+            if (submitted != null && submitted.equals(issue.getTypeCode())) {
+                // 等值提交（类型未变更）直接放行，即便该字典项已被停用。
+                // 否则类型一旦停用，其存量问题将连标题都改不了。口径与上方 source 分支一致。
+                // 注：豁免仅覆盖新的 typeCode 路径，旧 typeId 路径的严格校验保持原样，零回归。
+                issue.setTypeCode(submitted);
+            } else {
+                String newTypeCode = resolveTypeCodeForWrite(req.getTypeCode(), req.getTypeId());
+                if (newTypeCode != null) {
+                    issue.setTypeCode(newTypeCode);
+                    Long legacyTypeId = resolveLegacyTypeId(newTypeCode, req.getTypeId());
+                    // 旧列仅在能反解出 id 时同步；反解不到就保留原值（updateById 跳过 null，
+                    // 强行清空需额外 UpdateWrapper，而 type_id 已废弃，不值得为此加一次 UPDATE）
+                    if (legacyTypeId != null) {
+                        issue.setTypeId(legacyTypeId);
+                    }
+                }
+            }
         }
         if (req.getDescription() != null) {
             issue.setDescription(req.getDescription());
@@ -193,6 +233,10 @@ public class IssueService {
             issue.setPriority(requireValidPriority(req.getPriority()));
         }
 
+        // 自定义字段：落库前必填校验（仅当请求携带 customFields 时，局部更新不校验）→ upsert 竖表
+        validateRequiredFields(req.getCustomFields());
+        fieldValueService.saveValues(id, req.getCustomFields());
+
         issueMapper.updateById(issue);
         // updateById 默认 NOT_NULL 策略会跳过 null 字段，无法清空模块归属；
         // 故 module_id 单独用 UpdateWrapper 显式 set（含 null），实现「存在即覆盖」语义。
@@ -202,7 +246,7 @@ public class IssueService {
         historyService.record(id, HistoryActionEnum.EDIT.getCode(), null, null, currentUser, null);
         return toIssueVO(issue, userService.userNameMap(), projectService.nameMap(),
                 moduleService.pathMap(Collections.singletonList(issue.getModuleId())),
-                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())),
+                typeNameMapOf(issue.getTypeCode()),
                 sourceNameMapOf(issue.getSource()));
     }
 
@@ -241,6 +285,11 @@ public class IssueService {
         if (req.getSeverity() != null) {
             wrapper.eq(Issue::getSeverity, req.getSeverity());
         }
+        // Phase9：类型筛选主口径为 type_code（命中 idx_issue_type_code）
+        if (hasText(req.getTypeCode())) {
+            wrapper.eq(Issue::getTypeCode, req.getTypeCode().trim());
+        }
+        // 旧 type_id 分支原样保留，向后兼容仍在下发 typeId 的旧客户端
         if (req.getTypeId() != null) {
             wrapper.eq(Issue::getTypeId, req.getTypeId());
         }
@@ -301,27 +350,29 @@ public class IssueService {
         issueMapper.selectPage(page, wrapper);
         Map<Long, String> userNameMap = userService.userNameMap();
         Map<Long, String> projectNameMap = projectService.nameMap();
-        // 批量回填铁律：当页汇总 moduleId/typeId → 一次批查 → Map 回填，禁止行内单查（N+1）
+        // 批量回填铁律：当页汇总 moduleId/typeCode/source → 一次批查 → Map 回填，禁止行内单查（N+1）
         Set<Long> moduleIds = new HashSet<>();
-        Set<Long> typeIds = new HashSet<>();
+        Set<String> typeCodes = new HashSet<>();
         Set<String> sourceCodes = new HashSet<>();
         for (Issue i : page.getRecords()) {
             if (i.getModuleId() != null) {
                 moduleIds.add(i.getModuleId());
             }
-            if (i.getTypeId() != null) {
-                typeIds.add(i.getTypeId());
+            if (hasText(i.getTypeCode())) {
+                typeCodes.add(i.getTypeCode());
             }
             if (i.getSource() != null && !i.getSource().isBlank()) {
                 sourceCodes.add(i.getSource());
             }
         }
         Map<Long, String> modulePathMap = moduleService.pathMap(moduleIds);
-        Map<Long, IssueType> typeMap = issueTypeService.nameMap(typeIds);
+        // Phase9：typeName 改由 ISSUE_TYPE 字典项映射，走 DictCache 两级缓存，0 次额外 DB 查询
+        Map<String, String> typeNameMap = dictService.itemNameMap(
+                Constants.DICT_TYPE_ISSUE_TYPE, typeCodes);
         Map<String, String> sourceNameMap = dictService.itemNameMap(
                 DictTypeCodeEnum.ISSUE_SOURCE.getCode(), sourceCodes);
         List<IssueVO> list = page.getRecords().stream()
-                .map(i -> toIssueVO(i, userNameMap, projectNameMap, modulePathMap, typeMap, sourceNameMap))
+                .map(i -> toIssueVO(i, userNameMap, projectNameMap, modulePathMap, typeNameMap, sourceNameMap))
                 .collect(Collectors.toList());
         return PageResult.of(list, page.getTotal(), (long) pageNum, (long) size);
     }
@@ -341,8 +392,11 @@ public class IssueService {
         Map<Long, String> userNameMap = userService.userNameMap();
         IssueDetailVO vo = toDetailVO(issue, userNameMap,
                 moduleService.pathMap(Collections.singletonList(issue.getModuleId())),
-                issueTypeService.nameMap(Collections.singletonList(issue.getTypeId())),
+                typeNameMapOf(issue.getTypeCode()),
                 sourceNameMapOf(issue.getSource()));
+
+        // 自定义字段值回填（按 field_config.type 从竖表对应列取出真实值，不塞整个实体）
+        vo.setCustomFields(buildCustomFields(id));
 
         List<IssueAttachment> attachments = attachmentMapper.selectList(
                 new LambdaQueryWrapper<IssueAttachment>()
@@ -360,7 +414,7 @@ public class IssueService {
 
     private IssueVO toIssueVO(Issue issue, Map<Long, String> userNameMap,
                               Map<Long, String> projectNameMap, Map<Long, String> modulePathMap,
-                              Map<Long, IssueType> typeMap, Map<String, String> sourceNameMap) {
+                              Map<String, String> typeNameMap, Map<String, String> sourceNameMap) {
         IssueVO vo = new IssueVO();
         vo.setId(issue.getId());
         vo.setIssueNo(issue.getIssueNo());
@@ -369,7 +423,7 @@ public class IssueService {
         vo.setSeverityDesc(descOf(SeverityEnum.getByCode(issue.getSeverity())));
         vo.setStatus(issue.getStatus());
         vo.setStatusDesc(descOf(IssueStatusEnum.getByCode(issue.getStatus())));
-        fillTypeFields(vo, issue, typeMap);
+        fillTypeFields(vo, issue, typeNameMap);
         vo.setSource(issue.getSource());
         vo.setSourceDesc(issue.getSource() == null ? "" : sourceNameMap.getOrDefault(issue.getSource(), issue.getSource()));
         vo.setPriority(issue.getPriority());
@@ -392,7 +446,7 @@ public class IssueService {
 
     private IssueDetailVO toDetailVO(Issue issue, Map<Long, String> userNameMap,
                                      Map<Long, String> modulePathMap,
-                                     Map<Long, IssueType> typeMap, Map<String, String> sourceNameMap) {
+                                     Map<String, String> typeNameMap, Map<String, String> sourceNameMap) {
         IssueDetailVO vo = new IssueDetailVO();
         vo.setId(issue.getId());
         vo.setIssueNo(issue.getIssueNo());
@@ -402,7 +456,7 @@ public class IssueService {
         vo.setSeverityDesc(descOf(SeverityEnum.getByCode(issue.getSeverity())));
         vo.setStatus(issue.getStatus());
         vo.setStatusDesc(descOf(IssueStatusEnum.getByCode(issue.getStatus())));
-        fillTypeFields(vo, issue, typeMap);
+        fillTypeFields(vo, issue, typeNameMap);
         vo.setSource(issue.getSource());
         vo.setSourceDesc(issue.getSource() == null ? "" : sourceNameMap.getOrDefault(issue.getSource(), issue.getSource()));
         vo.setPriority(issue.getPriority());
@@ -446,17 +500,130 @@ public class IssueService {
     }
 
     /**
-     * 类型三字段回填（typeId/typeName/typeCode）；停用/已删类型查不到时仅回 id，前端显「—」
+     * 类型三字段回填（typeId/typeCode/typeName）。
+     *
+     * <p>Phase9 起 {@code typeName} 的取数来源由「JOIN issue_type 表」改为
+     * 「按 {@code issue.type_code} 命中 ISSUE_TYPE 字典项」，映射表由调用方一次性备好，
+     * 本方法纯内存查表，绝不触库。</p>
+     *
+     * <p>防御口径：{@code type_code} 为空（迁移遗漏的存量脏数据）或字典项已被物理清除时，
+     * {@code typeName} 回退为空字符串，<b>不抛异常</b>，保证列表整体可读。
+     * 停用的字典项仍在缓存中（{@link DictCache} 缓存含停用项），故历史问题回显不受影响。</p>
+     *
+     * @param vo          待填充的视图对象
+     * @param issue       问题实体
+     * @param typeNameMap itemCode → name 映射，可为 null
      */
-    private void fillTypeFields(IssueVO vo, Issue issue, Map<Long, IssueType> typeMap) {
+    private void fillTypeFields(IssueVO vo, Issue issue, Map<String, String> typeNameMap) {
         vo.setTypeId(issue.getTypeId());
-        if (issue.getTypeId() != null && typeMap != null) {
-            IssueType type = typeMap.get(issue.getTypeId());
-            if (type != null) {
-                vo.setTypeName(type.getName());
-                vo.setTypeCode(type.getCode());
+        String code = issue.getTypeCode();
+        vo.setTypeCode(code);
+        if (!hasText(code) || typeNameMap == null) {
+            vo.setTypeName("");
+            return;
+        }
+        vo.setTypeName(typeNameMap.getOrDefault(code, ""));
+    }
+
+    /**
+     * 解析写入用的问题类型编码，优先级 <b>typeCode &gt; typeId</b>。
+     *
+     * <p>三条分支：</p>
+     * <ol>
+     *   <li>{@code typeCode} 非空 → 在 ISSUE_TYPE 字典项中精确匹配 {@code item_code}，
+     *       不存在抛 {@code ISSUE_TYPE_NOT_FOUND}，已停用抛 {@code ISSUE_TYPE_DISABLED}；</li>
+     *   <li>仅 {@code typeId} 非空 → 按 {@code dict_item.extra}（迁移时写入的旧 {@code issue_type.id}）
+     *       反解出 {@code item_code}；字典里找不到时回落旧 {@code issue_type} 表校验取 code，
+     *       兼容「迁移脚本尚未执行」的环境；</li>
+     *   <li>两者皆空 → 返回 {@code null}，由调用方决定是否报「必填」。</li>
+     * </ol>
+     *
+     * @param reqTypeCode 请求中的类型编码，可为空
+     * @param reqTypeId   请求中的旧类型 id，可为空
+     * @return 合法且启用的类型编码；两个入参皆空时返回 null
+     * @throws BizException 编码/ id 不存在或对应类型已停用
+     */
+    private String resolveTypeCodeForWrite(String reqTypeCode, Long reqTypeId) {
+        List<DictItem> items = dictCache.items(Constants.DICT_TYPE_ISSUE_TYPE);
+        if (hasText(reqTypeCode)) {
+            String code = reqTypeCode.trim();
+            DictItem hit = findByItemCode(items, code);
+            if (hit == null) {
+                throw new BizException(ResultCode.ISSUE_TYPE_NOT_FOUND);
+            }
+            requireItemEnabled(hit);
+            return hit.getItemCode();
+        }
+        if (reqTypeId != null) {
+            DictItem hit = findByLegacyId(items, reqTypeId);
+            if (hit != null) {
+                requireItemEnabled(hit);
+                return hit.getItemCode();
+            }
+            // 字典中无对应项：回落旧表（含存在性 + 启用态校验），保证旧接口在未迁移环境下仍可用
+            IssueType legacy = issueTypeService.requireEnabled(reqTypeId);
+            return legacy.getCode();
+        }
+        return null;
+    }
+
+    /**
+     * 反解已废弃的 {@code issue.type_id}，用于灰度期同步旧列。
+     *
+     * @param typeCode  已确定的类型编码
+     * @param reqTypeId 请求显式携带的旧 id，非空时直接采用
+     * @return 旧类型 id；字典项 {@code extra} 为空或非数字时返回 null
+     */
+    private Long resolveLegacyTypeId(String typeCode, Long reqTypeId) {
+        if (reqTypeId != null) {
+            return reqTypeId;
+        }
+        if (!hasText(typeCode)) {
+            return null;
+        }
+        DictItem hit = findByItemCode(dictCache.items(Constants.DICT_TYPE_ISSUE_TYPE), typeCode);
+        if (hit == null || !hasText(hit.getExtra())) {
+            return null;
+        }
+        try {
+            return Long.valueOf(hit.getExtra().trim());
+        } catch (NumberFormatException e) {
+            // extra 被字典页改成了非数字（颜色标记等自定义用途），旧列放弃同步即可
+            return null;
+        }
+    }
+
+    /** 内存精确匹配 item_code，未命中返回 null */
+    private DictItem findByItemCode(List<DictItem> items, String itemCode) {
+        for (DictItem row : items) {
+            if (itemCode.equals(row.getItemCode())) {
+                return row;
             }
         }
+        return null;
+    }
+
+    /** 内存匹配 extra（迁移时写入的旧 issue_type.id 字符串），未命中返回 null */
+    private DictItem findByLegacyId(List<DictItem> items, Long legacyId) {
+        String wanted = String.valueOf(legacyId);
+        for (DictItem row : items) {
+            if (row.getExtra() != null && wanted.equals(row.getExtra().trim())) {
+                return row;
+            }
+        }
+        return null;
+    }
+
+    /** 字典项启用态断言（停用项仅允许存量回显，不可新选） */
+    private void requireItemEnabled(DictItem item) {
+        if (item.getEnabled() == null || item.getEnabled() != 1) {
+            throw new BizException(ResultCode.ISSUE_TYPE_DISABLED);
+        }
+    }
+
+    /** 非空且非空白 */
+    private boolean hasText(String s) {
+        return s != null && !s.isBlank();
     }
 
     private String descOf(com.issueflow.enums.IssueStatusEnum e) {
@@ -509,5 +676,84 @@ public class IssueService {
     private Map<String, String> sourceNameMapOf(String source) {
         return dictService.itemNameMap(DictTypeCodeEnum.ISSUE_SOURCE.getCode(),
                 source == null || source.isBlank() ? Collections.emptySet() : Collections.singleton(source));
+    }
+
+    /**
+     * 构建单条问题类型编码 → 名称的映射（供 create/update/detail 单对象回填）。
+     * <p>与列表共用 {@link DictService#itemNameMap} 走 {@link DictCache}，不额外查库。</p>
+     *
+     * @param typeCode 问题类型编码，可为空
+     * @return itemCode → name 映射，typeCode 为空时返回空 Map
+     */
+    private Map<String, String> typeNameMapOf(String typeCode) {
+        return dictService.itemNameMap(Constants.DICT_TYPE_ISSUE_TYPE,
+                hasText(typeCode) ? Collections.singleton(typeCode) : Collections.emptySet());
+    }
+
+    /**
+     * 落库前必填校验：取「生效 + 必填 + 自定义」字段，若请求未携带 {@code customFields} 则不校验
+     * （支持仅改标题等局部更新；提交表单时（含空 Map）则严格校验）。值缺失或空白抛
+     * {@link ResultCode#FIELD_VALUE_REQUIRED}。
+     *
+     * @param customFields 请求携带的自定义字段值，可为 null
+     */
+    private void validateRequiredFields(Map<String, Object> customFields) {
+        if (customFields == null) {
+            return;
+        }
+        Map<String, FieldConfig> required = fieldConfigService.listRequiredCustomEnabled();
+        for (FieldConfig cfg : required.values()) {
+            Object v = customFields.get(cfg.getCode());
+            if (v == null || (v instanceof String && ((String) v).isBlank())) {
+                throw new BizException(ResultCode.FIELD_VALUE_REQUIRED, "必填字段未填写: " + cfg.getName());
+            }
+        }
+    }
+
+    /**
+     * 按 issue 组装自定义字段真实值映射（code → 值），供详情响应回填。
+     * <p>走 {@link IssueFieldValueService#mapByIssue} 取竖表记录，再按 {@code field_config.type}
+     * 从 value_text / value_num / value_date 取出真实值（不塞整个 IssueFieldValue 实体）。</p>
+     *
+     * @param issueId 问题 id
+     * @return field_code → 真实值（无自定义字段时返回空 Map）
+     */
+    private Map<String, Object> buildCustomFields(Long issueId) {
+        Map<String, IssueFieldValue> valueMap = fieldValueService.mapByIssue(issueId);
+        if (valueMap.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<String, FieldConfig> cfgByCode = fieldValueService.customConfigs();
+        Map<String, Object> result = new LinkedHashMap<>();
+        for (Map.Entry<String, IssueFieldValue> e : valueMap.entrySet()) {
+            String code = e.getKey();
+            IssueFieldValue v = e.getValue();
+            FieldConfig cfg = cfgByCode.get(code);
+            FieldType type = cfg != null ? FieldType.fromCode(cfg.getType()) : FieldType.TEXT;
+            result.put(code, extractFieldValue(v, type));
+        }
+        return result;
+    }
+
+    /**
+     * 按字段类型从竖表实体取出真实值（不返回整个 IssueFieldValue 实体）。
+     * DATE/DATETIME 类型返回格式化字符串（yyyy-MM-dd / yyyy-MM-dd HH:mm:ss），对齐前端
+     * DynamicField.vue 的 valueFormat 契约，避免 customFields 为 Map&lt;String,Object&gt; 时
+     * 泛型擦除导致 @JsonFormat 失效、Jackson 默认序列化输出带 T 的串。
+     */
+    private Object extractFieldValue(IssueFieldValue v, FieldType type) {
+        switch (type) {
+            case NUMBER:
+                return v.getValueNum();
+            case DATE:
+                return DateTimeUtils.formatDate(v.getValueDate());
+            case DATETIME:
+                return DateTimeUtils.formatDateTime(v.getValueDate());
+            case TEXT:
+            case DICT:
+            case REF:
+            default:
+                return v.getValueText();
+        }
     }
 }

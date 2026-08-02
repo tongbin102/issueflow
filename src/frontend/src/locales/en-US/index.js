@@ -26,6 +26,7 @@ import dict from './dict'
 import profile from './profile'
 import infra from './infra'
 import backup from './backup'
+import fieldConfig from './fieldConfig'
 
 export default {
   common,
@@ -51,5 +52,6 @@ export default {
   dict,
   profile,
   infra,
-  backup
+  backup,
+  fieldConfig
 }

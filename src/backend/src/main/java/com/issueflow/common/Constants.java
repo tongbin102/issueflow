@@ -154,6 +154,20 @@ public final class Constants {
     /** 字典缓存 TTL（秒，1 小时） */
     public static final long DICT_CACHE_TTL_SECONDS = 3600L;
 
+    // ======================= Phase 9 动态字段配置 =======================
+
+    /**
+     * 字典类型编码：问题类型（Phase9 由 {@code issue_type} 表迁入 {@code dict_item}）。
+     * <p>{@code dict_item.extra} 存旧 {@code issue_type.id} 字符串，供灰度期按旧 typeId 反解 itemCode。</p>
+     */
+    public static final String DICT_TYPE_ISSUE_TYPE = "ISSUE_TYPE";
+
+    /** Redis Key：字段 schema 缓存前缀，完整 key = field:schema:{typeScope} */
+    public static final String REDIS_FIELD_SCHEMA_PREFIX = "field:schema:";
+
+    /** 字段 schema 缓存 TTL（秒，30 分钟，见 ARCH §7.3） */
+    public static final long FIELD_SCHEMA_CACHE_TTL_SECONDS = 1800L;
+
     /** Redis Key：定时任务执行互斥锁前缀，完整 key = job:running:{taskId} */
     public static final String REDIS_JOB_RUNNING_PREFIX = "job:running:";
 

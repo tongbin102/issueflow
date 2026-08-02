@@ -1,9 +1,10 @@
 <template>
   <!-- Phase8 W2 #12：问题弹窗内容容器，由「4 分区折叠」改为「左侧竖形标签页」。
-       5 个标签：基本信息 / 详细信息 / 附件上传 / 关联信息 / 操作历史。
+       业务页签（基本信息 / 详细描述 / 环境信息 …）由 schema.sections 动态 v-for 生成；
+       系统页签（附件上传 / 关联信息 / 操作历史）固定追加，以后端 FieldSchemaVO.systemTabs 为准。
        - tab-position：全屏（drawerFullscreen）或窄屏（< 768px）时切 top 横排，否则 left 竖排（#3.5）；
        - #3.2 起标签间自由切换、不再离开校验（handleBeforeLeave 恒 true，全量校验仅在提交时执行）；
-       - #3.1 各标签经 #label 插槽渲染「已填写」红点（由父级 filledTabs 驱动）；
+       - #3.1 各标签经 #label 插槽渲染「已填写」红点（由父级 filledTabs 驱动，按 section.code 索引）；
        - 切换时给内容区加一次性动画类，实现淡入 + 轻微位移的平滑过渡（不重挂子组件）。 -->
   <el-tabs
     v-model="active"
@@ -12,28 +13,28 @@
     :before-leave="handleBeforeLeave"
     @tab-change="onTabChange"
   >
-    <el-tab-pane name="basic" :label="t('issue.tab.basic')">
-      <!-- #3.1：#label 插槽渲染标签文字 + 「已填写」红点（filledTabs.basic 为真时显示） -->
+    <!-- ===== 业务页签：由 schema.sections 动态生成 ===== -->
+    <el-tab-pane
+      v-for="section in businessSections"
+      :key="section.code"
+      :name="section.code"
+      :label="sectionLabel(section)"
+    >
       <template #label>
         <span class="if-tab-label">
-          {{ t('issue.tab.basic') }}
-          <span v-if="filledTabs.basic" class="if-tab-dot" />
+          {{ sectionLabel(section) }}
+          <span v-if="filledTabs[section.code]" class="if-tab-dot" />
         </span>
       </template>
-      <div class="if-tab-panel"><slot name="basic" /></div>
+      <div class="if-tab-panel"><slot :name="section.code" /></div>
     </el-tab-pane>
 
-    <el-tab-pane name="detail" :label="t('issue.tab.description')">
-      <template #label>
-        <span class="if-tab-label">
-          {{ t('issue.tab.description') }}
-          <span v-if="filledTabs.detail" class="if-tab-dot" />
-        </span>
-      </template>
-      <div class="if-tab-panel"><slot name="detail" /></div>
-    </el-tab-pane>
-
-    <el-tab-pane v-if="showAttachment" name="attachment" :label="t('issue.tab.attachment')">
+    <!-- ===== 系统页签：附件上传 ===== -->
+    <el-tab-pane
+      v-if="showAttachment && hasSystemTab('attachment')"
+      name="attachment"
+      :label="t('issue.tab.attachment')"
+    >
       <template #label>
         <span class="if-tab-label">
           {{ t('issue.tab.attachment') }}
@@ -43,21 +44,33 @@
       <div class="if-tab-panel"><slot name="attachment" /></div>
     </el-tab-pane>
 
-    <el-tab-pane v-if="showRelation" name="relation" :label="t('issue.tab.relation')">
+    <!-- ===== 系统页签：关联信息 ===== -->
+    <el-tab-pane
+      v-if="showRelation && hasSystemTab('relation')"
+      name="relation"
+      :label="t('issue.tab.relation')"
+    >
       <div class="if-tab-panel"><slot name="relation" /></div>
     </el-tab-pane>
 
-    <el-tab-pane v-if="showHistory" name="history" :label="t('issue.tab.history')">
+    <!-- ===== 系统页签：操作历史 ===== -->
+    <el-tab-pane
+      v-if="showHistory && hasSystemTab('history')"
+      name="history"
+      :label="t('issue.tab.history')"
+    >
       <div class="if-tab-panel"><slot name="history" /></div>
     </el-tab-pane>
   </el-tabs>
 </template>
 
 <script setup>
-import { ref, computed, inject, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, inject, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps({
+  /** 字段渲染契约 FieldSchemaVO（含 sections 与 systemTabs），可空（加载前兜底） */
+  schema: { type: Object, default: null },
   /** 是否渲染「附件上传」标签页 */
   showAttachment: { type: Boolean, default: true },
   /** 是否渲染「关联信息」标签页 */
@@ -70,7 +83,7 @@ const props = defineProps({
    */
   beforeLeave: { type: Function, default: null },
   /**
-   * #3.1：各标签「已填写」状态（{ basic, detail, attachment } 布尔），
+   * #3.1：各标签「已填写」状态（按 section.code 索引的布尔对象，含 attachment），
    * 为真时该标签渲染「已填写」红点；由父级 IssueForm 传入，默认空对象。
    */
   filledTabs: { type: Object, default: () => ({}) },
@@ -79,10 +92,38 @@ const props = defineProps({
 })
 const emit = defineEmits(['change'])
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 
-/** 当前激活标签，默认第一个（基本信息） */
-const active = ref('basic')
+/** 当前激活标签，默认第一个（schema 首个业务页签，否则 attachment） */
+const active = ref('')
+
+/** 业务区域列表（schema 未就绪时为空） */
+const businessSections = computed(() => {
+  const schema = props.schema
+  if (!schema || !Array.isArray(schema.sections)) return []
+  return schema.sections
+})
+
+/** 固定系统页签：优先取后端 systemTabs，未下发时兜底为三件套 */
+const systemTabs = computed(() => {
+  const st = props.schema && props.schema.systemTabs
+  return Array.isArray(st) && st.length ? st : ['attachment', 'relation', 'history']
+})
+function hasSystemTab(name) {
+  return systemTabs.value.includes(name)
+}
+
+/**
+ * 区域展示名：i18nKey 命中翻译则用翻译，否则回退 name，再回退 code。
+ *
+ * @param {object} section 区域节点
+ * @returns {string}
+ */
+function sectionLabel(section) {
+  if (!section) return ''
+  if (section.i18nKey && te(section.i18nKey)) return t(section.i18nKey)
+  return section.name || section.code || ''
+}
 
 /* ---------------- 响应式：窄屏切水平标签 ---------------- */
 const isNarrow = ref(false)
@@ -132,19 +173,43 @@ function handleBeforeLeave() {
 /**
  * 激活指定标签（校验失败定位用）。
  * 保留 expand 作为方法名，兼容父级既有调用点。
- * @param {string} name basic | detail | attachment | relation | history
+ * @param {string} name section.code | attachment | relation | history
  */
 function expand(name) {
-  if (name && active.value !== name) {
+  if (!name) return
+  // 仅允许切到「实际存在」的页签，避免切到 schema 未包含的标签
+  const exists =
+    businessSections.value.some((s) => s.code === name) || hasSystemTab(name)
+  if (exists && active.value !== name) {
     active.value = name
   }
 }
 
-defineExpose({ expand, activate: expand, active })
+/** schema 就绪后把默认激活页签设为第一个业务页签 */
+function syncDefaultActive() {
+  if (!active.value && businessSections.value.length) {
+    active.value = businessSections.value[0].code
+  } else if (!active.value) {
+    active.value = 'attachment'
+  }
+}
+
+defineExpose({ expand, activate: expand, active, syncDefaultActive })
+
+// schema 异步就绪后，业务页签才出现：自动把激活页签切到首个业务页签
+watch(
+  () => businessSections.value.length,
+  (len) => {
+    if (len > 0 && (!active.value || !businessSections.value.some((s) => s.code === active.value))) {
+      active.value = businessSections.value[0].code
+    }
+  }
+)
 
 onMounted(() => {
   updateNarrow()
   window.addEventListener('resize', updateNarrow)
+  syncDefaultActive()
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', updateNarrow)

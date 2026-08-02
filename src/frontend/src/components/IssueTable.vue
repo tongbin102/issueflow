@@ -18,10 +18,11 @@
             />
           </el-select>
         </el-form-item>
-        <!-- Phase6：问题类型筛选（全量含停用项，停用项追加「（已停用）」后缀，Q6） -->
+        <!-- Phase9：问题类型筛选改走字典 ISSUE_TYPE（value = item_code，与 issue.type_code 落库口径一致）；
+             全量含停用项，停用项追加「（已停用）」后缀——历史数据可能引用已停用类型，需可选中回查 -->
         <el-form-item :label="t('issue.list.col.type')">
           <el-select
-            v-model="filters.typeId"
+            v-model="filters.typeCode"
             :placeholder="t('common.status.all')"
             clearable
             filterable
@@ -29,9 +30,9 @@
           >
             <el-option
               v-for="tp in typeFilterOptions"
-              :key="tp.id"
+              :key="tp.value"
               :label="tp.label"
-              :value="tp.id"
+              :value="tp.value"
             />
           </el-select>
         </el-form-item>
@@ -210,10 +211,10 @@
     <el-table v-else v-loading="loading" :data="list" border stripe style="width: 100%">
       <el-table-column prop="issueNo" :label="t('issue.list.col.issueNo')" width="150" />
       <el-table-column prop="title" :label="t('issue.list.col.title')" min-width="200" show-overflow-tooltip />
-      <!-- Phase6：类型列（停用类型仍正常回显名称） -->
+      <!-- Phase9：类型列走字典文案（i18n 优先，回退后端 typeName）；停用类型仍正常回显名称 -->
       <el-table-column :label="t('issue.list.col.type')" width="110" align="center">
         <template #default="{ row }">
-          <span>{{ row.typeName || '-' }}</span>
+          <span>{{ typeText(row) }}</span>
         </template>
       </el-table-column>
       <!-- Phase7 T3：来源列（字典名，i18n 优先，回退后端 sourceDesc） -->
@@ -331,7 +332,7 @@ import {
   usePriorityOptions,
   useDictCodeOptions,
   dictCodeLabelI18n,
-  issueTypeLabelI18n
+  DICT_TYPE
 } from '@/utils/i18nEnum'
 import { pageIssues, deleteIssue, exportIssues } from '@/api/issue'
 import { listTags } from '@/api/tag'
@@ -339,7 +340,6 @@ import { listProjectOptions } from '@/api/project'
 import { downloadBlob } from '@/utils/exportUtil'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
-import { useIssueTypeStore } from '@/store/issueType'
 import IfTag from '@/components/base/IfTag.vue'
 import IfButton from '@/components/base/IfButton.vue'
 import IfLoading from '@/components/base/IfLoading.vue'
@@ -356,7 +356,6 @@ const emit = defineEmits(['view', 'edit'])
 const { t } = useI18n()
 const userStore = useUserStore()
 const appStore = useAppStore()
-const issueTypeStore = useIssueTypeStore()
 /** Phase9 T12：<768px 走卡片流降级，桌面/平板保持表格 */
 const isMobile = computed(() => appStore.isMobile)
 const loading = ref(false)
@@ -367,17 +366,25 @@ const page = ref(1)
 const size = ref(10)
 
 /** 来源字典类型编码（Phase7 种子：SYSTEM / API_IMPORT / EXCEL_IMPORT / EMAIL / OTHER） */
-const SOURCE_DICT_CODE = 'ISSUE_SOURCE'
+const SOURCE_DICT_CODE = DICT_TYPE.ISSUE_SOURCE
+/** 问题类型字典编码（Phase9：由 issue_type 表迁入字典，dict_code = ISSUE_TYPE） */
+const TYPE_DICT_CODE = DICT_TYPE.ISSUE_TYPE
 
 const statusOptions = useStatusOptions()
 const severityOptions = useSeverityOptions()
 const priorityOptions = usePriorityOptions()
 /** 来源筛选下拉：全量含停用项（value = item_code，与 issue.source 落库口径一致） */
 const sourceFilterOptions = useDictCodeOptions(SOURCE_DICT_CODE, true)
+/**
+ * 类型筛选下拉：全量含停用项（value = item_code，与 issue.type_code 落库口径一致）。
+ * Phase9 前此处走 issue_type 老表的 /api/issue-types/options，字典页新增的类型不会出现在下拉里，
+ * 且筛选参数走 type_id（对字典新增项恒为 null）——「下拉里没有 + 就算有也筛不到」双重失效，故改走字典。
+ */
+const typeFilterOptions = useDictCodeOptions(TYPE_DICT_CODE, true)
 
 const filters = reactive({
   status: props.filters.status ?? '',
-  typeId: props.filters.typeId ?? null,
+  typeCode: props.filters.typeCode ?? '',
   severity: props.filters.severity ?? '',
   priority: props.filters.priority ?? '',
   source: props.filters.source ?? '',
@@ -392,14 +399,6 @@ const timeRange = ref([])
 const tagOptions = ref([])
 const projectOptions = ref([])
 
-/** 类型筛选下拉：全量含停用项，停用项追加 i18n「（已停用）」后缀（Q6，可选中用于查旧数据） */
-const typeFilterOptions = computed(() =>
-  (issueTypeStore.allOptions || []).map((o) => ({
-    id: o.id,
-    label: issueTypeLabelI18n(o)
-  }))
-)
-
 const currentUserId = computed(() => userStore.userInfo && userStore.userInfo.id)
 
 /**
@@ -411,7 +410,7 @@ const hasActiveFilter = computed(() => {
   const isSet = (v) => v !== '' && v !== null && v !== undefined
   return Boolean(
     isSet(filters.status) ||
-      isSet(filters.typeId) ||
+      isSet(filters.typeCode) ||
       isSet(filters.severity) ||
       isSet(filters.priority) ||
       isSet(filters.source) ||
@@ -444,6 +443,17 @@ function sourceText(row) {
   return dictCodeLabelI18n(SOURCE_DICT_CODE, row.source, row.sourceDesc) || '-'
 }
 
+/**
+ * 类型列文案：i18n（dict.value.ISSUE_TYPE.{code}）优先，
+ * 回退后端 IssueVO.typeName（由 dictService.itemNameMap 批量回填，无 N+1），再回退 '-'。
+ * @param {{typeCode?:string,typeName?:string}} row 列表行
+ * @returns {string}
+ */
+function typeText(row) {
+  if (!row || !row.typeCode) return row && row.typeName ? row.typeName : '-'
+  return dictCodeLabelI18n(TYPE_DICT_CODE, row.typeCode, row.typeName) || '-'
+}
+
 function canEdit(row) {
   return userStore.isAdmin || row.reporterId === currentUserId.value
 }
@@ -455,8 +465,9 @@ function buildParams() {
   const p = { page: page.value, size: size.value }
   if (filters.status !== '' && filters.status !== null && filters.status !== undefined)
     p.status = filters.status
-  if (filters.typeId !== '' && filters.typeId !== null && filters.typeId !== undefined)
-    p.typeId = filters.typeId
+  // Phase9：类型筛选为 dict_item.item_code 字符串，命中后端 idx_issue_type_code 索引
+  if (filters.typeCode !== '' && filters.typeCode !== null && filters.typeCode !== undefined)
+    p.typeCode = filters.typeCode
   if (
     filters.severity !== '' &&
     filters.severity !== null &&
@@ -501,7 +512,7 @@ async function fetchData() {
 function onResetFilter() {
   Object.assign(filters, {
     status: '',
-    typeId: null,
+    typeCode: '',
     severity: '',
     priority: '',
     source: '',
@@ -565,7 +576,7 @@ watch(
     if (nv) {
       Object.assign(filters, {
         status: nv.status ?? '',
-        typeId: nv.typeId ?? null,
+        typeCode: nv.typeCode ?? '',
         severity: nv.severity ?? '',
         priority: nv.priority ?? '',
         source: nv.source ?? '',
@@ -584,11 +595,7 @@ watch(
 )
 
 onMounted(async () => {
-  try {
-    await issueTypeStore.fetchAllOptions()
-  } catch (e) {
-    // 类型下拉加载失败不阻塞列表
-  }
+  // 类型 / 来源下拉由 useDictCodeOptions 在 setup 阶段自行触发字典分片加载，此处无需再拉
   try {
     const tags = await listTags()
     tagOptions.value = (tags || []).map((tg) => ({ label: tg.name, value: tg.name }))

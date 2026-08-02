@@ -176,7 +176,8 @@ export default {
     viewDetail: '查看详情',
     flow: '流转',
     exportExcel: '导出 Excel',
-    remark: '填写备注'
+    remark: '填写备注',
+    columnConfig: '列配置'
   },
   attachment: {
     preview: '预览',
@@ -214,5 +215,15 @@ export default {
     remarkRequiredPh: '请填写原因（必填）',
     remarkWarn: '请填写原因',
     success: '操作成功'
+  },
+  columnConfig: {
+    title: '列配置',
+    subtitle: '勾选需要显示的列，拖动调整顺序',
+    builtin: '内置列',
+    custom: '自定义列',
+    reset: '恢复默认',
+    dragTip: '拖动列项可调整显示顺序',
+    noCustomFields: '暂无可用的自定义列',
+    applySuccess: '列配置已更新'
   }
 }

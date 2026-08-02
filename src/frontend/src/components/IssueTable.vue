@@ -207,55 +207,128 @@
       </IfLoading>
     </div>
 
-    <!-- 表格（桌面 / 平板保持原有全列展示，结构不变） -->
+    <!-- 表格（桌面 / 平板）：列由 displayColumns 动态渲染，支持列配置显隐与排序 -->
     <el-table v-else v-loading="loading" :data="list" border stripe style="width: 100%">
-      <el-table-column prop="issueNo" :label="t('issue.list.col.issueNo')" width="150" />
-      <el-table-column prop="title" :label="t('issue.list.col.title')" min-width="200" show-overflow-tooltip />
-      <!-- Phase9：类型列走字典文案（i18n 优先，回退后端 typeName）；停用类型仍正常回显名称 -->
-      <el-table-column :label="t('issue.list.col.type')" width="110" align="center">
-        <template #default="{ row }">
-          <span>{{ typeText(row) }}</span>
-        </template>
-      </el-table-column>
-      <!-- Phase7 T3：来源列（字典名，i18n 优先，回退后端 sourceDesc） -->
-      <el-table-column :label="t('issue.list.col.source')" width="110" align="center">
-        <template #default="{ row }">
-          <span>{{ sourceText(row) }}</span>
-        </template>
-      </el-table-column>
-      <!-- Phase7 T3：优先级列（带色 Tag，渲染风格与严重等级一致） -->
-      <el-table-column :label="t('issue.list.col.priority')" width="100" align="center">
-        <template #default="{ row }">
-          <el-tag
-            v-if="row.priority !== null && row.priority !== undefined"
-            :type="priorityTagType(row.priority)"
-            effect="light"
-          >
-            {{ priorityLabelI18n(row.priority) }}
-          </el-tag>
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-      <el-table-column :label="t('issue.list.col.severity')" width="100" align="center">
-        <template #default="{ row }">
-          <el-tag :type="severityTagType(row.severity)" effect="light">
-            {{ severityLabelI18n(row.severity) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column :label="t('issue.list.col.status')" width="100" align="center">
-        <template #default="{ row }">
-          <el-tag :type="statusTagType(row.status)" effect="light">
-            {{ statusLabelI18n(row.status) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="projectName" :label="t('issue.list.col.project')" min-width="120" show-overflow-tooltip />
-      <el-table-column prop="reporterName" :label="t('issue.list.col.reporter')" width="110" show-overflow-tooltip />
-      <el-table-column prop="assigneeName" :label="t('issue.list.col.assignee')" width="110" show-overflow-tooltip />
-      <el-table-column :label="t('issue.list.col.createdAt')" width="170">
-        <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
-      </el-table-column>
+      <template v-for="col in displayColumns" :key="col.key">
+        <!-- 编号 -->
+        <el-table-column
+          v-if="col.key === 'issueNo'"
+          prop="issueNo"
+          :label="t('issue.list.col.issueNo')"
+          width="150"
+        />
+        <!-- 标题 -->
+        <el-table-column
+          v-else-if="col.key === 'title'"
+          prop="title"
+          :label="t('issue.list.col.title')"
+          min-width="200"
+          show-overflow-tooltip
+        />
+        <!-- Phase9：类型列走字典文案（i18n 优先，回退后端 typeName）；停用类型仍正常回显名称 -->
+        <el-table-column
+          v-else-if="col.key === 'type'"
+          :label="t('issue.list.col.type')"
+          width="110"
+          align="center"
+        >
+          <template #default="{ row }">
+            <span>{{ typeText(row) }}</span>
+          </template>
+        </el-table-column>
+        <!-- Phase7 T3：来源列（字典名，i18n 优先，回退后端 sourceDesc） -->
+        <el-table-column
+          v-else-if="col.key === 'source'"
+          :label="t('issue.list.col.source')"
+          width="110"
+          align="center"
+        >
+          <template #default="{ row }">
+            <span>{{ sourceText(row) }}</span>
+          </template>
+        </el-table-column>
+        <!-- Phase7 T3：优先级列（带色 Tag，渲染风格与严重等级一致） -->
+        <el-table-column
+          v-else-if="col.key === 'priority'"
+          :label="t('issue.list.col.priority')"
+          width="100"
+          align="center"
+        >
+          <template #default="{ row }">
+            <el-tag
+              v-if="row.priority !== null && row.priority !== undefined"
+              :type="priorityTagType(row.priority)"
+              effect="light"
+            >
+              {{ priorityLabelI18n(row.priority) }}
+            </el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-else-if="col.key === 'severity'"
+          :label="t('issue.list.col.severity')"
+          width="100"
+          align="center"
+        >
+          <template #default="{ row }">
+            <el-tag :type="severityTagType(row.severity)" effect="light">
+              {{ severityLabelI18n(row.severity) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-else-if="col.key === 'status'"
+          :label="t('issue.list.col.status')"
+          width="100"
+          align="center"
+        >
+          <template #default="{ row }">
+            <el-tag :type="statusTagType(row.status)" effect="light">
+              {{ statusLabelI18n(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column
+          v-else-if="col.key === 'project'"
+          prop="projectName"
+          :label="t('issue.list.col.project')"
+          min-width="120"
+          show-overflow-tooltip
+        />
+        <el-table-column
+          v-else-if="col.key === 'reporter'"
+          prop="reporterName"
+          :label="t('issue.list.col.reporter')"
+          width="110"
+          show-overflow-tooltip
+        />
+        <el-table-column
+          v-else-if="col.key === 'assignee'"
+          prop="assigneeName"
+          :label="t('issue.list.col.assignee')"
+          width="110"
+          show-overflow-tooltip
+        />
+        <el-table-column
+          v-else-if="col.key === 'createdAt'"
+          :label="t('issue.list.col.createdAt')"
+          width="170"
+        >
+          <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+        </el-table-column>
+        <!-- 自定义列（来自 field_config，visibleInList=true 的非系统字段） -->
+        <el-table-column
+          v-else
+          :label="col.label"
+          min-width="120"
+          show-overflow-tooltip
+        >
+          <template #default="{ row }">{{ formatCustomValue(row, col) }}</template>
+        </el-table-column>
+      </template>
+
+      <!-- 操作列（固定右侧，不受列配置影响） -->
       <el-table-column :label="t('issue.list.col.actions')" width="220" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" size="small" @click="emit('view', row)">{{
@@ -340,6 +413,11 @@ import { listProjectOptions } from '@/api/project'
 import { downloadBlob } from '@/utils/exportUtil'
 import { useUserStore } from '@/store/user'
 import { useAppStore } from '@/store/app'
+import { useFieldSchemaStore } from '@/store/fieldSchema'
+import {
+  useColumnPreferences,
+  BUILTIN_COLUMN_DEFS
+} from '@/composables/useColumnPreferences'
 import IfTag from '@/components/base/IfTag.vue'
 import IfButton from '@/components/base/IfButton.vue'
 import IfLoading from '@/components/base/IfLoading.vue'
@@ -396,6 +474,83 @@ const filters = reactive({
 const timeRange = ref([])
 const tagOptions = ref([])
 const projectOptions = ref([])
+
+// ============================ 列配置（Phase9 动态字段）============================
+
+/** 字段渲染契约 store（缓存 /field-configs/schema，供表单与列表共享） */
+const fieldSchemaStore = useFieldSchemaStore()
+/** 列偏好（单例 composable，与 UserIssueList / ColumnConfigDrawer 共享） */
+const columnPrefs = useColumnPreferences()
+
+/**
+ * 自定义列定义：从 field_config schema 中提取 visibleInList=true 的非系统字段。
+ * 降级策略：schema 未加载 / 接口不可用时返回空数组，仅展示内置列。
+ */
+const customColumnDefs = computed(() => {
+  const fields = fieldSchemaStore.customFields
+  if (!fields || fields.length === 0) return []
+  return fields
+    .filter((f) => f.visibleInList === true && f.enabled !== false)
+    .map((f) => ({
+      key: `cf_${f.code}`,
+      label: f.name || f.code,
+      isCustom: true,
+      fieldCode: f.code,
+      fieldType: f.type
+    }))
+})
+
+/** 全部可用列（内置 + 自定义），用于排序与渲染 */
+const allColumnDefs = computed(() => [...BUILTIN_COLUMN_DEFS, ...customColumnDefs.value])
+
+/**
+ * 实际渲染的列：按偏好排序 + 过滤可见列。
+ * 偏好为空时全部可见、按默认顺序（内置列在前、自定义列在后）。
+ */
+const displayColumns = computed(() => {
+  const all = allColumnDefs.value
+  const allKeys = all.map((c) => c.key)
+  const orderedKeys = columnPrefs.getOrderedKeys(allKeys)
+
+  return orderedKeys
+    .map((key) => all.find((c) => c.key === key))
+    .filter((col) => col && columnPrefs.isColumnVisible(col.key))
+})
+
+/**
+ * 格式化自定义列的单元格值。
+ * 降级策略：优先取 row.customFields[code]，回退 row[code]（兼容后端可能扁平化返回）。
+ *
+ * @param {object} row 列表行数据
+ * @param {object} col 列定义（含 fieldCode / fieldType）
+ * @returns {string}
+ */
+function formatCustomValue(row, col) {
+  if (!row || !col || !col.fieldCode) return '-'
+  const raw = row.customFields
+    ? row.customFields[col.fieldCode]
+    : row[col.fieldCode]
+  if (raw === null || raw === undefined || raw === '') return '-'
+  if (col.fieldType === 'DATE') {
+    return formatDate(raw, 'YYYY-MM-DD')
+  }
+  if (col.fieldType === 'DATETIME') {
+    return formatDate(raw, 'YYYY-MM-DD HH:mm')
+  }
+  if (col.fieldType === 'NUMBER') {
+    return String(raw)
+  }
+  if (typeof raw === 'boolean') {
+    return raw ? t('common.status.enabled') : t('common.status.disabled')
+  }
+  if (Array.isArray(raw)) {
+    return raw.join(', ')
+  }
+  if (typeof raw === 'object') {
+    return JSON.stringify(raw)
+  }
+  return String(raw)
+}
 
 const currentUserId = computed(() => userStore.userInfo && userStore.userInfo.id)
 
@@ -594,6 +749,8 @@ watch(
 
 onMounted(async () => {
   // 类型 / 来源下拉由 useDictCodeOptions 在 setup 阶段自行触发字典分片加载，此处无需再拉
+  // 列配置：加载字段渲染契约（含自定义字段定义），失败时降级为仅内置列
+  fieldSchemaStore.loadSchema().catch(() => {})
   try {
     const tags = await listTags()
     tagOptions.value = (tags || []).map((tg) => ({ label: tg.name, value: tg.name }))
@@ -609,7 +766,7 @@ onMounted(async () => {
   fetchData()
 })
 
-defineExpose({ fetchData })
+defineExpose({ fetchData, allColumnDefs })
 </script>
 
 <style scoped>

@@ -177,7 +177,8 @@ export default {
     viewDetail: 'View Detail',
     flow: 'Transition',
     exportExcel: 'Export Excel',
-    remark: 'Add Remark'
+    remark: 'Add Remark',
+    columnConfig: 'Columns'
   },
   attachment: {
     preview: 'Preview',
@@ -215,5 +216,15 @@ export default {
     remarkRequiredPh: 'Enter the reason (required)',
     remarkWarn: 'Please enter the reason',
     success: 'Operation succeeded'
+  },
+  columnConfig: {
+    title: 'Column Settings',
+    subtitle: 'Check columns to display, drag to reorder',
+    builtin: 'Built-in Columns',
+    custom: 'Custom Columns',
+    reset: 'Restore Defaults',
+    dragTip: 'Drag column items to reorder',
+    noCustomFields: 'No custom fields available',
+    applySuccess: 'Column settings updated'
   }
 }

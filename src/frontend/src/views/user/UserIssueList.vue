@@ -3,6 +3,10 @@
     <!-- 页头：标题 + 说明 + 提交入口（Phase9 T11） -->
     <IfPageHeader :title="t('issue.list.myTitle')" :subtitle="t('issue.list.subtitle')">
       <template #actions>
+        <!-- 列配置按钮：打开列配置抽屉，勾选 / 排序问题列表的显示列 -->
+        <IfButton :icon="Setting" @click="columnConfigVisible = true">
+          {{ t('issue.action.columnConfig') }}
+        </IfButton>
         <!-- Phase6：提交入口收敛为本页抽屉（原 /user/submit-issue 已 redirect） -->
         <IfButton type="primary" :icon="Plus" @click="openCreate">
           {{ t('issue.action.submitNew') }}
@@ -60,23 +64,38 @@
         @submit="onEditSubmit"
       />
     </FormDrawer>
+
+    <!-- 列配置抽屉：勾选 / 排序问题列表的显示列，偏好持久化到 localStorage -->
+    <ColumnConfigDrawer
+      v-model="columnConfigVisible"
+      :columns="allColumns"
+      :visible-keys="visibleKeys"
+      :order-keys="orderKeys"
+      @apply="onColumnConfigApply"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Setting } from '@element-plus/icons-vue'
 import IssueTable from '@/components/IssueTable.vue'
 import IssueDetailDrawer from '@/components/IssueDetailDrawer.vue'
 import IssueForm from '@/components/IssueForm.vue'
 import FormDrawer from '@/components/FormDrawer.vue'
+import ColumnConfigDrawer from '@/components/ColumnConfigDrawer.vue'
 import IfPageHeader from '@/components/base/IfPageHeader.vue'
 import IfCard from '@/components/base/IfCard.vue'
 import IfButton from '@/components/base/IfButton.vue'
 import { useAppStore } from '@/store/app'
+import { useFieldSchemaStore } from '@/store/fieldSchema'
+import {
+  useColumnPreferences,
+  BUILTIN_COLUMN_DEFS
+} from '@/composables/useColumnPreferences'
 import { createIssue, updateIssue } from '@/api/issue'
 
 const { t } = useI18n()
@@ -97,6 +116,46 @@ const editRow = ref(null)
 const editFormRef = ref(null)
 
 const flowConfig = ref({ rejectEnabled: true, reopenEnabled: true })
+
+// ============================ 列配置 ============================
+
+/** 字段渲染契约 store（与 IssueTable 共享缓存） */
+const fieldSchemaStore = useFieldSchemaStore()
+/** 列偏好（单例 composable，与 IssueTable 共享响应式状态） */
+const { visibleKeys, orderKeys, apply: applyColumnPrefs } = useColumnPreferences()
+
+/** 列配置抽屉显隐 */
+const columnConfigVisible = ref(false)
+
+/**
+ * 全部可用列（内置 + 自定义），供 ColumnConfigDrawer 展示。
+ * 内置列 label 走 i18n；自定义列从 field_config schema 动态获取。
+ * schema 未加载时仅返回内置列（降级）。
+ */
+const allColumns = computed(() => {
+  const builtin = BUILTIN_COLUMN_DEFS.map((c) => ({
+    key: c.key,
+    label: t(c.labelKey),
+    isCustom: false
+  }))
+  const customFields = fieldSchemaStore.customFields || []
+  const custom = customFields
+    .filter((f) => f.visibleInList === true && f.enabled !== false)
+    .map((f) => ({
+      key: `cf_${f.code}`,
+      label: f.name || f.code,
+      isCustom: true
+    }))
+  return [...builtin, ...custom]
+})
+
+/**
+ * 列配置抽屉保存回调：应用新偏好到 composable（自动持久化 + 联动 IssueTable）。
+ * @param {{ visibleKeys: string[], orderKeys: string[] }} payload
+ */
+function onColumnConfigApply(payload) {
+  applyColumnPrefs(payload.visibleKeys, payload.orderKeys)
+}
 
 // BUG-02：工作台卡片点击跳转携带 status 查询参数，此处读 route.query.status 沉淀为筛选条件，
 // 下传给 IssueTable 的 filters prop。useStatusOptions() 的 value 为数字（STATUS_CODES = [0..4]），
@@ -176,7 +235,9 @@ async function onEditSubmit({ data }) {
 
 // Phase9 T11：工作台「快捷入口 - 提交问题」跳转本页时带 ?create=1，自动打开新建抽屉。
 // 仅在挂载时读取一次，不影响既有 status 筛选链路。
+// 同时加载字段渲染契约（供列配置抽屉获取自定义列），失败时降级为仅内置列。
 onMounted(() => {
+  fieldSchemaStore.loadSchema().catch(() => {})
   if (route.query.create != null && String(route.query.create) !== '0') {
     openCreate()
   }

@@ -68,3 +68,4 @@ docs/*.tmp.md
 nul
 .cache-shots/
 tmp_src.tar.gz
+tmp_deploy.tar.gz

@@ -22,9 +22,10 @@
 #   【2026-08-01 已修复】当时有 7 个 SQL 未声明 `SET NAMES utf8mb4`：
 #     schema.sql / data.sql / migrate-add-updated-at.sql /
 #     phase8_wave1 / wave2 / wave3 / wave4
-#   现已逐个补齐，仓库 18 个 SQL 全部覆盖（详见 CHANGELOG 2026-08-01；
+#   现已逐个补齐，仓库 19 个 SQL 全部覆盖（详见 CHANGELOG 2026-08-01；
 #   2026-08-01 新增 Phase9 的 V20260806_dynamic_field.sql，已含 SET NAMES utf8mb4；
-#   2026-08-06 新增补丁 V20260806b_fieldconfig_permission.sql，已含 SET NAMES utf8mb4）。
+#   2026-08-06 新增补丁 V20260806b_fieldconfig_permission.sql，已含 SET NAMES utf8mb4；
+#   2026-08-06 新增补丁 V20260806c_fieldconfig_grant_developer.sql，已含 SET NAMES utf8mb4）。
 #
 #   即便如此，本脚本**仍然保留**对每次 mysql 调用强制
 #   --default-character-set=utf8mb4 —— 作为客户端层的第二道防线，
@@ -64,6 +65,8 @@ FILES=(
                                                 #        漏了 permission 注册，导致前端按 hasPerm('field:config:list')
                                                 #        过滤后「字段配置」菜单不可见（2026-08-24 线上缺陷）。
                                                 #        依赖序而非字母序：b 后缀是补丁标记，不可提前。
+  "V20260806c_fieldconfig_grant_developer.sql"  # Phase9 补丁2：给 DEVELOPER(role_id=2) 授权 field:config:list（只读）。
+                                                #        须在 b 补丁之后 —— 依赖 permission 表已注册 field:config:list 码。
 )
 
 echo "==================================================================" | tee "$LOG"

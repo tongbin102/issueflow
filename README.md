@@ -432,6 +432,30 @@ MYSQL_ROOT_PASS='xxx' REBUILD=1 bash restore-run-order.sh  # 先 DROP/CREATE iss
   即**生产不再自动加载** `schema.sql` / `data.sql`。全新空库部署必须手工导入，
   详见 [3.4.2 部署前置](#-342-部署前置生产-sql-初始化与日志行为变更m2--m3)。开发档仍为 `always`，本地不受影响。
 
+#### 4.11.5 ⚠️ 权限数据变更后必须刷新 Redis 缓存
+
+> **源于 2026-08-02 真实故障**：Phase9 仅向 `menu` 表插入「字段配置」记录（permission=`field:config:list`），
+> 却漏在 `permission` 表注册该码、也未给 ADMIN 授权；补齐 SQL 后，**前端侧边栏仍不显示入口**——
+> 根因是 `PermissionService` 把角色权限集缓存在 `perm:role:{roleId}`，**直接写库不会让缓存自动失效**。
+
+凡是**直接改 `permission` / `role_permission` 表**（手动 INSERT 权限码、给角色授权、回收权限）后，
+**必须**调用后端刷新接口使缓存失效，否则菜单渲染与接口鉴权仍按旧权限集运行：
+
+```bash
+curl -X POST 'http://10.55.3.23:18082/api/roles/permissions/refresh' \
+  -H 'Authorization: Bearer <ADMIN_TOKEN>'
+```
+
+- 接口前缀以 `RolePermissionController` 实际 `@RequestMapping` 为准（本例为 `/api/roles/permissions/refresh`）；
+  生产容器经 `docker-compose` 映射为宿主机 `18082` 端口。
+- **前端侧**：`SideMenu.vue` 按 `hasPerm(permission)` 过滤菜单，**admin 不短路放行**；
+  只要权限集缺码，菜单即被隐藏。刷新缓存后，**前端必须硬刷新 / 重新登录**才能拉到新 `menus/sidebar`。
+- **校验是否生效**：
+  - `GET /api/roles/{roleId}/permissions` 应返回新增的权限码；
+  - `GET /api/menus/sidebar?type=2` 响应体应包含对应菜单节点（如 `field-configs`）。
+- 与之配套：变更类 SQL（含权限 / 菜单）务必登记进 `scripts/restore-run-order.sh` 与本节顺序表（4.11.3），
+  避免灾难恢复时漏灌导致权限「幽灵缺失」。
+
 ---
 
 ### 4.12 前台设计令牌与组件库（任务 #116 前台改版）

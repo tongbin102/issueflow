@@ -11,6 +11,7 @@ import com.issueflow.mapper.RefSourceRegistryMapper;
 import com.issueflow.util.SqlIdentifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -80,18 +81,70 @@ public class RefSourceService {
         String table = SqlIdentifier.check(reg.getTableName());
         String label = SqlIdentifier.check(reg.getLabelField());
         String value = SqlIdentifier.check(reg.getValueField());
-        String order = SqlIdentifier.checkOrDefault(reg.getOrderField(), value);
+        String order = resolveOrderField(reg, value);
         String filter = reg.getFilterField() == null ? null : SqlIdentifier.check(reg.getFilterField());
         String parent = reg.getParentField() == null ? null : SqlIdentifier.check(reg.getParentField());
 
         // ② 标识符用 ${} 拼接（已双校验），值一律 #{} 预编译
-        List<Map<String, Object>> rows = registryMapper.selectOptions(
-                table, label, value, order, filter, parent, parentValue, keyword);
+        List<Map<String, Object>> rows = selectOptionsWithOrderFallback(
+                reg.getCode(), table, label, value, order, filter, parent, parentValue, keyword);
 
         if (RefQueryType.TREE.equals(RefQueryType.fromCode(reg.getQueryType()))) {
             return buildTree(rows);
         }
         return toFlat(rows);
+    }
+
+    /**
+     * 解析排序列：为空 / 全空白时回退 {@code valueField}，绝不把空串拼进 {@code ORDER BY}。
+     * <p>配置误录入常见两侧空白（如 {@code " sort "}），先 trim 再过正则，避免误判为非法标识符。</p>
+     *
+     * @param reg        引用源注册行
+     * @param valueField 已校验的取值列（兜底排序列）
+     * @return 已校验的排序列标识符
+     */
+    private String resolveOrderField(RefSourceRegistry reg, String valueField) {
+        String raw = reg.getOrderField();
+        String trimmed = raw == null ? "" : raw.trim();
+        if (trimmed.isEmpty()) {
+            return SqlIdentifier.check(valueField);
+        }
+        return SqlIdentifier.check(trimmed);
+    }
+
+    /**
+     * 执行候选项查询；当 {@code order_field} 配置了目标表并不存在的列时，
+     * MySQL 抛 {@code Unknown column 'xxx' in 'order clause'}，MyBatis 转成
+     * {@link BadSqlGrammarException}。此时<b>降级为按 {@code valueField} 排序重试一次</b>，
+     * 并记 error 日志暴露配置问题——避免一行脏配置把整个「新建问题」表单打成 500
+     * （2026-08-06 线上缺陷：PROJECT 的 order_field 被种子写成了 project 表没有的 sort）。
+     *
+     * @param code        引用源编码（仅用于日志定位）
+     * @param table       已校验的表名
+     * @param label       已校验的展示列
+     * @param value       已校验的取值列
+     * @param order       已校验的排序列
+     * @param filter      已校验的过滤列，可空
+     * @param parent      已校验的树父列，可空
+     * @param parentValue 依赖源当前值，可空
+     * @param keyword     模糊搜索关键词，可空
+     * @return 扁平结果行
+     */
+    private List<Map<String, Object>> selectOptionsWithOrderFallback(String code, String table, String label,
+                                                                     String value, String order, String filter,
+                                                                     String parent, String parentValue,
+                                                                     String keyword) {
+        try {
+            return registryMapper.selectOptions(table, label, value, order, filter, parent, parentValue, keyword);
+        } catch (BadSqlGrammarException ex) {
+            if (Objects.equals(order, value)) {
+                // 已经是兜底列仍失败，说明是表名/展示列等其他配置错误，交由全局异常处理
+                throw ex;
+            }
+            log.error("引用源 [{}] 的 order_field=[{}] 在表 [{}] 中不可用，已降级按 [{}] 排序；请订正 ref_source_registry 配置",
+                    code, order, table, value, ex);
+            return registryMapper.selectOptions(table, label, value, value, filter, parent, parentValue, keyword);
+        }
     }
 
     private List<RefOptionVO> toFlat(List<Map<String, Object>> rows) {

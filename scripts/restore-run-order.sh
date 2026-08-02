@@ -25,7 +25,8 @@
 #   现已逐个补齐，仓库 19 个 SQL 全部覆盖（详见 CHANGELOG 2026-08-01；
 #   2026-08-01 新增 Phase9 的 V20260806_dynamic_field.sql，已含 SET NAMES utf8mb4；
 #   2026-08-06 新增补丁 V20260806b_fieldconfig_permission.sql，已含 SET NAMES utf8mb4；
-#   2026-08-06 新增补丁 V20260806c_fieldconfig_grant_developer.sql，已含 SET NAMES utf8mb4）。
+#   2026-08-06 新增补丁 V20260806c_fieldconfig_grant_developer.sql，已含 SET NAMES utf8mb4；
+#   2026-08-06 新增补丁 V20260806d_fix_project_ref_order.sql，已含 SET NAMES utf8mb4）。
 #
 #   即便如此，本脚本**仍然保留**对每次 mysql 调用强制
 #   --default-character-set=utf8mb4 —— 作为客户端层的第二道防线，
@@ -67,6 +68,12 @@ FILES=(
                                                 #        依赖序而非字母序：b 后缀是补丁标记，不可提前。
   "V20260806c_fieldconfig_grant_developer.sql"  # Phase9 补丁2：给 DEVELOPER(role_id=2) 授权 field:config:list（只读）。
                                                 #        须在 b 补丁之后 —— 依赖 permission 表已注册 field:config:list 码。
+  "V20260806d_fix_project_ref_order.sql"        # Phase9 补丁3：订正 ref_source_registry 中 PROJECT 的 order_field。
+                                                #        dynamic_field 种子写成了 project 表并不存在的 sort 列，
+                                                #        导致 GET /api/field-configs/ref-options?refSource=PROJECT 报
+                                                #        Unknown column 'sort' in 'order clause'（500），
+                                                #        前台「提交新问题」表单直接打不开（2026-08-06 线上缺陷）。
+                                                #        依赖 #17 已建 ref_source_registry 并灌入 PROJECT 种子。
 )
 
 echo "==================================================================" | tee "$LOG"

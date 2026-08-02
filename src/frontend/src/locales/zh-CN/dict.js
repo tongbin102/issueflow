@@ -30,6 +30,10 @@ export default {
     sort: '排序',
     status: '状态'
   },
+  tab: {
+    basic: '基本信息',
+    config: '描述与配置'
+  },
   drawer: {
     createType: '新增类型',
     editType: '编辑类型',

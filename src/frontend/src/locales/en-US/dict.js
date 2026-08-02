@@ -29,6 +29,10 @@ export default {
     sort: 'Sort',
     status: 'Status'
   },
+  tab: {
+    basic: 'Basic Info',
+    config: 'Description & Settings'
+  },
   drawer: {
     createType: 'New Type',
     editType: 'Edit Type',

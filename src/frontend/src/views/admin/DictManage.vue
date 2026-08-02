@@ -209,43 +209,49 @@
         label-width="96px"
         class="dict-drawer-form"
       >
-        <el-form-item :label="t('dict.form.typeName')" prop="name">
-          <el-input
-            v-model="typeForm.name"
-            :placeholder="t('dict.placeholder.typeName')"
-            maxlength="50"
-            show-word-limit
-          />
-        </el-form-item>
-        <el-form-item :label="t('dict.form.typeCode')" prop="code">
-          <el-input
-            v-model="typeForm.code"
-            :placeholder="t('dict.placeholder.typeCode')"
-            maxlength="50"
-            :disabled="!!typeEditing"
-          />
-          <div v-if="typeEditing" class="form-tip">{{ t('dict.tip.codeReadonly') }}</div>
-        </el-form-item>
-        <el-form-item :label="t('dict.form.description')" prop="description">
-          <el-input
-            v-model="typeForm.description"
-            type="textarea"
-            :rows="3"
-            :placeholder="t('dict.placeholder.description')"
-            maxlength="200"
-            show-word-limit
-          />
-        </el-form-item>
-        <el-form-item :label="t('dict.form.sort')" prop="sort">
-          <el-input-number v-model="typeForm.sort" :min="0" :max="9999" />
-        </el-form-item>
-        <el-form-item :label="t('dict.form.status')" prop="enabled">
-          <el-switch
-            v-model="typeForm.enabled"
-            :active-text="t('common.status.enabled')"
-            :inactive-text="t('common.status.disabled')"
-          />
-        </el-form-item>
+        <el-tabs v-model="typeActiveTab" class="dict-drawer-tabs">
+          <el-tab-pane :label="t('dict.tab.basic')" name="basic">
+            <el-form-item :label="t('dict.form.typeName')" prop="name">
+              <el-input
+                v-model="typeForm.name"
+                :placeholder="t('dict.placeholder.typeName')"
+                maxlength="50"
+                show-word-limit
+              />
+            </el-form-item>
+            <el-form-item :label="t('dict.form.typeCode')" prop="code">
+              <el-input
+                v-model="typeForm.code"
+                :placeholder="t('dict.placeholder.typeCode')"
+                maxlength="50"
+                :disabled="!!typeEditing"
+              />
+              <div v-if="typeEditing" class="form-tip">{{ t('dict.tip.codeReadonly') }}</div>
+            </el-form-item>
+          </el-tab-pane>
+          <el-tab-pane :label="t('dict.tab.config')" name="config">
+            <el-form-item :label="t('dict.form.description')" prop="description">
+              <el-input
+                v-model="typeForm.description"
+                type="textarea"
+                :rows="3"
+                :placeholder="t('dict.placeholder.description')"
+                maxlength="200"
+                show-word-limit
+              />
+            </el-form-item>
+            <el-form-item :label="t('dict.form.sort')" prop="sort">
+              <el-input-number v-model="typeForm.sort" :min="0" :max="9999" />
+            </el-form-item>
+            <el-form-item :label="t('dict.form.status')" prop="enabled">
+              <el-switch
+                v-model="typeForm.enabled"
+                :active-text="t('common.status.enabled')"
+                :inactive-text="t('common.status.disabled')"
+              />
+            </el-form-item>
+          </el-tab-pane>
+        </el-tabs>
       </el-form>
     </FormDrawer>
 
@@ -274,45 +280,51 @@
         label-width="96px"
         class="dict-drawer-form"
       >
-        <!-- 「所属类型」已上移至抽屉头部 subtitle + 徽标，此处不再重复占位 -->
-        <el-form-item :label="t('dict.form.itemName')" prop="name">
-          <el-input
-            v-model="itemForm.name"
-            :placeholder="t('dict.placeholder.itemName')"
-            maxlength="50"
-            show-word-limit
-          />
-        </el-form-item>
-        <el-form-item :label="t('dict.form.itemCode')" prop="code">
-          <!-- 预设项 code 只读（后端亦静默忽略入参 code） -->
-          <el-input
-            v-model="itemForm.code"
-            :placeholder="t('dict.placeholder.itemCode')"
-            maxlength="50"
-            :disabled="isSystemItemEditing"
-          />
-          <div v-if="isSystemItemEditing" class="form-tip">{{ t('dict.tip.codeReadonly') }}</div>
-        </el-form-item>
-        <el-form-item :label="t('dict.form.description')" prop="description">
-          <el-input
-            v-model="itemForm.description"
-            type="textarea"
-            :rows="3"
-            :placeholder="t('dict.placeholder.description')"
-            maxlength="200"
-            show-word-limit
-          />
-        </el-form-item>
-        <el-form-item :label="t('dict.form.sort')" prop="sort">
-          <el-input-number v-model="itemForm.sort" :min="0" :max="9999" />
-        </el-form-item>
-        <el-form-item :label="t('dict.form.status')" prop="enabled">
-          <el-switch
-            v-model="itemForm.enabled"
-            :active-text="t('common.status.enabled')"
-            :inactive-text="t('common.status.disabled')"
-          />
-        </el-form-item>
+        <el-tabs v-model="itemActiveTab" class="dict-drawer-tabs">
+          <el-tab-pane :label="t('dict.tab.basic')" name="basic">
+            <!-- 「所属类型」已上移至抽屉头部 subtitle + 徽标，此处不再重复占位 -->
+            <el-form-item :label="t('dict.form.itemName')" prop="name">
+              <el-input
+                v-model="itemForm.name"
+                :placeholder="t('dict.placeholder.itemName')"
+                maxlength="50"
+                show-word-limit
+              />
+            </el-form-item>
+            <el-form-item :label="t('dict.form.itemCode')" prop="code">
+              <!-- 预设项 code 只读（后端亦静默忽略入参 code） -->
+              <el-input
+                v-model="itemForm.code"
+                :placeholder="t('dict.placeholder.itemCode')"
+                maxlength="50"
+                :disabled="isSystemItemEditing"
+              />
+              <div v-if="isSystemItemEditing" class="form-tip">{{ t('dict.tip.codeReadonly') }}</div>
+            </el-form-item>
+          </el-tab-pane>
+          <el-tab-pane :label="t('dict.tab.config')" name="config">
+            <el-form-item :label="t('dict.form.description')" prop="description">
+              <el-input
+                v-model="itemForm.description"
+                type="textarea"
+                :rows="3"
+                :placeholder="t('dict.placeholder.description')"
+                maxlength="200"
+                show-word-limit
+              />
+            </el-form-item>
+            <el-form-item :label="t('dict.form.sort')" prop="sort">
+              <el-input-number v-model="itemForm.sort" :min="0" :max="9999" />
+            </el-form-item>
+            <el-form-item :label="t('dict.form.status')" prop="enabled">
+              <el-switch
+                v-model="itemForm.enabled"
+                :active-text="t('common.status.enabled')"
+                :inactive-text="t('common.status.disabled')"
+              />
+            </el-form-item>
+          </el-tab-pane>
+        </el-tabs>
       </el-form>
     </FormDrawer>
   </div>
@@ -378,6 +390,7 @@ const canCreateItem = computed(() => !!activeType.value && !activeType.value.mir
 const typeDrawerVisible = ref(false)
 const typeSaving = ref(false)
 const typeFormRef = ref(null)
+const typeActiveTab = ref('basic')
 const typeEditing = ref(null)
 const typeForm = reactive({ name: '', code: '', description: '', sort: 0, enabled: true })
 
@@ -449,13 +462,21 @@ function openTypeEdit(row) {
 function resetTypeForm() {
   typeEditing.value = null
   Object.assign(typeForm, { name: '', code: '', description: '', sort: 0, enabled: true })
+  typeActiveTab.value = 'basic'
   if (typeFormRef.value) typeFormRef.value.clearValidate()
 }
 
 function onSaveType() {
   if (!typeFormRef.value) return
-  typeFormRef.value.validate(async (valid) => {
-    if (!valid) return
+  typeFormRef.value.validate(async (valid, invalidFields) => {
+    if (!valid) {
+      // 切到第一个出错字段所在的 Tab（必填项 name/code 在「基本信息」，其余在「描述与配置」）
+      if (invalidFields && invalidFields.length > 0) {
+        const errField = invalidFields[0].field
+        typeActiveTab.value = ['name', 'code'].includes(errField) ? 'basic' : 'config'
+      }
+      return
+    }
     typeSaving.value = true
     const editing = typeEditing.value
     try {
@@ -513,6 +534,7 @@ const itemKeyword = ref('')
 const itemDrawerVisible = ref(false)
 const itemSaving = ref(false)
 const itemFormRef = ref(null)
+const itemActiveTab = ref('basic')
 const itemEditing = ref(null)
 const itemForm = reactive({ name: '', code: '', description: '', sort: 0, enabled: true })
 
@@ -574,13 +596,21 @@ function openItemEdit(row) {
 function resetItemForm() {
   itemEditing.value = null
   Object.assign(itemForm, { name: '', code: '', description: '', sort: 0, enabled: true })
+  itemActiveTab.value = 'basic'
   if (itemFormRef.value) itemFormRef.value.clearValidate()
 }
 
 function onSaveItem() {
   if (!itemFormRef.value) return
-  itemFormRef.value.validate(async (valid) => {
-    if (!valid) return
+  itemFormRef.value.validate(async (valid, invalidFields) => {
+    if (!valid) {
+      // 切到第一个出错字段所在的 Tab（必填项 name/code 在「基本信息」，其余在「描述与配置」）
+      if (invalidFields && invalidFields.length > 0) {
+        const errField = invalidFields[0].field
+        itemActiveTab.value = ['name', 'code'].includes(errField) ? 'basic' : 'config'
+      }
+      return
+    }
     if (!activeType.value) return
     itemSaving.value = true
     try {
@@ -806,6 +836,20 @@ fetchTypes()
 /* 数字/开关类控件在 560px 宽度下保持左对齐紧凑排布 */
 .dict-drawer-form :deep(.el-input-number) {
   width: 160px;
+}
+
+/* ---- 抽屉内 Tab：紧凑、无多余边框，与抽屉 body 融为一体 ---- */
+.dict-drawer-tabs :deep(.el-tabs__header) {
+  margin-bottom: var(--if-space-md);
+}
+
+.dict-drawer-tabs :deep(.el-tabs__nav-wrap::after) {
+  /* 保留 Element Plus 默认底线即可，不额外加粗 */
+}
+
+/* Tab 内容区不加额外 padding（抽屉 body 已有 24px） */
+.dict-drawer-tabs :deep(.el-tab-pane) {
+  padding: 0;
 }
 
 @media (max-width: 768px) {

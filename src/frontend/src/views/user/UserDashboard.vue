@@ -271,7 +271,15 @@ async function load() {
     total.value = Object.values(map).reduce((a, b) => a + b, 0)
     trend.value = (data && (data.trendByDay || data.trend)) || []
   } catch (e) {
-    ElMessage.error(t('dashboard.admin.loadFailed'))
+    const code = e && e.code
+    // 401/403 由 request.js 统一跳转登录页 / 403 页，这里不再重复提示
+    // 注：catch 内 return 仍会执行下方 finally，loading 态不会泄漏
+    if (code === 401 || code === 403) return
+    console.error('[UserDashboard] load failed:', e)
+    // request.js 已就网络错误/业务错误弹过消息（shown=true）时不再重复弹，
+    // 避免部署后后端未就绪时出现两条红色提示
+    if (e && e.shown) return
+    ElMessage.error((e && e.message) || t('dashboard.admin.loadFailed'))
   } finally {
     loading.value = false
   }

@@ -66,43 +66,12 @@
       </el-form>
     </FormDrawer>
 
-    <!-- 分配权限（R3 统一抽屉） -->
-    <FormDrawer
+    <!-- 分配权限（独立组件：前后台分栏 + 权限树 + 已选复核 + 变更确认） -->
+    <AssignPermissionDialog
       v-model="permDialogVisible"
-      :title="t('role.action.assignPerm')"
-      size="lg"
-      :loading="permSaving"
-      @confirm="onSavePerm"
-    >
-      <div v-loading="permLoading" class="perm-dialog">
-        <el-alert
-          v-if="currentRole && currentRole.builtin"
-          type="warning"
-          :closable="false"
-          :title="t('role.msg.builtinTip')"
-          style="margin-bottom: 12px"
-        />
-        <el-input
-          v-model="permKeyword"
-          :placeholder="t('role.placeholder.searchPerm')"
-          clearable
-          style="margin-bottom: 12px"
-        />
-        <el-scrollbar height="360px">
-          <el-checkbox-group v-model="checkedPerms">
-            <div v-for="group in groupedPermissions" :key="group.module" class="perm-group">
-              <div class="perm-group__title">{{ group.moduleLabel }}</div>
-              <el-checkbox
-                v-for="p in group.items"
-                :key="p.id"
-                :value="p.code"
-                class="perm-checkbox"
-              >{{ p.name }} <span class="perm-code">{{ p.code }}</span></el-checkbox>
-            </div>
-          </el-checkbox-group>
-        </el-scrollbar>
-      </div>
-    </FormDrawer>
+      :role="currentRole"
+      @saved="fetchRoles"
+    />
   </div>
 </template>
 
@@ -116,14 +85,13 @@ import {
   createRole,
   updateRole,
   deleteRole,
-  getRolePermissions,
-  assignRolePermissions,
   refreshPermissions
 } from '@/api/role'
 import { listPermissions } from '@/api/permission'
 import FormDrawer from '@/components/FormDrawer.vue'
+import AssignPermissionDialog from '@/components/AssignPermissionDialog.vue'
 
-const { t, te } = useI18n()
+const { t } = useI18n()
 
 const loading = ref(false)
 const roles = ref([])
@@ -139,42 +107,11 @@ const rules = computed(() => ({
   name: [{ required: true, message: t('role.msg.nameRequired'), trigger: 'blur' }]
 }))
 
+/** 分配权限抽屉：显隐 + 当前角色，其余状态全部由 AssignPermissionDialog 内部自治 */
 const permDialogVisible = ref(false)
-const permLoading = ref(false)
-const permSaving = ref(false)
 const currentRole = ref(null)
+/** 权限目录（预热缓存，供页面其他统计使用；抽屉内部会自行拉取最新目录） */
 const allPermissions = ref([])
-const checkedPerms = ref([])
-const permKeyword = ref('')
-
-/** 权限模块名 → 文案：优先取 role.permModule.{module} key，缺失时回退模块名 */
-function moduleLabel(module) {
-  const key = `role.permModule.${module}`
-  return te(key) ? t(key) : module
-}
-
-// 按模块分组并支持关键字过滤
-const groupedPermissions = computed(() => {
-  const kw = (permKeyword.value || '').trim().toLowerCase()
-  const map = new Map()
-  ;(allPermissions.value || []).forEach((p) => {
-    if (
-      kw &&
-      !(p.name || '').toLowerCase().includes(kw) &&
-      !(p.code || '').toLowerCase().includes(kw)
-    ) {
-      return
-    }
-    const key = p.module || 'other'
-    if (!map.has(key)) map.set(key, [])
-    map.get(key).push(p)
-  })
-  return Array.from(map.entries()).map(([module, items]) => ({
-    module,
-    moduleLabel: moduleLabel(module),
-    items
-  }))
-})
 
 async function fetchRoles() {
   loading.value = true
@@ -266,39 +203,10 @@ function onDrawerClosed() {
   formRef.value && formRef.value.clearValidate()
 }
 
-// ===== 权限分配 =====
+// ===== 权限分配：仅负责「选中角色 + 打开抽屉」，加载/保存由子组件自治 =====
 function openPerm(row) {
   currentRole.value = row
   permDialogVisible.value = true
-  // 抽屉无 open 事件，打开时主动加载该角色已有权限
-  onPermDialogOpen()
-}
-
-async function onPermDialogOpen() {
-  if (!currentRole.value) return
-  permLoading.value = true
-  permKeyword.value = ''
-  try {
-    checkedPerms.value = (await getRolePermissions(currentRole.value.id)) || []
-  } catch (e) {
-    checkedPerms.value = []
-  } finally {
-    permLoading.value = false
-  }
-}
-
-async function onSavePerm() {
-  if (!currentRole.value) return
-  permSaving.value = true
-  try {
-    await assignRolePermissions(currentRole.value.id, checkedPerms.value)
-    ElMessage.success(t('role.msg.permSaved'))
-    permDialogVisible.value = false
-    fetchRoles()
-  } catch (e) {
-  } finally {
-    permSaving.value = false
-  }
 }
 
 onMounted(() => {
@@ -316,20 +224,5 @@ onMounted(() => {
 .head-actions {
   display: flex;
   gap: 8px;
-}
-.perm-group {
-  margin-bottom: 12px;
-}
-.perm-group__title {
-  font-weight: 600;
-  margin-bottom: 6px;
-  color: var(--el-text-color-primary);
-}
-.perm-checkbox {
-  margin-right: 16px;
-}
-.perm-code {
-  color: var(--el-text-color-placeholder);
-  font-size: 12px;
 }
 </style>

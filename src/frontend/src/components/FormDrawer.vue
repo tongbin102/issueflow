@@ -8,6 +8,7 @@
     append-to-body
     :size="drawerSize"
     :close-on-click-modal="false"
+    :before-close="beforeClose || undefined"
     class="if-form-drawer"
     :class="{ 'is-fullscreen': isFullscreen }"
     @update:model-value="onVisibleChange"
@@ -58,11 +59,11 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   /** 标题，约定 {动作}{对象}，如「新增用户」「编辑组织」 */
   title: { type: String, default: '' },
-  /** 尺寸档位：sm=480 / md=620 / lg=800 */
+  /** 尺寸档位：sm=480 / md=620 / lg=800 / xl=min(1080px, 92vw) 双栏场景专用 */
   size: {
     type: String,
     default: 'md',
-    validator: (value) => ['sm', 'md', 'lg'].includes(value)
+    validator: (value) => ['sm', 'md', 'lg', 'xl'].includes(value)
   },
   /** 保存按钮 loading */
   loading: { type: Boolean, default: false },
@@ -71,7 +72,12 @@ const props = defineProps({
   /** 取消按钮文案（不传时走 i18n：common.action.cancel） */
   cancelText: { type: String, default: '' },
   /** Phase6：是否允许全屏切换（默认 false，不渲染图标按钮，存量调用零影响） */
-  fullscreenable: { type: Boolean, default: false }
+  fullscreenable: { type: Boolean, default: false },
+  /**
+   * 关闭前拦截钩子 `(done) => void`，用于「有未保存变更时二次确认」等场景。
+   * 仅作用于遮罩/ESC/右上角关闭；不传时行为与之前完全一致（存量调用零影响）。
+   */
+  beforeClose: { type: Function, default: null }
 })
 
 const emit = defineEmits(['update:modelValue', 'confirm', 'cancel', 'closed'])
@@ -79,7 +85,7 @@ const emit = defineEmits(['update:modelValue', 'confirm', 'cancel', 'closed'])
 const { t } = useI18n()
 const appStore = useAppStore()
 
-const SIZE_MAP = { sm: 480, md: 620, lg: 800 }
+const SIZE_MAP = { sm: 480, md: 620, lg: 800, xl: 'min(1080px, 92vw)' }
 
 /** 全屏态：仅 fullscreenable=true 时可进入；抽屉完全关闭后自动复位 */
 const isFullscreen = ref(false)
@@ -115,11 +121,12 @@ const drawerSize = computed(() => {
   if (props.fullscreenable && isFullscreen.value) {
     return '100%'
   }
-  const width = SIZE_MAP[props.size] || SIZE_MAP.md
   if (typeof window !== 'undefined' && window.innerWidth <= 768) {
     return '100%'
   }
-  return `${width}px`
+  const width = SIZE_MAP[props.size] || SIZE_MAP.md
+  // xl 档位直接返回 CSS 表达式（自适应窄屏），其余档位为像素数值
+  return typeof width === 'number' ? `${width}px` : width
 })
 
 function toggleFullscreen() {

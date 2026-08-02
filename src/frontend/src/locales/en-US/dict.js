@@ -31,7 +31,9 @@ export default {
   },
   tab: {
     basic: 'Basic Info',
-    config: 'Description & Settings'
+    desc: 'Description',
+    config: 'Settings',
+    nav: 'Section navigation'
   },
   drawer: {
     createType: 'New Type',

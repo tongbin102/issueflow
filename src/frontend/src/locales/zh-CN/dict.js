@@ -32,7 +32,9 @@ export default {
   },
   tab: {
     basic: '基本信息',
-    config: '描述与配置'
+    desc: '详细描述',
+    config: '配置选项',
+    nav: '分组导航'
   },
   drawer: {
     createType: '新增类型',

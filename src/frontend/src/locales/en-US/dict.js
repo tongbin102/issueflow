@@ -26,14 +26,27 @@ export default {
     itemCode: 'Item Code',
     belongType: 'Dictionary Type',
     description: 'Description',
-    sort: 'Sort',
-    status: 'Status'
+    sort: 'Sort Order',
+    status: 'Status',
+    // Extension value: enum-mirror dictionaries store the numeric business code here
+    extra: 'Extra Value',
+    // Heading of the read-only system attribute block
+    attribute: 'Attribute'
   },
   tab: {
     basic: 'Basic Info',
     desc: 'Description',
+    // Kept for backward compatibility: legacy third tab label, superseded by `advanced`
     config: 'Settings',
+    advanced: 'Advanced',
     nav: 'Section navigation'
+  },
+  /** One-line guidance shown at the top of each tab */
+  tabHint: {
+    basic: 'Name, code, sort order and status. Fields marked * are required.',
+    desc: 'Explain what this entry is for so other admins understand it.',
+    advancedType: 'Read-only attributes maintained by the platform; not submitted on save.',
+    advancedItem: 'Extra value only applies to enum-mirror dictionaries; leave blank otherwise.'
   },
   drawer: {
     createType: 'New Type',
@@ -51,7 +64,8 @@ export default {
     itemName: 'Enter item name',
     itemCode: 'Uppercase start, e.g. MANUAL',
     description: 'Enter description',
-    selectType: 'Select a dictionary type'
+    selectType: 'Select a dictionary type',
+    extra: 'e.g. 1 / HIGH. Leave blank for non-mirror dictionaries'
   },
   rules: {
     nameRequired: 'Name is required',
@@ -67,7 +81,10 @@ export default {
     mirrorType: 'This type mirrors a system enum; renaming does not affect business values',
     systemItemDelete: 'System preset items cannot be deleted, but can be disabled',
     systemTypeDelete: 'System preset types cannot be deleted',
-    codeReadonly: 'Code cannot be changed after creation'
+    codeReadonly: 'Code cannot be changed after creation',
+    sortHint: 'Smaller values come first; keep 0 to sort by creation order',
+    extraReadonly: 'Extra value of a system preset item is platform-managed and read-only',
+    advancedEmpty: 'System attributes become available after saving'
   },
   msg: {
     createTypeSuccess: 'Dictionary type created',

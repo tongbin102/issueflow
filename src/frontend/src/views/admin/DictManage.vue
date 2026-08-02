@@ -213,7 +213,9 @@
             class="dict-drawer-form"
           >
             <el-tabs v-model="typeActiveTab" class="dict-drawer-tabs">
+              <!-- 基础信息：名称 / 编码 / 排序 / 状态，核心必填与常用项集中一页 -->
               <el-tab-pane :label="t('dict.tab.basic')" name="basic">
+                <p class="tab-hint">{{ t('dict.tabHint.basic') }}</p>
                 <el-form-item :label="t('dict.form.typeName')" prop="name">
                   <el-input
                     v-model="typeForm.name"
@@ -230,8 +232,21 @@
                   />
                   <div v-if="typeEditing" class="form-tip">{{ t('dict.tip.codeReadonly') }}</div>
                 </el-form-item>
+                <el-form-item :label="t('dict.form.sort')" prop="sort">
+                  <el-input-number v-model="typeForm.sort" :min="0" :max="9999" />
+                  <div class="form-tip">{{ t('dict.tip.sortHint') }}</div>
+                </el-form-item>
+                <el-form-item :label="t('dict.form.status')" prop="enabled">
+                  <el-switch
+                    v-model="typeForm.enabled"
+                    :active-text="t('common.status.enabled')"
+                    :inactive-text="t('common.status.disabled')"
+                  />
+                </el-form-item>
               </el-tab-pane>
+              <!-- 详细描述：长文本独占一页，避免与短字段抢空间 -->
               <el-tab-pane :label="t('dict.tab.desc')" name="desc">
+                <p class="tab-hint">{{ t('dict.tabHint.desc') }}</p>
                 <el-form-item :label="t('dict.form.description')" prop="description">
                   <el-input
                     v-model="typeForm.description"
@@ -243,17 +258,31 @@
                   />
                 </el-form-item>
               </el-tab-pane>
-              <el-tab-pane :label="t('dict.tab.config')" name="config">
-                <el-form-item :label="t('dict.form.sort')" prop="sort">
-                  <el-input-number v-model="typeForm.sort" :min="0" :max="9999" />
-                </el-form-item>
-                <el-form-item :label="t('dict.form.status')" prop="enabled">
-                  <el-switch
-                    v-model="typeForm.enabled"
-                    :active-text="t('common.status.enabled')"
-                    :inactive-text="t('common.status.disabled')"
-                  />
-                </el-form-item>
+              <!-- 高级配置：类型抽屉仅只读展示平台维护的系统属性，不参与提交 -->
+              <el-tab-pane :label="t('dict.tab.advanced')" name="advanced">
+                <p class="tab-hint">{{ t('dict.tabHint.advancedType') }}</p>
+                <template v-if="typeEditing">
+                  <el-form-item :label="t('dict.form.attribute')">
+                    <span class="attr-tags">
+                      <el-tag v-if="typeEditing.isSystem" type="info" size="small" effect="light">
+                        {{ t('dict.tag.system') }}
+                      </el-tag>
+                      <el-tag v-if="typeEditing.mirror" type="warning" size="small" effect="light">
+                        {{ t('dict.tag.mirror') }}
+                      </el-tag>
+                      <el-tag
+                        v-if="!typeEditing.isSystem && !typeEditing.mirror"
+                        type="success"
+                        size="small"
+                        effect="light"
+                      >
+                        {{ t('dict.tag.custom') }}
+                      </el-tag>
+                    </span>
+                  </el-form-item>
+                </template>
+                <!-- 新增态尚无系统属性可展示，给出「保存后可见」的空状态而非空白页 -->
+                <el-empty v-else :description="t('dict.tip.advancedEmpty')" :image-size="60" />
               </el-tab-pane>
             </el-tabs>
           </el-form>
@@ -305,7 +334,9 @@
             class="dict-drawer-form"
           >
             <el-tabs v-model="itemActiveTab" class="dict-drawer-tabs">
+              <!-- 基础信息：名称 / 编码 / 排序 / 状态，核心必填与常用项集中一页 -->
               <el-tab-pane :label="t('dict.tab.basic')" name="basic">
+                <p class="tab-hint">{{ t('dict.tabHint.basic') }}</p>
                 <!-- 「所属类型」已上移至抽屉头部 subtitle + 徽标，此处不再重复占位 -->
                 <el-form-item :label="t('dict.form.itemName')" prop="name">
                   <el-input
@@ -326,8 +357,21 @@
                     {{ t('dict.tip.codeReadonly') }}
                   </div>
                 </el-form-item>
+                <el-form-item :label="t('dict.form.sort')" prop="sort">
+                  <el-input-number v-model="itemForm.sort" :min="0" :max="9999" />
+                  <div class="form-tip">{{ t('dict.tip.sortHint') }}</div>
+                </el-form-item>
+                <el-form-item :label="t('dict.form.status')" prop="enabled">
+                  <el-switch
+                    v-model="itemForm.enabled"
+                    :active-text="t('common.status.enabled')"
+                    :inactive-text="t('common.status.disabled')"
+                  />
+                </el-form-item>
               </el-tab-pane>
+              <!-- 详细描述：长文本独占一页，避免与短字段抢空间 -->
               <el-tab-pane :label="t('dict.tab.desc')" name="desc">
+                <p class="tab-hint">{{ t('dict.tabHint.desc') }}</p>
                 <el-form-item :label="t('dict.form.description')" prop="description">
                   <el-input
                     v-model="itemForm.description"
@@ -339,16 +383,19 @@
                   />
                 </el-form-item>
               </el-tab-pane>
-              <el-tab-pane :label="t('dict.tab.config')" name="config">
-                <el-form-item :label="t('dict.form.sort')" prop="sort">
-                  <el-input-number v-model="itemForm.sort" :min="0" :max="9999" />
-                </el-form-item>
-                <el-form-item :label="t('dict.form.status')" prop="enabled">
-                  <el-switch
-                    v-model="itemForm.enabled"
-                    :active-text="t('common.status.enabled')"
-                    :inactive-text="t('common.status.disabled')"
+              <!-- 高级配置：扩展值（dict_item.extra），预设项由平台维护故只读 -->
+              <el-tab-pane :label="t('dict.tab.advanced')" name="advanced">
+                <p class="tab-hint">{{ t('dict.tabHint.advancedItem') }}</p>
+                <el-form-item :label="t('dict.form.extra')" prop="extra">
+                  <el-input
+                    v-model="itemForm.extra"
+                    :placeholder="t('dict.placeholder.extra')"
+                    maxlength="200"
+                    :disabled="isSystemItemEditing"
                   />
+                  <div v-if="isSystemItemEditing" class="form-tip">
+                    {{ t('dict.tip.extraReadonly') }}
+                  </div>
                 </el-form-item>
               </el-tab-pane>
             </el-tabs>
@@ -410,31 +457,33 @@ const DRAWER_WIDTH = 'min(640px, 94vw)'
 
 /**
  * 抽屉内分组字段归属：右侧导航条、Tab、校验联动三者共用同一份映射，避免各写各的。
- * basic=核心标识 / desc=长描述 / config=排序与状态。
+ * basic=核心标识与常用开关 / desc=长描述 / advanced=扩展值等低频字段。
  */
 const GROUP_FIELDS = {
-  basic: ['name', 'code'],
+  basic: ['name', 'code', 'sort', 'enabled'],
   desc: ['description'],
-  config: ['sort', 'enabled']
+  advanced: ['extra']
 }
 
 /**
  * 按出错字段解析其所属分组，供校验失败时自动跳转 Tab。
  * @param {string} field 表单字段名（el-form-item 的 prop）
- * @returns {string} 分组名，未命中时回退 'config'
+ * @returns {string} 分组名，未命中时回退 'basic'（必填项均在 basic 组）
  */
 function resolveGroupByField(field) {
   if (GROUP_FIELDS.basic.includes(field)) return 'basic'
   if (GROUP_FIELDS.desc.includes(field)) return 'desc'
-  return 'config'
+  if (GROUP_FIELDS.advanced.includes(field)) return 'advanced'
+  return 'basic'
 }
 
 /**
  * 构造右侧导航条的分组数据。
  * @param {object} form 抽屉表单对象（typeForm / itemForm）
+ * @param {boolean} isItem 是否为选项抽屉；仅选项抽屉的 advanced 组有可填字段（extra）
  * @returns {Array<{name: string, label: string, done: boolean}>} 分组列表
  */
-function buildGroups(form) {
+function buildGroups(form, isItem) {
   return [
     {
       name: 'basic',
@@ -447,9 +496,10 @@ function buildGroups(form) {
       done: !!form.description
     },
     {
-      name: 'config',
-      label: t('dict.tab.config'),
-      done: form.sort !== null && form.sort !== undefined
+      name: 'advanced',
+      label: t('dict.tab.advanced'),
+      // 类型抽屉的高级页为只读系统属性，无「填写完成」概念，恒为 false
+      done: isItem ? !!form.extra : false
     }
   ]
 }
@@ -486,7 +536,7 @@ const typeEditing = ref(null)
 const typeForm = reactive({ name: '', code: '', description: '', sort: 0, enabled: true })
 
 /** 类型抽屉右侧导航条分组（label 随语言切换、done 随填写状态实时更新） */
-const typeGroups = computed(() => buildGroups(typeForm))
+const typeGroups = computed(() => buildGroups(typeForm, false))
 
 /** 类型抽屉副标题：编辑态展示不可变更的类型编码；新增态为空（不渲染） */
 const typeDrawerSubtitle = computed(() =>
@@ -629,10 +679,17 @@ const itemSaving = ref(false)
 const itemFormRef = ref(null)
 const itemActiveTab = ref('basic')
 const itemEditing = ref(null)
-const itemForm = reactive({ name: '', code: '', description: '', sort: 0, enabled: true })
+const itemForm = reactive({
+  name: '',
+  code: '',
+  description: '',
+  sort: 0,
+  enabled: true,
+  extra: ''
+})
 
 /** 选项抽屉右侧导航条分组（结构与类型抽屉一致，保证两个抽屉观感统一） */
-const itemGroups = computed(() => buildGroups(itemForm))
+const itemGroups = computed(() => buildGroups(itemForm, true))
 
 const isSystemItemEditing = computed(() => !!(itemEditing.value && itemEditing.value.isSystem))
 
@@ -686,12 +743,20 @@ function openItemEdit(row) {
   itemForm.description = row.description || ''
   itemForm.sort = row.sort ?? 0
   itemForm.enabled = row.enabled !== false
+  itemForm.extra = row.extra || ''
   itemDrawerVisible.value = true
 }
 
 function resetItemForm() {
   itemEditing.value = null
-  Object.assign(itemForm, { name: '', code: '', description: '', sort: 0, enabled: true })
+  Object.assign(itemForm, {
+    name: '',
+    code: '',
+    description: '',
+    sort: 0,
+    enabled: true,
+    extra: ''
+  })
   itemActiveTab.value = 'basic'
   if (itemFormRef.value) itemFormRef.value.clearValidate()
 }
@@ -715,7 +780,9 @@ function onSaveItem() {
         code: itemForm.code,
         description: itemForm.description,
         sort: itemForm.sort,
-        enabled: itemForm.enabled
+        enabled: itemForm.enabled,
+        // 扩展值（dict_item.extra）：后端 DictItemReq 限长 200，预设项服务端仍以自身维护值为准
+        extra: itemForm.extra
       }
       if (itemEditing.value) {
         await updateDictItem(itemEditing.value.id, payload)
@@ -917,6 +984,25 @@ fetchTypes()
   font-size: var(--if-font-xs);
   line-height: 1.4;
   color: var(--text-secondary);
+}
+
+/* Tab 顶部引导语：左侧主题色竖条 + 浅底，弱化但可见，不与表单标签抢层级 */
+.tab-hint {
+  margin: 0 0 var(--if-space-md) 0;
+  padding: var(--if-space-xs) var(--if-space-sm);
+  border-left: 3px solid var(--el-color-primary-light-5);
+  border-radius: 0 var(--if-radius-sm) var(--if-radius-sm) 0;
+  background: var(--el-fill-color-light);
+  font-size: var(--if-font-sm);
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
+}
+
+/* 高级配置页的只读属性：多个徽标横向排布，自动换行 */
+.attr-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--if-space-xs);
 }
 
 /* ==========================================================================

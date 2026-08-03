@@ -188,11 +188,11 @@ SELECT 'data.management.backup.dir', '/data/issueflow/backups', '备份文件存
 WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key` = 'data.management.backup.dir');
 
 INSERT INTO `sys_config` (`config_key`, `config_value`, `description`, `updated_at`)
-SELECT 'data.management.backup.retain.count', '20', '备份文件最大保留份数，超出后按时间从旧到新清理；0 表示不限制', NOW()
+SELECT 'data.management.backup.retain.count', '20', '备份文件最大保留份数，超出后按时间从旧到新清理；配置入口最小值 1，0 或负数视为不限制（跳过份数淘汰）', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key` = 'data.management.backup.retain.count');
 
 INSERT INTO `sys_config` (`config_key`, `config_value`, `description`, `updated_at`)
-SELECT 'data.management.backup.retain.days', '30', '备份文件最大保留天数，超期自动清理；0 表示不限制', NOW()
+SELECT 'data.management.backup.retain.days', '30', '备份文件最大保留天数，超期自动清理；配置入口最小值 1，0 或负数视为不限制（跳过天数淘汰）', NOW()
 WHERE NOT EXISTS (SELECT 1 FROM `sys_config` WHERE `config_key` = 'data.management.backup.retain.days');
 
 INSERT INTO `sys_config` (`config_key`, `config_value`, `description`, `updated_at`)

@@ -26,6 +26,13 @@ import java.util.List;
  *   <li><b>按份数</b>：剩余备份若仍超过 {@code maxCopies}，从最旧的开始删到达标。</li>
  * </ol>
  *
+ * <p><b>关于 0 值语义</b>：与 {@code sys_config} 的种子注释保持一致 ——
+ * {@code data.management.backup.retain.count} / {@code retain.days} 取 <b>0（或负数）表示「不限制」</b>，
+ * 即<b>跳过</b>对应维度的淘汰，而不是「全部清理」。
+ * 正常配置入口由 {@code DataManagementConfigDTO} 的 {@code @Min(1)} 兜住，
+ * 这里的判空只针对历史脏数据 / 人工直改库表的场景做防御，
+ * 避免把「不限制」误解成「一份不留」而清空全部历史备份。</p>
+ *
  * <p><b>三条不删红线</b>（安全兜底，优先级高于任何保留策略）：</p>
  * <ul>
  *   <li>{@code source=PRE_RESTORE} 的恢复前安全备份 —— 它是恢复翻车时的唯一退路；</li>
@@ -84,20 +91,27 @@ public class RetentionPolicyExecutor {
             return 0;
         }
 
-        LocalDateTime deadline = LocalDateTime.now().minusDays(retainDays);
         List<BackupRecord> toDelete = new ArrayList<>();
 
-        // 第一轮：按天数淘汰
-        for (BackupRecord record : candidates) {
-            LocalDateTime createdAt = record.getCreatedAt();
-            if (createdAt != null && createdAt.isBefore(deadline)) {
-                toDelete.add(record);
+        // 第一轮：按天数淘汰。retainDays <= 0 表示「不限制保留天数」，直接跳过本轮。
+        if (retainDays > 0) {
+            LocalDateTime deadline = LocalDateTime.now().minusDays(retainDays);
+            for (BackupRecord record : candidates) {
+                LocalDateTime createdAt = record.getCreatedAt();
+                if (createdAt != null && createdAt.isBefore(deadline)) {
+                    toDelete.add(record);
+                }
             }
+        } else {
+            log.debug("[RetentionPolicy] retainDays={} 视为不限制，跳过天数淘汰", retainDays);
         }
 
-        // 第二轮：按份数淘汰（在天数淘汰之后仍然超量的部分，从最旧开始）
+        // 第二轮：按份数淘汰（在天数淘汰之后仍然超量的部分，从最旧开始）。
+        // maxCopies <= 0 表示「不限制保留份数」，直接跳过本轮。
         int remaining = candidates.size() - toDelete.size();
-        if (remaining > maxCopies) {
+        if (maxCopies <= 0) {
+            log.debug("[RetentionPolicy] maxCopies={} 视为不限制，跳过份数淘汰", maxCopies);
+        } else if (remaining > maxCopies) {
             int overflow = remaining - maxCopies;
             for (BackupRecord record : candidates) {
                 if (overflow <= 0) {

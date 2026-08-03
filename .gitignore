@@ -67,5 +67,8 @@ docs/*.tmp.md
 # Windows 下误把 NUL 当文件名重定向产生的空文件
 nul
 .cache-shots/
+# QA 回归与构建校验的本地缓存目录（截图/构建产物落盘用，纯本地中间态，勿入库）
+.cache-qa/
+.cache-build/
 tmp_src.tar.gz
 tmp_deploy.tar.gz

@@ -10,7 +10,7 @@ import java.io.Serializable;
 /**
  * 备份保留策略配置（Phase10 数据管理）。
  *
- * <p>读写 {@code GET|PUT /api/admin/data-management/config}，
+ * <p>读写 {@code GET|PUT /api/admin/data/config}，
  * 落库到 {@code sys_config} 表的 {@code data.management.*} 键：</p>
  * <ul>
  *   <li>{@code maxCopies}   → {@code data.management.backup.retain.count}</li>

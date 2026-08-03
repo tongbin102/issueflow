@@ -35,8 +35,9 @@ export default {
     roles: 'Roles',
     // Phase8 W1 #2: menu label rework (route path / component unchanged)
     // /admin/system/site      → System Settings (was "Site Settings")
-    // /admin/system/settings  → Backup Settings (was "System Settings")
-    siteSettings: 'System Settings',
-    systemSettings: 'Backup Settings'
+    siteSettings: 'System Settings'
+    // Phase10 requirement 3: the former systemSettings ("Backup Settings") is retired;
+    // /admin/system/settings redirects to /admin/system/data-management and the menu
+    // label now comes from dataManagement.menu (see utils/i18nEnum.js).
   }
 }

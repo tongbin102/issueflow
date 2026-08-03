@@ -24,6 +24,7 @@
         :show-section-title="false"
         :model-value="model"
         :disabled="readonly"
+        :readonly-codes="READONLY_FIELD_CODES"
         @update:model-value="onModelPatch"
       />
     </template>
@@ -72,7 +73,9 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { DEFAULT_PRIORITY, DEFAULT_SOURCE_CODE } from '@/utils/i18nEnum'
+// 【需求一 · 默认值红线】此处只引 DEFAULT_SOURCE_CODE。
+// DEFAULT_PRIORITY 已废弃且**禁止**在本表单出现——优先级/问题类型必须由用户显式选择。
+import { DEFAULT_SOURCE_CODE } from '@/utils/i18nEnum'
 import { getIssue, getHistory } from '@/api/issue'
 import { useFieldSchemaStore } from '@/store/fieldSchema'
 import AttachmentUploader from '@/components/AttachmentUploader.vue'
@@ -125,9 +128,12 @@ function setRendererRef(code, el) {
  */
 const model = reactive({
   title: '',
-  typeCode: '',
+  // 【需求一】问题类型：初值 null（无预选），必须由用户显式选择
+  typeCode: null,
+  // 【需求一】来源：固定「系统录入」且只读，用户不可改
   source: DEFAULT_SOURCE_CODE,
-  priority: DEFAULT_PRIORITY,
+  // 【需求一】优先级：初值 null（无预选），必须由用户显式选择
+  priority: null,
   severity: 2,
   projectId: null,
   moduleId: null,
@@ -139,6 +145,13 @@ const model = reactive({
   envAppVersion: '',
   envDevice: ''
 })
+
+/**
+ * 【需求一】强制只读字段白名单。
+ * source（来源）固定为「系统录入」，用户在任何模式下都不可修改：
+ * 控件置灰 → 前端 assembleData 硬编码 → 后端 IssueService 强制覆写，三道保险。
+ */
+const READONLY_FIELD_CODES = Object.freeze(['source'])
 
 const schemaSections = computed(() => schemaStore.sections)
 
@@ -174,8 +187,10 @@ function isFilled(field, value) {
 const filledTabs = computed(() => {
   const result = {}
   schemaStore.sections.forEach((section) => {
+    // 【需求一】只读字段（source）由系统固定填充，不能算作"用户已填写"，
+    // 否则「基本信息」页签的红点会恒亮，失去提示意义。
     const filled = (section.fields || []).some(
-      (f) => f && isFilled(f, model[f.code])
+      (f) => f && !READONLY_FIELD_CODES.includes(f.code) && isFilled(f, model[f.code])
     )
     result[section.code] = filled
   })
@@ -206,11 +221,14 @@ function ensureModelKeys() {
  * @returns {*}
  */
 function defaultForField(field) {
+  // 【需求一 · 默认值红线】priority / typeCode 一律不给默认值，
+  // 即使字段配置里配了 defaultValue 也强制忽略——预选值会造成统计失真。
+  if (field && (field.code === 'priority' || field.code === 'typeCode')) return null
   if (field && field.defaultValue != null) return field.defaultValue
   if (field && field.code === 'tags') return []
   if (field && field.code === 'severity') return 2
+  // source 是全项目唯一允许保留默认值的字段（固定「系统录入」且只读）
   if (field && field.code === 'source') return DEFAULT_SOURCE_CODE
-  if (field && field.code === 'priority') return DEFAULT_PRIORITY
   return null
 }
 
@@ -219,10 +237,13 @@ function applyInitial() {
   if (!props.initial) return
   const src = props.initial
   model.title = src.title || ''
-  // 问题类型改用 typeCode（String）；后端 typeId 已 @Deprecated，优先取 typeCode
-  model.typeCode = src.typeCode != null ? src.typeCode : src.typeId != null ? src.typeId : ''
-  model.source = src.source || DEFAULT_SOURCE_CODE
-  model.priority = src.priority != null ? src.priority : DEFAULT_PRIORITY
+  // 问题类型改用 typeCode（String）；后端 typeId 已 @Deprecated，优先取 typeCode。
+  // 【需求一】回显缺省一律 null（不再退化成空串），保证「未选择」语义前后端一致。
+  model.typeCode = src.typeCode != null ? src.typeCode : src.typeId != null ? src.typeId : null
+  // 【需求一】来源固定「系统录入」，回显也强制覆写，不受历史脏数据影响
+  model.source = DEFAULT_SOURCE_CODE
+  // 【需求一】优先级回显缺省 null，绝不兜底为 DEFAULT_PRIORITY
+  model.priority = src.priority != null ? src.priority : null
   model.severity = src.severity != null ? src.severity : 2
   model.projectId = src.projectId || null
   model.moduleId = src.moduleId || null
@@ -335,11 +356,13 @@ function reset() {
 function assembleData() {
   const data = {
     title: model.title || '',
-    // 问题类型改用 typeCode（String）
-    typeCode: model.typeCode || null,
-    // 来源留空时不下发字段，由后端 DictService.defaultSourceCode() 填默认值
-    source: model.source || null,
-    priority: model.priority,
+    // 【需求一】问题类型：?? 而非 ||，避免把合法的空串/0 误判成未选；未选下发 null 让后端必填校验兜底
+    typeCode: model.typeCode ?? null,
+    // 【需求一】来源：硬编码「系统录入」，不读 model —— 该字段在 UI 上只读，
+    // 前端不给用户任何篡改机会，后端 IssueService 也会再强制覆写一次（双保险）
+    source: DEFAULT_SOURCE_CODE,
+    // 【需求一】优先级：?? 而非 ||，0（高）是合法值不能被吞掉；未选下发 null
+    priority: model.priority ?? null,
     severity: model.severity,
     projectId: model.projectId || null,
     moduleId: model.moduleId || null,

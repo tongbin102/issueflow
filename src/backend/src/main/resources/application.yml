@@ -87,6 +87,34 @@ app:
 #   data-reset:
 #     enabled: false
 
+# ============================================================================
+# Phase10 数据管理（备份 / 恢复）
+#
+# 【与 sys_config 的分工】
+#   本段是**运维级、需重启生效**的项（可执行文件路径、目录、超时）；
+#   保留份数 / 保留天数 / 上传上限 / 任务超时 / 恢复前自动备份
+#   由管理员在「数据管理」页改，落在 sys_config 的 data.management.* 键上，热生效。
+#
+# 【安全红线】本段**不含任何数据库密码**。
+#   mysqldump / mysql 的凭据一律由 BackupExecutor 生成 0600 权限的
+#   --defaults-extra-file 临时文件传递，绝不出现在命令行参数中（防 ps 窥探）。
+# ============================================================================
+issueflow:
+  data-management:
+    enabled: ${DATA_MANAGEMENT_ENABLED:true}
+    backup-dir: ${BACKUP_DIR:/data/issueflow/backups}
+    # 镜像内由 Dockerfile 从 mysql:8.0 复制（禁用 mariadb-client，dump 方言不兼容）
+    mysqldump-path: ${MYSQLDUMP_PATH:/usr/bin/mysqldump}
+    mysql-client-path: ${MYSQL_CLIENT_PATH:/usr/bin/mysql}
+    # 需一并打包的配置文件（脱敏后写入 config/），不存在的条目静默跳过
+    config-files: ${BACKUP_CONFIG_FILES:/app/config/application.yml,/app/config/.env}
+    task-timeout-seconds: ${DATA_TASK_TIMEOUT:1800}
+    lock-ttl-seconds: ${DATA_LOCK_TTL:3600}
+    progress-ttl-seconds: ${DATA_PROGRESS_TTL:7200}
+    file-name-prefix: issueflow_backup
+    exclude-tables: ${BACKUP_EXCLUDE_TABLES:}
+    max-allowed-packet-mb: ${BACKUP_MAX_PACKET_MB:128}
+
 # 日志
 logging:
   level:

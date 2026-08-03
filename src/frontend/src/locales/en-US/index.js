@@ -24,8 +24,9 @@ import chart from './chart'
 import dict from './dict'
 import profile from './profile'
 import infra from './infra'
-import backup from './backup'
 import fieldConfig from './fieldConfig'
+// Phase10 requirement 3: data management copy (backup / restore / upload / retention / reset)
+import dataManagement from './dataManagement'
 
 export default {
   common,
@@ -50,6 +51,6 @@ export default {
   dict,
   profile,
   infra,
-  backup,
-  fieldConfig
+  fieldConfig,
+  dataManagement
 }

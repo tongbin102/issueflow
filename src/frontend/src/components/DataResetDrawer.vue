@@ -2,7 +2,7 @@
   <!-- R7 数据初始化抽屉：强警告 + 清单 + RESET 确认输入 -->
   <FormDrawer
     v-model="visible"
-    title="数据初始化"
+    :title="t('system.reset.title')"
     size="md"
     @closed="onClosed"
   >
@@ -10,33 +10,40 @@
       type="error"
       :closable="false"
       show-icon
-      title="高危操作：数据初始化不可撤销！"
-      description="执行后以下业务数据将被永久清除且无法恢复，请务必确认已做好备份。"
+      :title="t('system.reset.alertTitle')"
+      :description="t('system.reset.alertDesc')"
       class="reset-alert"
     />
 
     <div class="reset-lists">
       <div class="reset-col reset-col--danger">
-        <div class="reset-col__title">将被清除</div>
+        <div class="reset-col__title">{{ t('system.reset.clearTitle') }}</div>
         <ul>
-          <li v-for="item in CLEAR_ITEMS" :key="item">{{ item }}</li>
+          <li v-for="key in CLEAR_ITEM_KEYS" :key="key">
+            {{ t(`system.reset.clearItems.${key}`) }}
+          </li>
         </ul>
       </div>
       <div class="reset-col reset-col--safe">
-        <div class="reset-col__title">将被保留</div>
+        <div class="reset-col__title">{{ t('system.reset.keepTitle') }}</div>
         <ul>
-          <li v-for="item in KEEP_ITEMS" :key="item">{{ item }}</li>
+          <li v-for="key in KEEP_ITEM_KEYS" :key="key">
+            {{ t(`system.reset.keepItems.${key}`) }}
+          </li>
         </ul>
       </div>
     </div>
 
     <div class="reset-confirm">
+      <!-- 关键词用 <b> 强调，故拆成 i18n 插值 + 具名插槽两段渲染 -->
       <p class="reset-confirm__tip">
-        请输入 <b>RESET</b> 以确认执行：
+        <i18n-t keypath="system.reset.confirmTip" tag="span" scope="global">
+          <template #keyword><b>{{ CONFIRM_KEYWORD }}</b></template>
+        </i18n-t>
       </p>
       <el-input
         v-model="confirmInput"
-        placeholder="请输入 RESET"
+        :placeholder="t('system.reset.confirmPlaceholder', { keyword: CONFIRM_KEYWORD })"
         maxlength="20"
         @keyup.enter="onConfirm"
       />
@@ -44,13 +51,13 @@
 
     <template #footer>
       <div class="reset-footer">
-        <el-button @click="visible = false">取消</el-button>
+        <el-button @click="visible = false">{{ t('common.action.cancel') }}</el-button>
         <el-button
           type="danger"
-          :disabled="confirmInput !== 'RESET'"
+          :disabled="confirmInput !== CONFIRM_KEYWORD"
           :loading="submitting"
           @click="onConfirm"
-        >确认清除</el-button>
+        >{{ t('system.reset.confirmButton') }}</el-button>
       </div>
     </template>
   </FormDrawer>
@@ -59,8 +66,11 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import FormDrawer from '@/components/FormDrawer.vue'
 import { resetSystemData } from '@/api/system'
+
+const { t } = useI18n()
 
 const props = defineProps({
   /** v-model 显隐 */
@@ -73,37 +83,49 @@ const visible = computed({
   set: (v) => emit('update:modelValue', v)
 })
 
-/** 将被清除的数据清单 */
-const CLEAR_ITEMS = [
-  '问题',
-  '问题历史',
-  '附件',
-  '问题关联',
-  '标签关联',
-  '项目',
-  '模块',
-  '模块依赖',
-  '组织',
-  '除 admin 外的用户'
+/**
+ * 二次确认关键词。后端 resetSystemData 也校验同一字符串，
+ * 因此这里是常量而非可翻译文案 —— 翻译它会直接导致英文环境提交被后端拒绝。
+ */
+const CONFIRM_KEYWORD = 'RESET'
+
+/** 将被清除的数据清单（i18n key，文案见 system.reset.clearItems） */
+const CLEAR_ITEM_KEYS = [
+  'issue',
+  'issueHistory',
+  'attachment',
+  'issueRelation',
+  'tagRelation',
+  'project',
+  'module',
+  'moduleDependency',
+  'organization',
+  'user'
 ]
-/** 将被保留的数据清单 */
-const KEEP_ITEMS = ['角色', '权限', '菜单', '系统配置', '流程定义', 'admin 账号']
+/** 将被保留的数据清单（i18n key，文案见 system.reset.keepItems） */
+const KEEP_ITEM_KEYS = ['role', 'permission', 'menu', 'config', 'flow', 'admin']
 
 const confirmInput = ref('')
 const submitting = ref(false)
 
+/** 抽屉关闭后清空确认输入，避免下次打开直接可提交 */
 function onClosed() {
   confirmInput.value = ''
 }
 
+/**
+ * 提交数据初始化。
+ *
+ * 成功后向父组件抛出 success 事件，携带后端返回的各表清理条数。
+ */
 async function onConfirm() {
-  // 双保险：输入不等于 RESET 时不提交（按钮本身已禁用）
-  if (confirmInput.value !== 'RESET' || submitting.value) return
+  // 双保险：输入不等于关键词时不提交（按钮本身已禁用）
+  if (confirmInput.value !== CONFIRM_KEYWORD || submitting.value) return
   submitting.value = true
   try {
     // 后端返回各表清理条数 Map<表名, 条数>
     const counts = await resetSystemData(confirmInput.value)
-    ElMessage.success('数据初始化完成')
+    ElMessage.success(t('system.reset.success'))
     emit('success', counts || {})
     visible.value = false
   } catch (e) {

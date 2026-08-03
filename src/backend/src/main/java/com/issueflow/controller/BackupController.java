@@ -24,7 +24,18 @@ import org.springframework.web.bind.annotation.RestController;
  * {@code application/json} 错误体</b>（由全局异常处理器包装）。
  * 前端 {@code responseType:'blob'} 后<b>必须先判断 Content-Type</b>，
  * 若为 JSON 需 {@code blob.text()} 解析出 message 展示，否则会下载到一个坏文件。</p>
+ *
+ * @deprecated Phase10 需求三起废弃。本控制器的能力已被
+ *             {@link DataManagementController}（前缀 {@code /api/admin/data}）完整覆盖并增强
+ *             —— 新模块提供备份记录持久化、列表分页、下载、删除、恢复、上传恢复、
+ *             保留策略与任务进度轮询，权限也从粗粒度的 {@code system:backup:export}
+ *             细化为 7 个 {@code system:data:*} 权限码。
+ *             <p>前端唯一调用方 {@code src/api/backup.js} 已同批次下线，本控制器现已无调用方。
+ *             之所以暂不删除：{@code /api/admin/backup/**} 属对外 HTTP 契约，
+ *             可能仍有运维脚本或历史集成在直连，需走一个废弃公告周期后再移除。
+ *             <b>请勿在此新增端点。</b></p>
  */
+@Deprecated
 @RestController
 @RequestMapping("/api/admin/backup")
 @RequiredArgsConstructor

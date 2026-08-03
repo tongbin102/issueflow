@@ -156,264 +156,17 @@
           :title="t('fieldConfig.tip.systemAttrLocked')"
         />
 
-        <el-divider content-position="left">{{ t('fieldConfig.form.baseGroup') }}</el-divider>
-
-        <el-form-item :label="t('fieldConfig.form.section')" prop="sectionId">
-          <el-select
-            v-model="fieldForm.sectionId"
-            :placeholder="
-              sectionOptions.length ? t('common.placeholder.select') : t('fieldConfig.tip.noSectionOption')
-            "
-            :disabled="attrLocked('sectionId')"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="item in sectionOptions"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-
-        <el-form-item :label="t('fieldConfig.form.name')" prop="name">
-          <el-input
-            v-model="fieldForm.name"
-            :placeholder="t('common.placeholder.input')"
-            maxlength="50"
-            show-word-limit
-          />
-        </el-form-item>
-
-        <el-form-item :label="t('fieldConfig.form.code')" prop="code">
-          <!-- Q4 铁律：code 创建后不可改 -->
-          <el-input
-            v-model="fieldForm.code"
-            :placeholder="t('common.placeholder.input')"
-            maxlength="64"
-            :disabled="!!fieldEditing"
-          />
-          <div v-if="fieldEditing" class="form-tip">{{ t('fieldConfig.tip.codeReadonly') }}</div>
-        </el-form-item>
-
-        <el-form-item :label="t('fieldConfig.form.i18nKey')" prop="i18nKey">
-          <el-input
-            v-model="fieldForm.i18nKey"
-            :placeholder="t('common.placeholder.input')"
-            maxlength="100"
-          />
-        </el-form-item>
-
-        <el-form-item :label="t('fieldConfig.form.type')" prop="type">
-          <!-- Q4 铁律：type 创建后不可改（后端抛 FIELD_TYPE_IMMUTABLE） -->
-          <el-select
-            v-model="fieldForm.type"
-            :placeholder="t('common.placeholder.select')"
-            :disabled="!!fieldEditing"
-            style="width: 100%"
-            @change="onTypeChange"
-          >
-            <el-option
-              v-for="item in FIELD_TYPES"
-              :key="item"
-              :label="typeLabel(item)"
-              :value="item"
-            />
-          </el-select>
-          <div v-if="fieldEditing" class="form-tip">{{ t('fieldConfig.tip.typeReadonly') }}</div>
-        </el-form-item>
-
-        <el-form-item :label="t('fieldConfig.form.required')" prop="required">
-          <el-switch v-model="fieldForm.required" />
-        </el-form-item>
-
-        <el-form-item :label="t('fieldConfig.form.placeholder')" prop="placeholder">
-          <el-input
-            v-model="fieldForm.placeholder"
-            :placeholder="t('common.placeholder.input')"
-            maxlength="100"
-          />
-        </el-form-item>
-
-        <el-form-item :label="t('fieldConfig.form.defaultValue')" prop="defaultValue">
-          <el-input
-            v-model="fieldForm.defaultValue"
-            :placeholder="t('common.placeholder.input')"
-            maxlength="200"
-            :disabled="attrLocked('defaultValue')"
-          />
-        </el-form-item>
-
-        <el-form-item :label="t('fieldConfig.form.span')" prop="span">
-          <el-input-number v-model="fieldForm.span" :min="1" :max="24" />
-        </el-form-item>
-
-        <!-- 类型专属属性：按 attrsOfType(type) 动态显隐 -->
-        <template v-if="activeTypeAttrs.length > 0">
-          <el-divider content-position="left">{{ t('fieldConfig.form.attrGroup') }}</el-divider>
-
-          <el-form-item v-if="showAttr('multiline')" :label="t('fieldConfig.form.multiline')">
-            <el-switch v-model="fieldForm.multiline" :disabled="attrLocked('multiline')" />
-          </el-form-item>
-
-          <el-form-item v-if="showAttr('maxLength')" :label="t('fieldConfig.form.maxLength')">
-            <el-input-number
-              v-model="fieldForm.maxLength"
-              :min="1"
-              :max="65535"
-              :disabled="attrLocked('maxLength')"
-            />
-          </el-form-item>
-
-          <el-form-item v-if="showAttr('minVal')" :label="t('fieldConfig.form.minVal')">
-            <el-input-number
-              v-model="fieldForm.minVal"
-              :controls-position="'right'"
-              :disabled="attrLocked('minVal')"
-            />
-          </el-form-item>
-
-          <el-form-item v-if="showAttr('maxVal')" :label="t('fieldConfig.form.maxVal')">
-            <el-input-number
-              v-model="fieldForm.maxVal"
-              :controls-position="'right'"
-              :disabled="attrLocked('maxVal')"
-            />
-          </el-form-item>
-
-          <el-form-item v-if="showAttr('decimalScale')" :label="t('fieldConfig.form.decimalScale')">
-            <el-input-number
-              v-model="fieldForm.decimalScale"
-              :min="0"
-              :max="6"
-              :disabled="attrLocked('decimalScale')"
-            />
-          </el-form-item>
-
-          <el-form-item
-            v-if="showAttr('dictCode')"
-            :label="t('fieldConfig.form.dictCode')"
-            prop="dictCode"
-          >
-            <el-select
-              v-model="fieldForm.dictCode"
-              :placeholder="t('common.placeholder.select')"
-              filterable
-              clearable
-              :disabled="attrLocked('dictCode')"
-              style="width: 100%"
-            >
-              <el-option
-                v-for="item in dictTypeOptions"
-                :key="item.code"
-                :label="`${item.name} (${item.code})`"
-                :value="item.code"
-              />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item
-            v-if="showAttr('refSource')"
-            :label="t('fieldConfig.form.refSource')"
-            prop="refSource"
-          >
-            <el-select
-              v-model="fieldForm.refSource"
-              :placeholder="t('common.placeholder.select')"
-              filterable
-              clearable
-              :disabled="attrLocked('refSource')"
-              style="width: 100%"
-              @change="onRefSourceChange"
-            >
-              <el-option
-                v-for="item in refSourceOptions"
-                :key="item.code"
-                :label="`${item.name} (${item.code})`"
-                :value="item.code"
-              />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item v-if="showAttr('displayType')" :label="t('fieldConfig.form.displayType')">
-            <el-select
-              v-model="fieldForm.displayType"
-              :placeholder="t('common.placeholder.select')"
-              clearable
-              :disabled="attrLocked('displayType')"
-              style="width: 100%"
-            >
-              <el-option
-                v-for="item in DISPLAY_TYPES"
-                :key="item"
-                :label="t(`fieldConfig.displayType.${item}`)"
-                :value="item"
-              />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item v-if="showAttr('multiSelect')" :label="t('fieldConfig.form.multiSelect')">
-            <el-switch v-model="fieldForm.multiSelect" :disabled="attrLocked('multiSelect')" />
-          </el-form-item>
-
-          <el-form-item
-            v-if="showAttr('dependsOn')"
-            :label="t('fieldConfig.form.dependsOn')"
-            prop="dependsOn"
-          >
-            <el-select
-              v-model="fieldForm.dependsOn"
-              :placeholder="t('common.placeholder.select')"
-              clearable
-              :disabled="attrLocked('dependsOn')"
-              style="width: 100%"
-            >
-              <el-option
-                v-for="item in dependsCandidates"
-                :key="item.code"
-                :label="`${item.name} (${item.code})`"
-                :value="item.code"
-              />
-            </el-select>
-            <div class="form-tip">{{ t('fieldConfig.tip.dependsOnly') }}</div>
-          </el-form-item>
-
-          <el-form-item
-            v-if="showAttr('dependsParam')"
-            :label="t('fieldConfig.form.dependsParam')"
-            prop="dependsParam"
-          >
-            <el-input
-              v-model="fieldForm.dependsParam"
-              :placeholder="t('common.placeholder.input')"
-              maxlength="64"
-              :disabled="attrLocked('dependsParam')"
-            />
-            <div class="form-tip">{{ t('fieldConfig.tip.dependsPair') }}</div>
-          </el-form-item>
-        </template>
-
-        <el-divider content-position="left">{{ t('fieldConfig.form.advanceGroup') }}</el-divider>
-
-        <el-form-item :label="t('fieldConfig.form.sort')" prop="sort">
-          <el-input-number v-model="fieldForm.sort" :min="0" :max="9999" />
-        </el-form-item>
-
-        <el-form-item :label="t('fieldConfig.form.visibleInList')">
-          <el-switch v-model="fieldForm.visibleInList" :disabled="attrLocked('visibleInList')" />
-        </el-form-item>
-
-        <el-form-item :label="t('fieldConfig.form.searchable')">
-          <el-switch v-model="fieldForm.searchable" :disabled="attrLocked('searchable')" />
-        </el-form-item>
-
-        <el-form-item :label="t('fieldConfig.form.status')" prop="enabled">
-          <el-switch
-            v-model="fieldForm.enabled"
-            :active-text="t('common.status.enabled')"
-            :inactive-text="t('common.status.disabled')"
-          />
-        </el-form-item>
+        <FieldFormSections
+          :model="fieldForm"
+          :mode="fieldEditing ? 'edit' : 'create'"
+          :system-field="isSystemEditing"
+          :section-options="sectionOptions"
+          :dict-type-options="dictTypeOptions"
+          :ref-source-options="refSourceOptions"
+          :depends-candidates="dependsCandidates"
+          @type-change="onTypeChange"
+          @ref-source-change="onRefSourceChange"
+        />
       </el-form>
     </FormDrawer>
 
@@ -446,6 +199,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Refresh } from '@element-plus/icons-vue'
 import FormDrawer from '@/components/FormDrawer.vue'
 import DynamicFormRenderer from '@/components/dynamic/DynamicFormRenderer.vue'
+import FieldFormSections from '@/components/fieldconfig/FieldFormSections.vue'
 import {
   getFieldTree,
   getFieldSchema,
@@ -459,13 +213,9 @@ import {
   buildFieldTree
 } from '@/api/fieldConfig'
 import { listDictTypes } from '@/api/dict'
-import {
-  FIELD_TYPES,
-  DISPLAY_TYPES,
-  SYSTEM_FIELD_EDITABLE_ATTRS,
-  attrsOfType,
-  isValidDependsCandidate
-} from '@/utils/fieldControls'
+// 显隐 / 禁用判定已下沉到 FieldFormSections（Schema 驱动），此处只保留列表与类型切换所需
+import { FIELD_TYPES, attrsOfType, isValidDependsCandidate } from '@/utils/fieldControls'
+import { typeAttrCodes } from '@/utils/fieldConfigSchema'
 import { useAppStore } from '@/store/app'
 
 const { t } = useI18n()
@@ -616,26 +366,6 @@ const dependsCandidates = computed(() =>
   allSchemaFields.value.filter((item) => isValidDependsCandidate(item, fieldForm.code))
 )
 
-/**
- * 该专属属性是否需要渲染。
- *
- * @param {string} attr 属性名
- * @returns {boolean}
- */
-function showAttr(attr) {
-  return activeTypeAttrs.value.includes(attr)
-}
-
-/**
- * 内置字段编辑时，非白名单属性一律置灰。
- *
- * @param {string} attr 属性名
- * @returns {boolean}
- */
-function attrLocked(attr) {
-  return isSystemEditing.value && !SYSTEM_FIELD_EDITABLE_ATTRS.includes(attr)
-}
-
 /** dependsOn / dependsParam 必须成对出现 */
 function validateDependsPair(rule, value, callback) {
   const hasOn = !!(fieldForm.dependsOn && String(fieldForm.dependsOn).trim())
@@ -669,23 +399,15 @@ const fieldRules = computed(() => ({
   dependsParam: [{ validator: validateDependsPair, trigger: 'blur' }]
 }))
 
-/** 类型切换：清空上一类型的专属属性，避免脏值提交 */
+/**
+ * 类型切换：清空上一类型的专属属性，避免脏值提交。
+ *
+ * <p>待清理的属性集合直接取自 schema 的 {@code typeAttrCodes()}，
+ * 新增类型属性时只改 fieldConfigSchema.js 一处，这里无需同步维护。</p>
+ */
 function onTypeChange() {
   const keep = new Set(activeTypeAttrs.value)
-  const typeOnlyAttrs = [
-    'multiline',
-    'maxLength',
-    'minVal',
-    'maxVal',
-    'decimalScale',
-    'dictCode',
-    'refSource',
-    'displayType',
-    'multiSelect',
-    'dependsOn',
-    'dependsParam'
-  ]
-  typeOnlyAttrs.forEach((attr) => {
+  typeAttrCodes().forEach((attr) => {
     if (!keep.has(attr)) fieldForm[attr] = DEFAULT_FIELD_FORM[attr]
   })
 }

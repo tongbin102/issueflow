@@ -19,7 +19,14 @@ export const SEVERITY_CODES = [0, 1, 2, 3]
 /** 优先级码集合（与后端 PriorityEnum 对齐：0 高 / 1 中 / 2 低） */
 export const PRIORITY_CODES = [0, 1, 2]
 
-/** 默认优先级 = 中（与后端 PriorityEnum.DEFAULT_CODE 对齐） */
+/**
+ * 默认优先级 = 中（与后端 PriorityEnum.DEFAULT_CODE 对齐）。
+ *
+ * @deprecated 【需求一 · 默认值红线】禁止用于任何表单初值 / 提交载荷兜底。
+ *   「提交新问题」的优先级必须由用户显式选择，预选中值会导致大量问题被误标为「中」，
+ *   统计失真。本常量仅保留给**列表展示端**在后端历史数据 priority 为 null 时
+ *   做兜底渲染，新代码请勿引用；如需默认值请改由后端 DDL 的 DEFAULT 1 兜底。
+ */
 export const DEFAULT_PRIORITY = 1
 
 /**
@@ -150,7 +157,12 @@ export const MENU_KEY_BY_PATH = {
   '/admin/system/menus': 'menu.admin.menus',
   '/admin/system/roles': 'menu.admin.roles',
   '/admin/system/site': 'menu.admin.siteSettings',
-  '/admin/system/settings': 'menu.admin.systemSettings'
+  // Phase10 需求三：原「备份设置」(/admin/system/settings) 更名为「数据管理」。
+  // 菜单表 path 已由 scripts/V20260803_data_management.sql 改写，
+  // 旧 path 的映射保留一行是为了兼容尚未执行迁移脚本的环境，
+  // 两者都指向同一个 dataManagement.menu，侧边栏不会再出现「备份设置」。
+  '/admin/system/data-management': 'dataManagement.menu',
+  '/admin/system/settings': 'dataManagement.menu'
 }
 
 /**

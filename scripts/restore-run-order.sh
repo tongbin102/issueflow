@@ -26,7 +26,8 @@
 #   2026-08-01 新增 Phase9 的 V20260806_dynamic_field.sql，已含 SET NAMES utf8mb4；
 #   2026-08-06 新增补丁 V20260806b_fieldconfig_permission.sql，已含 SET NAMES utf8mb4；
 #   2026-08-06 新增补丁 V20260806c_fieldconfig_grant_developer.sql，已含 SET NAMES utf8mb4；
-#   2026-08-06 新增补丁 V20260806d_fix_project_ref_order.sql，已含 SET NAMES utf8mb4）。
+#   2026-08-06 新增补丁 V20260806d_fix_project_ref_order.sql，已含 SET NAMES utf8mb4；
+#   2026-08-03 新增 Phase10 的 V20260803_data_management.sql，已含 SET NAMES utf8mb4）。
 #
 #   即便如此，本脚本**仍然保留**对每次 mysql 调用强制
 #   --default-character-set=utf8mb4 —— 作为客户端层的第二道防线，
@@ -74,6 +75,16 @@ FILES=(
                                                 #        Unknown column 'sort' in 'order clause'（500），
                                                 #        前台「提交新问题」表单直接打不开（2026-08-06 线上缺陷）。
                                                 #        依赖 #17 已建 ref_source_registry 并灌入 PROJECT 种子。
+  "V20260803_data_management.sql"               # Phase10：数据管理（备份 / 恢复）。
+                                                #        backup_record / restore_record 建表 +
+                                                #        field_config 预埋 5 列（unique / regex_rule / visible_roles /
+                                                #        readonly_scope / remark）+ sys_config 6 条 data.management.* 配置 +
+                                                #        菜单「备份设置」→「数据管理」更名改路由、下线「数据维护」+
+                                                #        注册 system:data:view|backup|download|delete|upload|restore|config
+                                                #        七个权限码并授 ADMIN。
+                                                #        ⚠ 须最后执行：§2 依赖 #17 的 field_config 表，
+                                                #        §4.1 依赖 #12 W1 的菜单改名与 #15/#16 的 menu 终态。
+                                                #        旧码 system:backup:export 保留兼容一版，本脚本不删。
 )
 
 echo "==================================================================" | tee "$LOG"

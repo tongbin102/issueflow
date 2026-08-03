@@ -165,10 +165,23 @@ const routes = [
             meta: { title: 'menu.admin.siteSettings', roles: ['ADMIN'] }
           },
           {
+            // Phase10 需求三：原「备份设置」页升级为「数据管理」，
+            // 覆盖备份 / 下载 / 恢复 / 上传恢复 / 保留策略 / 数据初始化全流程。
+            path: 'data-management',
+            name: 'data-management',
+            component: () => import('@/views/admin/data-management/index.vue'),
+            meta: { title: 'dataManagement.menu', roles: ['ADMIN'] }
+          },
+          {
+            // 旧「备份设置」路由保留为重定向：菜单表已由
+            // scripts/V20260803_data_management.sql 改指新路径，
+            // 但用户浏览器书签与历史记录里仍存着旧地址，直接删会 404。
             path: 'settings',
-            name: 'system-settings',
-            component: () => import('@/views/admin/SystemSettings.vue'),
-            meta: { title: 'menu.admin.systemSettings', roles: ['ADMIN'] }
+            redirect: '/admin/system/data-management'
+          },
+          {
+            path: 'backup',
+            redirect: '/admin/system/data-management'
           }
         ]
       },

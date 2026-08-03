@@ -192,4 +192,68 @@ public final class Constants {
     /** 配置管理：系统内置配置键前缀（不可删除，仅可改值） */
     public static final Set<String> BUILTIN_CONFIG_PREFIXES =
             Set.of("site.", "file.", "flow_", "theme_", "layout", "menu_config");
+
+    // =====================================================================
+    // Phase10 数据管理（备份 / 恢复）
+    // =====================================================================
+
+    /** 数据管理 API 统一前缀（前后端共享约定，勿改） */
+    public static final String DATA_MANAGEMENT_API_PREFIX = "/api/admin/data";
+
+    /** Redis Key：任务进度，完整 key = dm:task:{taskId} */
+    public static final String REDIS_DM_TASK_PREFIX = "dm:task:";
+
+    /** Redis Key：备份 / 恢复全局互斥锁 */
+    public static final String REDIS_DM_GLOBAL_LOCK = "dm:lock:global";
+
+    /** Redis Key：恢复期系统只读标记 */
+    public static final String REDIS_DM_READONLY = "dm:readonly";
+
+    /** Redis Key：数据管理动态配置缓存（sys_config 的 data.management.* 快照） */
+    public static final String REDIS_DM_CONFIG = "dm:config";
+
+    /** 任务进度 TTL（秒，2 小时） */
+    public static final long DM_TASK_TTL_SECONDS = 7200L;
+
+    /** 数据管理配置缓存 TTL（秒，10 分钟） */
+    public static final long DM_CONFIG_TTL_SECONDS = 600L;
+
+    // ---------- sys_config 配置键（与 V20260803_data_management.sql §3 一一对应）----------
+    /** 备份文件存储根目录 */
+    public static final String CFG_DM_BACKUP_DIR = "data.management.backup.dir";
+    /** 备份最大保留份数，0 不限制 */
+    public static final String CFG_DM_RETAIN_COUNT = "data.management.backup.retain.count";
+    /** 备份最大保留天数，0 不限制 */
+    public static final String CFG_DM_RETAIN_DAYS = "data.management.backup.retain.days";
+    /** 上传恢复包体积上限（MB） */
+    public static final String CFG_DM_UPLOAD_MAX_MB = "data.management.upload.max.size.mb";
+    /** 单任务超时秒数 */
+    public static final String CFG_DM_TASK_TIMEOUT = "data.management.task.timeout.seconds";
+    /** 恢复前是否自动安全备份 */
+    public static final String CFG_DM_PRE_BACKUP_ENABLED = "data.management.restore.pre.backup.enabled";
+
+    /** 数据管理 sys_config 键前缀（用于批量读取与前端配置面板） */
+    public static final String CFG_DM_PREFIX = "data.management.";
+
+    /** 数据管理配置键全集（配置面板只允许改这些键，防止越权改 site.* / file.*） */
+    public static final Set<String> DM_CONFIG_KEYS = Set.of(
+            CFG_DM_BACKUP_DIR, CFG_DM_RETAIN_COUNT, CFG_DM_RETAIN_DAYS,
+            CFG_DM_UPLOAD_MAX_MB, CFG_DM_TASK_TIMEOUT, CFG_DM_PRE_BACKUP_ENABLED);
+
+    // ---------- 备份包内部结构（备份与恢复双方共享约定）----------
+    /** 备份包内数据库 dump 的相对路径 */
+    public static final String BACKUP_ENTRY_DB_SQL = "db/issueflow_db.sql";
+    /** 备份包内配置目录 */
+    public static final String BACKUP_ENTRY_CONFIG_DIR = "config/";
+    /** 备份包内清单文件 */
+    public static final String BACKUP_ENTRY_MANIFEST = "manifest.json";
+    /** 备份包扩展名 */
+    public static final String BACKUP_FILE_EXT = ".zip";
+
+    /** 上传恢复包默认体积上限（MB），sys_config 缺失时兜底 */
+    public static final int DM_DEFAULT_UPLOAD_MAX_MB = 512;
+    /** 备份默认保留份数，sys_config 缺失时兜底 */
+    public static final int DM_DEFAULT_RETAIN_COUNT = 20;
+    /** 备份默认保留天数，sys_config 缺失时兜底 */
+    public static final int DM_DEFAULT_RETAIN_DAYS = 30;
 }

@@ -82,21 +82,13 @@
           <el-input v-model="form.icp" maxlength="50" style="width: 320px" />
         </el-form-item>
       </el-form>
-
-      <!-- T8：数据维护区（与顶部保存区视觉分离：独立分组 + 右侧独立按钮组 + plain 下载图标） -->
-      <el-divider content-position="left">{{ t('backup.entry.group') }}</el-divider>
-      <div class="maintenance">
-        <div class="maintenance__desc">{{ t('backup.entry.desc') }}</div>
-        <div class="maintenance__actions">
-          <el-button v-perm="'system:backup:export'" plain :icon="Download" @click="openBackup">
-            {{ t('backup.action.open') }}
-          </el-button>
-        </div>
-      </div>
+      <!--
+        Phase10 需求三：原「数据维护 / 备份」入口已从本页移除。
+        备份、下载、恢复、上传恢复、保留策略统一收敛到
+        /admin/system/data-management（数据管理）单一入口，
+        避免同一能力在两处各有一半、用户不知道该点哪个。
+      -->
     </el-card>
-
-    <!-- 备份确认抽屉（FormDrawer sm） -->
-    <BackupDrawer v-model="backupVisible" />
   </div>
 </template>
 
@@ -104,10 +96,8 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { Download } from '@element-plus/icons-vue'
 import { getAdminSiteConfig, saveSiteConfig } from '@/api/site'
 import { useAppStore } from '@/store/app'
-import BackupDrawer from '@/components/BackupDrawer.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -136,14 +126,6 @@ const DEFAULTS = {
 const loading = ref(false)
 const saving = ref(false)
 const formRef = ref(null)
-
-/** T8：备份抽屉显隐 */
-const backupVisible = ref(false)
-
-/** 打开备份确认抽屉（抽屉内部自动拉取预估） */
-function openBackup() {
-  backupVisible.value = true
-}
 
 const form = reactive({ ...DEFAULTS })
 
@@ -261,35 +243,5 @@ onMounted(load)
   border: 1px solid rgba(0, 0, 0, 0.15);
 }
 
-/* 数据维护区：左说明右按钮，窄屏换行堆叠 */
-.maintenance {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  max-width: 720px;
-}
-
-.maintenance__desc {
-  flex: 1;
-  min-width: 220px;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--el-text-color-secondary);
-}
-
-.maintenance__actions {
-  flex-shrink: 0;
-}
-
-@media (max-width: 768px) {
-  .maintenance__actions {
-    width: 100%;
-  }
-
-  .maintenance__actions .el-button {
-    width: 100%;
-  }
-}
+/* Phase10 需求三：数据维护区样式随入口一并移除 */
 </style>

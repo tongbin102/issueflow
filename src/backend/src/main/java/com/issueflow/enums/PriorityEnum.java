@@ -29,7 +29,17 @@ public enum PriorityEnum {
         return desc;
     }
 
-    /** 默认优先级 = 中 */
+    /**
+     * 默认优先级 = 中。
+     *
+     * <p><b>【需求一 · 默认值红线】已废弃</b>：优先级必须由用户显式选择，
+     * <b>严禁</b>在表单初值、DTO 缺省、Service 兜底等任何「写入路径」上使用本常量，
+     * 否则会把「没人选过」的问题统计成中优先级，造成报表失真。
+     * 仅保留给历史数据的展示端兜底，新代码请勿引用。</p>
+     *
+     * @deprecated 写入路径禁止使用，见需求一默认值红线
+     */
+    @Deprecated
     public static final int DEFAULT_CODE = 1;
 
     /**

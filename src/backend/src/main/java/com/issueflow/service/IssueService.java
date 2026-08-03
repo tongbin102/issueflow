@@ -105,15 +105,11 @@ public class IssueService {
         // R5-1：模块归属校验（moduleId 为空时直接放行）
         moduleService.assertModuleBelongsToProject(req.getModuleId(), req.getProjectId());
         issue.setModuleId(req.getModuleId());
-        // Phase7-R3：来源为空时服务端填默认项（MANUAL，取自 DictCache 不查库）；
-        // 非空时校验该项存在且启用（停用项禁止新建选中，历史数据回显不受影响）。
-        if (req.getSource() == null || req.getSource().isBlank()) {
-            issue.setSource(dictService.defaultSourceCode());
-        } else {
-            dictService.requireEnabledSource(req.getSource());
-            issue.setSource(req.getSource());
-        }
-        // Phase7-R4：优先级为固定枚举，非法值直接拒绝，缺省兜底「中」
+        // 【需求一】来源：由「用户可选 + 服务端兜底」改为「服务端强制固定 SYSTEM（系统录入）」。
+        // 前端该字段在 UI 上只读，此处再强制覆写一次形成双保险——即便有人绕过前端直接调接口，
+        // 也无法把来源篡改成其它字典项。req.getSource() 一律忽略，不做启用性校验（SYSTEM 为内置项）。
+        issue.setSource(Constants.DICT_ITEM_SOURCE_SYSTEM);
+        // 【需求一】优先级：必须由用户显式选择，服务端不再兜底「中」，为空/非法直接拒绝
         issue.setPriority(requireValidPriority(req.getPriority()));
 
         // 插入冲突（唯一索引兜底）最多重试 3 次；每次重新生成编号，
@@ -205,14 +201,10 @@ public class IssueService {
         moduleService.assertModuleBelongsToProject(req.getModuleId(), issue.getProjectId());
         issue.setModuleId(req.getModuleId());
 
-        // Phase7：来源 / 优先级（非空才更新）
-        // 来源变更时同样要求目标项启用；未变更（等值提交）时放行，避免停用后无法编辑旧问题。
-        if (req.getSource() != null && !req.getSource().isBlank()) {
-            if (!Objects.equals(req.getSource(), issue.getSource())) {
-                dictService.requireEnabledSource(req.getSource());
-            }
-            issue.setSource(req.getSource());
-        }
+        // 【需求一】来源：只读字段，编辑态一律不接受前端入参，保持存量值不变。
+        // 说明：此处刻意「不写」issue.setSource(...)，历史脏数据（如 MANUAL）保留原样以免污染
+        //      既有统计口径；新建的问题从源头就已固定为 SYSTEM。
+        // 优先级：非空才更新（局部更新场景允许不携带），携带时必须合法
         if (req.getPriority() != null) {
             issue.setPriority(requireValidPriority(req.getPriority()));
         }
@@ -582,15 +574,19 @@ public class IssueService {
     }
 
     /**
-     * 校验优先级取值合法性，为空时回落默认值「中」。
+     * 校验优先级取值合法性。
      *
-     * @param priority 请求中的优先级
+     * <p><b>【需求一 · 默认值红线】</b>自本次变更起<b>不再兜底</b> {@code PriorityEnum.DEFAULT_CODE}：
+     * 优先级必须由用户显式选择，服务端擅自填「中」会让统计报表严重失真
+     * （历史上大量"其实没人选过"的问题被算成中优先级）。为空一律拒绝。</p>
+     *
+     * @param priority 请求中的优先级，不允许为 null
      * @return 合法的优先级数值
-     * @throws BizException 非法取值
+     * @throws BizException 为空或取值非法
      */
     private int requireValidPriority(Integer priority) {
         if (priority == null) {
-            return PriorityEnum.DEFAULT_CODE;
+            throw new BizException(ResultCode.VALID_ERROR, "请选择优先级");
         }
         if (!PriorityEnum.isValid(priority)) {
             throw new BizException(ResultCode.VALID_ERROR, "优先级取值非法");

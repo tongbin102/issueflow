@@ -36,8 +36,9 @@ export default {
     roles: '角色管理',
     // Phase8 W1 #2：菜单文案调整（路由 path / component 不变）
     // /admin/system/site  → 系统设置（原「网站设置」）
-    // /admin/system/settings → 备份设置（原「系统设置」）
-    siteSettings: '系统设置',
-    systemSettings: '备份设置'
+    siteSettings: '系统设置'
+    // Phase10 需求三：原 systemSettings（「备份设置」）已下线，
+    // /admin/system/settings 重定向到 /admin/system/data-management，
+    // 菜单文案改由 dataManagement.menu 提供（见 utils/i18nEnum.js）。
   }
 }

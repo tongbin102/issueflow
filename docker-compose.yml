@@ -76,10 +76,20 @@ services:
       # 采用 compose 的 `:?` 语法——未设置时直接报错退出，宁可起不来也不用弱密钥对外提供服务。
       JWT_SECRET: "${JWT_SECRET:?JWT_SECRET 未设置：请在项目根 .env 写入 JWT_SECRET=<≥32 字节强随机串>，生成命令 openssl rand -base64 48}"
       JWT_EXPIRATION: 7200
+      # ---- Phase10 数据管理（备份 / 恢复）----
+      # 备份目录、可执行文件路径。注意此处**不注入任何额外的 DB 密码变量** ——
+      # 备份工具复用上面的 MYSQL_USER / MYSQL_PASSWORD，且只通过 0600 的
+      # --defaults-extra-file 临时文件传递，绝不出现在命令行（防 ps 窥探）。
+      DATA_MANAGEMENT_ENABLED: "true"
+      BACKUP_DIR: /data/issueflow/backups
+      MYSQLDUMP_PATH: /usr/bin/mysqldump
+      MYSQL_CLIENT_PATH: /usr/bin/mysql
     ports:
       - "8080:8080"
     volumes:
       - attachments-data:/data/attachments
+      # 备份卷：宿主机 ./data/backups 需为 0700，备份包内含整库数据
+      - ./data/backups:/data/issueflow/backups
     restart: unless-stopped
     networks:
       - issueflow-net

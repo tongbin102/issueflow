@@ -26,7 +26,7 @@
               <DynamicField
                 :field="field"
                 :model-value="formModel[field.code]"
-                :disabled="disabled"
+                :disabled="disabled || isReadonlyField(field)"
                 :parent-value="parentValueOf(field)"
                 @update:model-value="(value) => onFieldChange(field.code, value)"
               />
@@ -58,6 +58,12 @@ const props = defineProps({
   sectionCode: { type: String, default: '' },
   /** 整表只读 */
   disabled: { type: Boolean, default: false },
+  /**
+   * 单字段强制只读白名单（field.code 数组）。
+   * <p>与 {@link disabled} 的区别：disabled 锁全表，本项只锁指定字段，其余字段照常可编辑。
+   * 典型用例——需求一「来源」固定「系统录入」且不可修改。</p>
+   */
+  readonlyCodes: { type: Array, default: () => [] },
   /** el-form label 宽度 */
   labelWidth: { type: String, default: '110px' },
   /** 是否展示区域标题（单区域渲染时通常由外层页签承担标题，可关闭） */
@@ -172,6 +178,23 @@ function spanOf(field) {
   const raw = Number(field && field.span)
   if (!Number.isFinite(raw) || raw <= 0) return 12
   return Math.min(24, Math.max(1, Math.trunc(raw)))
+}
+
+/** 强制只读字段集合（O(1) 命中，避免每次渲染都遍历数组） */
+const readonlyCodeSet = computed(() => {
+  const list = Array.isArray(props.readonlyCodes) ? props.readonlyCodes : []
+  return new Set(list.filter((code) => code != null).map((code) => String(code)))
+})
+
+/**
+ * 判断字段是否被强制只读（命中 readonlyCodes 白名单）。
+ *
+ * @param {object} field 字段配置
+ * @returns {boolean}
+ */
+function isReadonlyField(field) {
+  if (!field || field.code == null) return false
+  return readonlyCodeSet.value.has(String(field.code))
 }
 
 /**

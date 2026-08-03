@@ -1,5 +1,7 @@
 package com.issueflow.dto.req;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.util.Map;
 import lombok.Data;
@@ -54,10 +56,25 @@ public class IssueUpdateReq implements Serializable {
      */
     private Long moduleId;
 
-    /** 来源编码（dict_item 的 item_code，字典类型 ISSUE_SOURCE；非空才更新） */
+    /**
+     * 来源编码（dict_item 的 item_code，字典类型 ISSUE_SOURCE）。
+     *
+     * <p><b>【需求一】该入参已失效</b>：来源为只读字段，{@code IssueService#update} 一律忽略，
+     * 存量记录保持原值不变（不回写 SYSTEM，避免污染既有统计口径）。</p>
+     *
+     * @deprecated 编辑态不支持修改来源，新调用方无需传递
+     */
+    @Deprecated
     private String source;
 
-    /** 优先级：0高 1中 2低（非空才更新） */
+    /**
+     * 优先级：0高 1中 2低（非空才更新）。
+     *
+     * <p><b>【需求一 · 默认值红线】</b>编辑态沿用「非空才更新」以支持局部更新，
+     * 但一旦携带就必须落在 0~2，服务端不会把非法值静默改写成默认值。</p>
+     */
+    @Min(value = 0, message = "优先级取值非法")
+    @Max(value = 2, message = "优先级取值非法")
     private Integer priority;
 
     /**

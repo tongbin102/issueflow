@@ -25,8 +25,9 @@ import chart from './chart'
 import dict from './dict'
 import profile from './profile'
 import infra from './infra'
-import backup from './backup'
 import fieldConfig from './fieldConfig'
+// Phase10 需求三：数据管理页文案（备份 / 恢复 / 上传 / 保留策略 / 数据初始化）
+import dataManagement from './dataManagement'
 
 export default {
   common,
@@ -51,6 +52,6 @@ export default {
   dict,
   profile,
   infra,
-  backup,
-  fieldConfig
+  fieldConfig,
+  dataManagement
 }

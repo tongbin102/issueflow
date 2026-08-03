@@ -70,7 +70,37 @@ public enum ResultCode {
     REF_SOURCE_NOT_ALLOWED(40099, "引用源不在白名单中"),
     REF_SOURCE_ILLEGAL_IDENTIFIER(40100, "引用源配置非法"),
     /** 自定义字段必填校验失败（落库前兜底，severity 与 Phase9 段一致） */
-    FIELD_VALUE_REQUIRED(40101, "必填字段未填写");
+    FIELD_VALUE_REQUIRED(40101, "必填字段未填写"),
+
+    // ===== Phase10 数据管理（备份 / 恢复），号段 40110-40125 =====
+    /** 已有备份/恢复任务在执行，全局互斥 */
+    DATA_TASK_RUNNING(40110, "已有备份或恢复任务正在执行，请稍后再试"),
+    /** 任务不存在或进度已过期（Redis TTL 2h） */
+    DATA_TASK_NOT_FOUND(40111, "任务不存在或进度已过期"),
+    /** 备份记录不存在 */
+    BACKUP_NOT_FOUND(40112, "备份记录不存在"),
+    /** 备份文件已丢失（记录在但磁盘文件没了） */
+    BACKUP_FILE_MISSING(40113, "备份文件已丢失，无法下载或恢复"),
+    /** 备份仍在进行中，不可下载/删除/恢复 */
+    BACKUP_NOT_READY(40114, "备份尚未完成，请等待任务结束"),
+    /** 备份包结构非法（缺 manifest.json / db 目录等） */
+    BACKUP_PACKAGE_INVALID(40115, "备份包格式不正确，请上传由本系统导出的备份文件"),
+    /** SHA-256 校验和不匹配 */
+    BACKUP_CHECKSUM_MISMATCH(40116, "备份文件校验失败，文件可能已损坏"),
+    /** 上传文件超出体积上限 */
+    BACKUP_UPLOAD_TOO_LARGE(40117, "上传文件超出大小限制"),
+    /** mysqldump / mysql 客户端不可用 */
+    DATA_TOOL_UNAVAILABLE(40118, "数据库备份工具不可用，请联系运维检查部署环境"),
+    /** 备份执行失败（详细原因脱敏后写入 error_msg） */
+    BACKUP_EXECUTE_FAILED(40119, "备份执行失败"),
+    /** 恢复执行失败 */
+    RESTORE_EXECUTE_FAILED(40120, "数据恢复失败，已尝试保留恢复前安全备份"),
+    /** 系统处于恢复只读期，拒绝写操作 */
+    DATA_SYSTEM_READONLY(40121, "系统正在执行数据恢复，暂时只读，请稍后重试"),
+    /** 数据管理模块被关闭 */
+    DATA_MANAGEMENT_DISABLED(40122, "数据管理功能未启用"),
+    /** 备份包版本与当前应用不兼容 */
+    BACKUP_VERSION_INCOMPATIBLE(40123, "备份包版本与当前系统不兼容");
 
     private final Integer code;
     private final String message;

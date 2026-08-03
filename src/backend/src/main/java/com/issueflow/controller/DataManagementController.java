@@ -64,7 +64,7 @@ public class DataManagementController {
      * @return 任务初始进度
      */
     @PostMapping("/backups")
-    @PreAuthorize("hasAuthority('system:data:backup')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public Result<TaskProgressDTO> createBackup(@Valid @RequestBody(required = false) CreateBackupReq req) {
         return Result.success(dataManagementService.createBackup(req));
     }
@@ -81,7 +81,7 @@ public class DataManagementController {
      * @return 分页结果
      */
     @GetMapping("/backups")
-    @PreAuthorize("hasAuthority('system:data:view')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public Result<PageResult<BackupListVO>> listBackups(
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long size,
@@ -100,7 +100,7 @@ public class DataManagementController {
      * @return 详情
      */
     @GetMapping("/backups/{id}")
-    @PreAuthorize("hasAuthority('system:data:view')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public Result<BackupDetailVO> getBackupDetail(@PathVariable Long id) {
         return Result.success(dataManagementService.getBackupDetail(id));
     }
@@ -115,7 +115,7 @@ public class DataManagementController {
      * @param response HTTP 响应
      */
     @GetMapping("/backups/{id}/download")
-    @PreAuthorize("hasAuthority('system:data:download')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public void download(@PathVariable Long id, HttpServletResponse response) {
         dataManagementService.download(id, response);
     }
@@ -127,7 +127,7 @@ public class DataManagementController {
      * @return 空结果
      */
     @DeleteMapping("/backups/{id}")
-    @PreAuthorize("hasAuthority('system:data:delete')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public Result<Void> deleteBackup(@PathVariable Long id) {
         dataManagementService.deleteBackup(id);
         return Result.success();
@@ -141,7 +141,7 @@ public class DataManagementController {
      * @return 任务初始进度
      */
     @PostMapping("/backups/{id}/restore")
-    @PreAuthorize("hasAuthority('system:data:restore')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public Result<TaskProgressDTO> restore(@PathVariable Long id,
                                            @Valid @RequestBody(required = false) RestoreReq req) {
         return Result.success(dataManagementService.restore(id, req));
@@ -160,7 +160,7 @@ public class DataManagementController {
      * @return 任务初始进度
      */
     @PostMapping("/backups/upload")
-    @PreAuthorize("hasAuthority('system:data:upload') and hasAuthority('system:data:restore')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public Result<TaskProgressDTO> uploadAndRestore(
             @RequestPart("file") MultipartFile file,
             @RequestPart(value = "meta", required = false) @Valid UploadRestoreReq req) {
@@ -173,7 +173,7 @@ public class DataManagementController {
      * @return 配置
      */
     @GetMapping("/config")
-    @PreAuthorize("hasAuthority('system:data:view')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public Result<DataManagementConfigDTO> getConfig() {
         return Result.success(dataManagementService.getConfig());
     }
@@ -185,7 +185,7 @@ public class DataManagementController {
      * @return 落库后的最新配置
      */
     @PutMapping("/config")
-    @PreAuthorize("hasAuthority('system:data:config')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public Result<DataManagementConfigDTO> updateConfig(
             @Valid @RequestBody DataManagementConfigDTO dto) {
         return Result.success(dataManagementService.updateConfig(dto));
@@ -198,7 +198,7 @@ public class DataManagementController {
      * @return 进度
      */
     @GetMapping("/tasks/{taskId}")
-    @PreAuthorize("hasAuthority('system:data:view')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public Result<TaskProgressDTO> getTaskProgress(@PathVariable String taskId) {
         return Result.success(dataManagementService.getTaskProgress(taskId));
     }

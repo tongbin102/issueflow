@@ -108,4 +108,31 @@
 
   /* --- 移动端最小触控热区（PRD §2.6 可访问性） --- */
   --if-touch-size: 44px;
+
+  /* ==========================================================================
+     登录页主题令牌（Login theme tokens）
+     说明：登录页为「品牌氛围页」，其渐变底色 / 装饰线框 / 品牌面板文字色
+     不随后台 --theme-color 联动（避免用户切主题后登录页对比度失衡）。
+     色值集中定义于此，组件层（views/Login.vue）只允许消费 var(--if-login-*)，
+     不得硬编码色值（ARCH §七.2 设计令牌纪律）。
+     ========================================================================== */
+  --if-login-bg-from: #3a7afe;
+  --if-login-bg-via: #2a5fe0;
+  --if-login-bg-to: #1f4fd6;
+  --if-login-bg-accent: #16b8c8;
+  --if-login-glow-strong: rgba(255, 255, 255, 0.22);
+  --if-login-glow-soft: rgba(255, 255, 255, 0.08);
+  --if-login-on-brand: #ffffff;
+  --if-login-on-brand-muted: rgba(255, 255, 255, 0.76);
+  --if-login-decor-stroke: rgba(255, 255, 255, 0.3);
+  --if-login-decor-fill: rgba(255, 255, 255, 0.16);
+  --if-login-decor-accent: rgba(120, 232, 245, 0.55);
+  --if-login-grid-dot: rgba(255, 255, 255, 0.14);
+  --if-login-card-bg: #ffffff;
+  --if-login-chip-bg: rgba(255, 255, 255, 0.14);
+  --if-login-chip-border: rgba(255, 255, 255, 0.26);
+  --if-login-shell-max: 1040px;
+  --if-login-card-width: 380px;
+  /* 点阵网格的淡出遮罩（仅 alpha 生效，不参与配色） */
+  --if-login-dot-mask: linear-gradient(180deg, rgb(0 0 0 / 90%) 0%, rgb(0 0 0 / 0%) 78%);
 }

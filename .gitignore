@@ -75,3 +75,6 @@ nul
 .cache-build/
 tmp_src.tar.gz
 tmp_deploy.tar.gz
+
+# 隔离区：仓库整理时临时存放待删文件，复核后可整体清除
+.quarantine/

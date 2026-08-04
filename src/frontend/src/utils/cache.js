@@ -6,9 +6,10 @@
  *
  * <p>清理范围（精准清理，<b>不使用</b> localStorage.clear()）：</p>
  * <ul>
- *   <li>localStorage 中所有以 {@code if_} 前缀开头的键
- *       —— if_token / if_user / if_theme / if_app / if_admin_style / if_locale 等；</li>
- *   <li>额外的非 {@code if_} 前缀业务键 —— {@code issueflow:column-preferences}（表格列偏好）；</li>
+ *   <li>localStorage 中所有以 {@code if_} <b>或</b> {@code if-} 前缀开头的键
+ *       —— if_token / if_user / if_theme / if_app / if_admin_style / if_locale /
+ *       if_org_density / if_org_columns / if_project_columns / if-menu-closed-type1；</li>
+ *   <li>额外的无 if 前缀业务键 —— {@code issueflow:column-preferences}（表格列偏好）；</li>
  *   <li>整个 sessionStorage；</li>
  *   <li>（可选）传入的 userStore 实例的内存态（token / userInfo / roles / permissions）。</li>
  * </ul>
@@ -22,12 +23,33 @@
  */
 import { removeToken } from '@/utils/auth'
 
-/** 本平台 localStorage 键统一前缀（ARCH §七.2） */
-export const APP_STORAGE_PREFIX = 'if_'
+/**
+ * 本平台 localStorage 键前缀集合。
+ *
+ * <p>历史原因，仓库内实际存在<b>两种</b>前缀写法，二者都属于本平台键，必须同时覆盖：</p>
+ * <ul>
+ *   <li>{@code if_}（下划线，ARCH §七.2 规范写法）—— if_token / if_user / if_theme /
+ *       if_app / if_admin_style / if_locale / if_org_density / if_org_columns /
+ *       if_project_columns；</li>
+ *   <li>{@code if-}（连字符，历史遗留写法）—— 目前仅
+ *       {@code if-menu-closed-type1}（SideMenu.vue 侧边菜单折叠态，属「布局偏好」，
+ *       登录页清除缓存的确认文案已向用户承诺清理该类偏好）。</li>
+ * </ul>
+ *
+ * <p>此处按「前缀类」而非「单键白名单」修复：新增任一写法的持久化键都能被自动覆盖，
+ * 避免后人再次踩到连字符键漏删的坑。</p>
+ */
+export const APP_STORAGE_PREFIXES = ['if_', 'if-']
+
+/**
+ * 兼容旧引用的单前缀常量（等价于 APP_STORAGE_PREFIXES[0]）。
+ * @deprecated 请改用 {@link APP_STORAGE_PREFIXES}，单前缀无法覆盖 {@code if-} 连字符键。
+ */
+export const APP_STORAGE_PREFIX = APP_STORAGE_PREFIXES[0]
 
 /**
  * 前缀规范之外、仍需一并清理的业务键白名单。
- * 新增此类「历史遗留 / 特殊命名」的持久化键时，请同步登记到这里。
+ * 新增此类「无 if 前缀」的持久化键时，请同步登记到这里。
  */
 export const EXTRA_STORAGE_KEYS = ['issueflow:column-preferences']
 
@@ -44,6 +66,16 @@ function isStorageAvailable() {
 }
 
 /**
+ * 判断某个键是否属于本平台（命中任一前缀即算）。
+ * @param {string} key localStorage 键名
+ * @returns {boolean} 属于本平台返回 true
+ */
+export function isAppStorageKey(key) {
+  if (!key) return false
+  return APP_STORAGE_PREFIXES.some((prefix) => key.indexOf(prefix) === 0)
+}
+
+/**
  * 收集当前 localStorage 中所有属于本平台的键。
  * <p>先收集再删除，避免遍历过程中因索引位移而漏删。</p>
  * @returns {string[]} 待清理的键名数组（已去重）
@@ -54,7 +86,7 @@ export function collectAppCacheKeys() {
   try {
     for (let i = 0; i < localStorage.length; i += 1) {
       const key = localStorage.key(i)
-      if (key && key.indexOf(APP_STORAGE_PREFIX) === 0) {
+      if (isAppStorageKey(key)) {
         hits.push(key)
       }
     }
@@ -128,18 +160,35 @@ export function resetUserStoreState(userStore) {
  *          清理结果摘要，便于调用方做日志或提示
  */
 export function clearAppCache(userStore = null) {
-  // 1) 先显式移除登录 token（即便后续遍历因异常中断，登录态也已失效）
+  // 1) 先快照待清理键。必须早于 removeToken()：否则 if_token 会先被删掉，
+  //    后续收集不到它，导致返回摘要少算一个键（日志/提示口径失真）。
+  const pendingKeys = collectAppCacheKeys()
+
+  // 2) 显式移除登录 token（即便后续遍历因异常中断，登录态也已失效）
   try {
     removeToken()
   } catch (e) {
     /* ignore */
   }
-  // 2) 清除 localStorage 中的 if_* 与额外业务键
-  const removedKeys = clearAppStorage()
-  // 3) 清空 sessionStorage
+
+  // 3) 清除 localStorage 中的 if_* / if-* 与额外业务键
+  clearAppStorage()
+
+  // 4) 清空 sessionStorage
   const sessionCleared = clearSessionStorage()
-  // 4) 重置 userStore 内存态，保证当前页面立即反映「未登录」
+
+  // 5) 重置 userStore 内存态，保证当前页面立即反映「未登录」
   const userReset = resetUserStoreState(userStore)
+
+  // 6) 按「实际已不存在」回算清除结果，而非假定删除成功——
+  //    个别键因浏览器限制删除失败时，摘要能如实反映。
+  const removedKeys = pendingKeys.filter((key) => {
+    try {
+      return localStorage.getItem(key) === null
+    } catch (e) {
+      return false
+    }
+  })
 
   return {
     removedKeys,

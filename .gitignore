@@ -42,6 +42,9 @@ src/frontend/check-i18n-keys.mjs
 src/frontend/*_qa_*.mjs
 src/frontend/qa[-_]*.mjs
 src/frontend/scan-cn.mjs
+# verify-*.mjs / verify_*.mjs：验证类临时 harness（如 verify-cache-fix.mjs）。
+# 补此行的原因：上述三条规则均以 qa 为词根，verify- 前缀落在缝隙里导致漏网并已复发一次。
+src/frontend/verify[-_]*.mjs
 
 # ===== 部署私钥（严禁入库，参考 ss-assess 的 .deploy_key 模式）=====
 .deploy_key

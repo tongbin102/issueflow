@@ -521,12 +521,14 @@ issueFlow/
 │   └── frontend/              # Vue3 前端（含 package.json / vite.config.js / Dockerfile / nginx.conf）
 │       └── src/               # 前端源码：api / components / views / store / router / layouts / utils / styles
 ├── docs/                      # 过程文档
-│   ├── prd.md                 # 产品需求文档
-│   ├── architecture.md        # 架构设计 + 任务分解（含 Mermaid 图）
+│   ├── PRD.md                 # 产品需求文档（权威当前态）
+│   ├── ARCHITECTURE.md        # 架构设计 + 任务分解（权威当前态，含 Mermaid 图）
 │   ├── CHANGELOG.md           # 变更日志（Keep a Changelog 格式）
 │   ├── design-notes.md        # 设计思路摘要
+│   ├── diagrams/              # Mermaid 图（*-latest.mermaid 当前态，*-phaseN.mermaid 各期）
 │   ├── issues/                # 问题记录 / 实现笔记 / 已知限制
-│   └── adr/                   # 架构决策记录（ADR），编号命名如 001-技术选型决策.md
+│   ├── adr/                   # 架构决策记录（ADR），编号命名如 001-技术选型决策.md
+│   └── archive/2026-08-04/    # 多版本历史快照（prd.md / architecture.md / PRD_phaseN / ARCH_phaseN 等）
 ├── assets/                    # 静态资源（图片/字体/数据），当前含 images/logo.svg
 │   └── images/
 ├── tests/                     # 测试（与 src/ 对应）

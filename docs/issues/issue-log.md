@@ -26,7 +26,7 @@
 1. **IssueTable 筛选字段对齐 `startDate`/`endDate`**：问题列表筛选的时间范围，组件内部字段曾为 `startTime`/`endTime`，已对齐为请求参数 `startDate`/`endDate`（与后端 `IssuePageReq` 一致），避免筛选条件被后端忽略。
 2. **附件预览改 fetch blob 携带 token**：图片预览原为 `<img src>` 直链，因携带不了 `Authorization` 在鉴权下会 401；已改为 `previewAttachment` 经 Axios（自动注入 Bearer token）取 Blob 再 `URL.createObjectURL` 渲染，新标签页打开，并在卸载时 `revokeObjectURL` 释放。
 
-## 四、待确认事项（技术层面，见 architecture.md §9）
+## 四、待确认事项（技术层面，见 ARCHITECTURE.md §9.4）
 
 - 是否需要 refreshToken 无感刷新？
 - 看板导出分工（PNG 前端 / Excel 后端）是否可接受？

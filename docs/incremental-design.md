@@ -2,7 +2,7 @@
 
 > 架构师：高见远｜基于产品经理增量 PRD（项目管理 / 系统管理父菜单 / 后台 UI 调整）
 > 代码根：`D:\WorkBuddyProjects\issueFlow`（实际位于 `src/backend` 与 `src/frontend`）
-> 本文为**增量设计**，仅描述本次 P0 新增/改动点；既有 `architecture.md` / `class-diagram.mermaid` / `sequence-diagram.mermaid` 为基线，不覆盖。
+> 本文为**增量设计**，仅描述本次 P0 新增/改动点；既有 `docs/archive/2026-08-04/architecture.md` / `docs/class-diagram.mermaid` / `docs/sequence-diagram.mermaid` 为基线，不覆盖。
 > 配套图文件：`docs/incremental-class-diagram.mermaid`、`docs/incremental-sequence-diagram.mermaid`。
 
 ---

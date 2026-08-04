@@ -5,7 +5,7 @@
 | 文档名称 | 安全加固与重构 · 架构设计与任务分解 |
 | 版本 / 日期 | v1.0 / 2026-08-01 |
 | 架构师 | 高见远 |
-| 上游输入 | `docs/PRD_security_refactor_2026-08-01.md` |
+| 上游输入 | `docs/PRD-security-refactor-v1.0-2026-08-01.md` |
 | 技术栈 | Spring Boot + Spring Security + MyBatis-Plus + MySQL + Redis，`docker compose` 部署（23 号服务器） |
 | 采纳决策 | M1 先注入后去兜底 / M2 prod=never·基线保留 always / M3+M4 prod=Slf4jImpl + mapper=info / M5 方案 A（`@EnableMethodSecurity` + `@PreAuthorize` 渐进）/ ModuleService 分阶段（先抽 Query + Support）/ 枚举化 P1 范围 |
 

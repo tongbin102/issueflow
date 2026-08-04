@@ -1,0 +1,407 @@
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant P as UserProfile.vue
+    participant B as ProfileBasic.vue
+    participant AU as AvatarUploader.vue
+    participant API as api/profile.js
+    participant PC as ProfileController
+    participant PS as ProfileService
+    participant FS as FileRecordService
+    participant FC as FileConfigService
+    participant US as UserService
+    participant UST as store/user.js
+    participant UL as UserLayout(顶栏)
+
+    U->>P: 顶栏头像下拉 →「个人中心」→ /user/profile
+    P->>API: getProfile()
+    API->>PC: GET /api/profile
+    PC->>PS: profile()
+    PS->>US: getById(SecurityUtils.getCurrentUserId())
+    PS->>PS: MaskUtils.maskPhone/maskEmail + 组织名/角色名回填
+    PS-->>PC: ProfileVO(含脱敏值与编辑原值)
+    PC-->>P: Result.data
+    P->>B: 渲染基本信息 Tab（用户名/组织/角色/注册时间只读）
+
+    opt 更换头像
+        U->>AU: 选择图片
+        AU->>AU: 前端校验（image/* + ≤2MB + 尺寸提示）
+        AU->>API: uploadAvatar(file)
+        API->>PC: POST /api/profile/avatar (multipart)
+        PC->>PS: uploadAvatar(file)
+        PS->>FC: validate(file)  // 扩展名白名单 + 大小上限（动态配置）
+        alt 校验不通过
+            FC-->>PS: throw BizException(具体原因)
+            PS-->>AU: {code:500, message}
+            AU-->>U: ElMessage.error(后端原因)
+        else 通过
+            PS->>FS: upload(file, 'AVATAR', userId)
+            FS->>FS: FileUtil.store(file, cfg) → 落盘 yyyyMM/uuid.ext
+            FS->>FS: INSERT file_record
+            FS-->>PS: relativePath
+            PS->>US: UPDATE user SET avatar=relativePath
+            PS-->>AU: relativePath
+            AU->>UST: refreshUserInfo()
+            UST->>UL: 顶栏头像即时刷新
+        end
+    end
+
+    U->>B: 修改昵称/邮箱/手机 → 点击「保存」
+    B->>B: el-form 校验（邮箱正则 / 手机正则 / 长度）
+    B->>API: updateProfile(form)
+    API->>PC: PUT /api/profile
+    PC->>PS: updateProfile(req)
+    PS->>PS: 后端二次格式校验
+    PS->>US: existsEmail(email, selfId) / existsPhone(phone, selfId)
+    alt 唯一性冲突
+        PS-->>B: BizException「该邮箱已被其他账号绑定」
+        B-->>U: ElMessage.error
+    else 通过
+        PS->>US: updateById(仅白名单字段 nickname/realName/email/phone)
+        PS-->>PC: void
+        PC-->>B: Result.success()
+        B->>UST: refreshUserInfo()
+        UST->>UL: 顶栏用户名同步刷新
+        B-->>U: ElMessage.success(t('profile.msg.saved'))
+    end
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as 用户
+    participant S as ProfileSecurity.vue
+    participant D as FormDrawer(sm)
+    participant API as api/profile.js
+    participant PC as ProfileController
+    participant PS as ProfileService
+    participant R as Redis(jwt:blacklist)
+    participant A as ProfileActivity.vue
+    participant LL as LoginLogService
+    participant IH as IssueHistoryService
+
+    U->>S: 点击「修改密码」
+    S->>D: v-model=true (sm)
+    U->>D: 原密码 / 新密码 / 确认新密码 → 保存
+    D->>API: changePassword(form)
+    API->>PC: PUT /api/profile/password
+    PC->>PS: changePassword(req)
+    PS->>PS: passwordEncoder.matches(old, user.password)
+    alt 原密码错误
+        PS-->>D: BizException「原密码不正确」
+        D-->>U: 面板保持打开 + 错误提示
+    else 正确
+        PS->>PS: assertStrongPassword(new)  // ≥8 且含字母+数字，与用户管理一致
+        PS->>PS: new == confirm 校验
+        PS->>PS: UPDATE user SET password=encode(new), pwd_updated_at=NOW()
+        PS->>R: 当前 token jti 加黑名单（TTL=剩余有效期）
+        PS-->>PC: void
+        PC-->>D: Result.success()
+        D-->>U: ElMessage.success「密码已修改，请重新登录」
+        U->>U: 3s 后前端清 token → router.push('/login')
+    end
+
+    Note over A: 活动记录 Tab（登录日志 + 我的问题动态）
+    U->>A: 切到「活动记录」，选择「全部/登录/问题动态」
+    A->>API: getActivities({page,size,type,dateRange})
+    API->>PC: GET /api/profile/activities
+    PC->>PS: activities(req)
+    par 两路数据源
+        PS->>LL: 查 login_log WHERE user_id=self ORDER BY login_at DESC
+    and
+        PS->>IH: 查 issue_history WHERE operator_id=self（JOIN issue 取 issueNo/title，批量回填禁 N+1）
+    end
+    PS->>PS: 统一映射为 ActivityVO(type/time/title/detail) → 按 time DESC 归并 → 内存分页
+    PS-->>A: PageResult<ActivityVO>
+    A-->>U: 桌面端时间线 / 移动端卡片；问题动态行可点开问题详情抽屉
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as 管理员
+    participant V as DictManage.vue
+    participant D as FormDrawer(sm)
+    participant API as api/dict.js
+    participant DC as DictController
+    participant DS as DictService
+    participant CACHE as DictCache
+    participant DB as MySQL
+    participant ST as store/dict.js
+
+    A->>V: 进入「业务管理 > 字典配置」
+    V->>API: getDictTypes()
+    API->>DC: GET /api/dicts/types
+    DC->>DS: listTypes()
+    DS->>DB: SELECT dict_type WHERE deleted=0 ORDER BY sort
+    DS-->>V: 类型列表（左树；移动端为顶部下拉）
+    A->>V: 选中「问题来源」
+    V->>API: getDictItems({typeCode:'ISSUE_SOURCE'})
+    DC->>DS: listItems(...)
+    DS->>DB: SELECT dict_item WHERE type_id=? AND deleted=0 ORDER BY sort
+    DS->>DB: 批量 COUNT issue GROUP BY source_id  // 一次聚合出全部 refCount，禁 N+1
+    DS-->>V: List<DictItemVO>（含 isSystem / refCount）
+    V-->>A: 预设项「删除」按钮 disabled + tooltip「系统预设项不可删除，可改为停用」
+
+    Note over A,V: 新增自定义项
+    A->>V: 点击「+ 新增选项」
+    V->>D: FormDrawer(sm)：名称* / 编码* / 排序 / 描述 / 启用
+    A->>D: 填写 → 保存
+    D->>API: createDictItem(form)
+    API->>DC: POST /api/dicts/items
+    DC->>DS: createItem(req)
+    DS->>DS: requirePermission('dict:create')
+    DS->>DS: assertCodeUnique(typeId, code, null)
+    alt code 重复
+        DS-->>D: BizException「该类型下编码已存在」
+    else 通过
+        DS->>DB: INSERT dict_item (is_system=0)
+        DS->>CACHE: evict('ISSUE_SOURCE')
+        DS-->>D: id
+        D->>V: 关闭 + 刷新
+        V->>ST: invalidate('ISSUE_SOURCE')  // 全站下拉下次访问重新拉取
+        V-->>A: ElMessage.success
+    end
+
+    Note over A,V: 删除保护双闸
+    A->>V: 点击自定义项「删除」
+    V->>V: ElMessageBox.confirm
+    V->>API: deleteDictItem(id)
+    DC->>DS: deleteItem(id)
+    DS->>DB: SELECT dict_item WHERE id=?
+    alt is_system = 1（前端绕过也拦住）
+        DS-->>V: BizException「系统预设项不可删除，可改为停用」
+    else 自定义项
+        DS->>DB: SELECT COUNT(*) FROM issue WHERE source_id=? AND deleted=0
+        alt count > 0
+            DS-->>V: BizException「该选项下存在 {n} 条问题，无法删除，可改为停用」
+        else count = 0
+            DS->>DB: UPDATE dict_item SET deleted=1  // code_active 生成列自动变 NULL，不撞唯一索引
+            DS->>CACHE: evict(typeCode)
+            DS-->>V: Result.success()
+        end
+    end
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as 管理员
+    participant V as RedisMonitor.vue
+    participant API as api/redisMonitor.js
+    participant C as RedisMonitorController
+    participant S as RedisMonitorService
+    participant CF as RedisConnectionFactory
+    participant R as Redis Server
+
+    A->>V: 打开「基础设施 > Redis 监控」
+    V->>V: loading = true（骨架屏，不阻塞路由渲染）
+    V->>API: getRedisInfo()
+    API->>C: GET /api/admin/redis/info
+    C->>S: info()
+    S->>CF: getConnection()
+    alt 连接/命令异常（含 timeout 2s、NOPERM、命令被禁用）
+        CF-->>S: RedisConnectionFailureException / InvalidDataAccessApiUsageException
+        S->>S: catch → RedisInfoVO{available:false, errorMessage: 归一化原因}
+        S-->>C: VO（**不抛异常**）
+        C-->>V: HTTP 200 + available=false
+        V-->>A: 整页错误卡片「Redis 连接失败：{原因}」+ [重试]
+    else 正常
+        S->>R: INFO server / memory / clients / stats / keyspace
+        R-->>S: Properties
+        S->>R: DBSIZE
+        R-->>S: Long
+        S->>S: parseInfo → 连接信息 / 内存(已用/峰值/占比/碎片率) / Key(总数/db分布/命中率/过期/淘汰)
+        S-->>C: RedisInfoVO{available:true, ...}
+        C-->>V: Result.data
+        V-->>A: 三张卡片渲染（移动端纵向堆叠）
+    end
+
+    opt 自动刷新开关（默认关闭）
+        A->>V: 打开「自动刷新」
+        V->>V: setInterval(30s) → 重复上述拉取
+        A->>V: 离开页面
+        V->>V: onBeforeUnmount → clearInterval（防内存泄漏）
+    end
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as 管理员
+    participant FL as FileList.vue
+    participant FCV as FileConfig.vue
+    participant API as api/fileManage.js
+    participant FMC as FileManageController
+    participant FRS as FileRecordService
+    participant FCS as FileConfigService
+    participant CFG as sys_config(file.*)
+    participant DISK as 本地磁盘
+
+    Note over A,FCV: ① 先改配置，立即对新上传生效
+    A->>FCV: 修改「单文件上限 10→5MB / 扩展名白名单」→ 保存
+    FCV->>API: saveFileConfig(form)
+    API->>FMC: PUT /api/admin/files/config
+    FMC->>FCS: save(req)
+    FCS->>FCS: 校验绝对路径 + 目录可写 + 数值范围
+    FCS->>CFG: upsert file.storage_root/max_size_mb/allowed_exts/storage_type
+    FCS->>FCS: evict() 本地 30s 缓存
+    FCS-->>FCV: Result.success()
+
+    Note over A,FL: ② 上传（新配置即时命中，无需重启）
+    A->>FL: 点击「上传」选择 6MB 的 .exe
+    FL->>API: uploadFile(file)
+    API->>FMC: POST /api/admin/files
+    FMC->>FRS: upload(file,'MANUAL',null)
+    FRS->>FCS: validate(file)
+    FCS->>CFG: current()（缓存未命中则读库）
+    FCS-->>FRS: BizException「文件超过 5MB 上限」/「扩展名 exe 不在白名单」
+    FRS-->>FL: {code:500, message}
+    FL-->>A: ElMessage.error(后端具体原因)
+
+    Note over A,FL: ③ 下载（后端读流，绝不暴露磁盘路径）
+    A->>FL: 点击「下载」
+    FL->>API: downloadFile(id)  // responseType: blob
+    API->>FMC: GET /api/admin/files/{id}/download
+    FMC->>FRS: download(id, resp, false)
+    FRS->>FRS: FileUtil.resolveSafe(root, relativePath) 路径穿越断言
+    FRS->>DISK: 读文件流
+    FRS-->>FL: Content-Disposition: attachment + 原始文件名(URLEncoder)
+    FL-->>A: 浏览器保存文件
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as 管理员
+    participant V as JobManage.vue
+    participant D as FormDrawer(md)
+    participant API as api/job.js
+    participant JC as ScheduledTaskController
+    participant JS as ScheduledTaskService
+    participant SCH as DynamicTaskScheduler
+    participant JOB as ScheduledJob 实现
+    participant DB as scheduled_task(_log)
+    participant R as Redis(job:running)
+
+    Note over SCH: 应用启动
+    SCH->>SCH: @EventListener(ApplicationReadyEvent)
+    SCH->>DB: SELECT * FROM scheduled_task WHERE status=1 AND deleted=0
+    loop 每个任务
+        SCH->>SCH: registry.put(id, taskScheduler.schedule(runnable, CronTrigger(cron)))
+    end
+
+    Note over A: 新增任务
+    A->>V: 「+ 新增任务」
+    V->>API: getJobOptions()
+    API->>JC: GET /api/admin/jobs/options
+    JC->>JS: options() → SCH.jobOptions()（白名单，不允许自由填类名）
+    V->>D: 任务名* / 分组 / 执行目标(下拉)* / cron* / 参数 / 描述 / 状态
+    A->>D: 填 cron「0 0 3 * * ?」→ 保存
+    D->>API: createJob(form)
+    JC->>JS: create(req)
+    JS->>JS: CronUtils.isValid(cron)
+    alt cron 非法
+        JS-->>D: BizException「cron 表达式格式不正确」
+    else 合法
+        JS->>JS: 校验 jobKey ∈ jobRegistry
+        JS->>DB: INSERT scheduled_task
+        JS->>SCH: refresh(task)  // 无需重启即生效
+        JS-->>D: id
+        V-->>A: 列表刷新（nextExecTime 由 CronUtils 实时算出）
+    end
+
+    Note over A: 暂停 / 恢复
+    A->>V: 点「暂停」
+    V->>API: toggleJob(id, 0)
+    JS->>DB: UPDATE status=0
+    JS->>SCH: cancel(id) → future.cancel(false) + registry.remove(id)
+
+    Note over A: 立即执行一次
+    A->>V: 点「执行一次」
+    V->>API: runJob(id)
+    JC->>JS: runOnce(id)
+    JS->>R: SETNX job:running:{id} (TTL)
+    alt 已在执行
+        JS-->>V: BizException「该任务正在执行中，请稍后重试」
+    else 获取锁
+        JS->>SCH: runOnce(task) → taskScheduler.execute(...)
+        SCH->>JOB: execute(params)
+        JOB-->>SCH: 成功 / 抛异常
+        SCH->>JS: executeAndLog(task,'MANUAL')
+        JS->>DB: INSERT scheduled_task_log(startTime,costMs,success,message)
+        JS->>DB: UPDATE scheduled_task SET last_exec_time/result/cost_ms
+        JS->>R: DEL job:running:{id}
+        V-->>A: ElMessage.success + 列表「上次执行」刷新
+    end
+
+    Note over A: 查看日志
+    A->>V: 点「日志」
+    V->>API: getJobLogs(id, page)
+    JC->>JS: logPage(id,...)
+    JS-->>V: PageResult<ScheduledTaskLogVO>
+    V->>D: FormDrawer(md) 展示 执行时间 / 耗时 / 结果 / 异常摘要
+```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant A as 管理员
+    participant SS as SiteSettings.vue
+    participant BD as BackupDrawer.vue (FormDrawer sm)
+    participant API as api/backup.js
+    participant BC as BackupController
+    participant BS as BackupService
+    participant BM as BackupMapper
+    participant DB as MySQL
+    participant TMP as 临时文件
+
+    A->>SS: 点击底部「备份数据」
+    SS->>BD: v-model=true（默认 scope=ALL, format=JSON）
+    BD->>API: estimateBackup({scope:'ALL'})
+    API->>BC: GET /api/admin/backup/estimate?scope=ALL
+    BC->>BS: estimate('ALL')
+    BS->>BS: requirePermission('system:backup:export')
+    BS->>BS: tablesOf('ALL') → 22 张（后端常量白名单）
+    loop 每张表
+        BS->>BM: SELECT COUNT(*) FROM {table}
+    end
+    BS-->>BD: {tableCount:22, totalRows:12486, tables:[...], suggestedFileName, warning?}
+    BD-->>A: 「预计导出 22 张表，共 12,486 条数据」+ 文件名预览 + 「不含附件二进制」提示
+
+    A->>BD: 切换 scope=CORE / format=SQL
+    BD->>API: estimateBackup({scope:'CORE'})  // 实时刷新表数/条数/文件名后缀
+    BD-->>A: 「预计导出 11 张表，共 386 条数据」
+
+    A->>BD: 点击「确认备份」
+    BD->>BD: loading=true, 按钮禁用（防重复点击）
+    BD->>API: exportBackup({scope,format})  // responseType: 'blob'
+    API->>BC: POST /api/admin/backup/export
+    BC->>BS: export(req, response)
+    BS->>TMP: 创建临时文件 backup_xxx.tmp
+    BS->>TMP: 写 meta 头（版本/时间/范围/格式版本/操作人/表条数/attachmentBinaryIncluded=false/passwordMasked=true）
+    loop 每张表
+        loop 游标分页 id > lastId LIMIT 2000
+            BS->>BM: selectPage(table, lastId, 2000)
+            DB-->>BS: rows
+            BS->>BS: maskValue(user.password → "***")
+            BS->>TMP: JsonDumpWriter / SqlDumpWriter 追加写出
+            alt 超过 200MB 或 单表 20 万行
+                BS->>TMP: 删除临时文件
+                BS-->>BD: BizException「数据量超出备份上限…」（HTTP 200 + JSON 错误体）
+            end
+        end
+    end
+    BS->>TMP: 写尾（JSON 收数组 / SQL 收注释）
+    BS->>BC: 设置 Content-Type + Content-Disposition(backup_2026-08-10_142530.json) + Content-Length
+    BS->>BD: 临时文件流回传后删除
+    alt 返回 Content-Type = application/json（错误体）
+        BD->>BD: 读 blob 文本 → 解析 message
+        BD-->>A: 面板内红色错误条展示具体原因 + 可重试
+    else 二进制成功
+        BD->>BD: URL.createObjectURL + a.download 触发浏览器保存
+        BD-->>A: ElMessage.success + 关闭面板
+    end
+```
+

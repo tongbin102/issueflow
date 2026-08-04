@@ -10,7 +10,7 @@
 ### Security
 
 > **本组变更日期：2026-08-01**，对应任务 #121「M1-M5 安全加固」（设计依据：
-> `docs/ARCH_security_refactor_2026-08-01.md` / `docs/PRD_security_refactor_2026-08-01.md`）。
+> `docs/ARCH-security-refactor-v1.0-2026-08-01.md` / `docs/PRD-security-refactor-v1.0-2026-08-01.md`）。
 >
 > 🚨 **M1 / M2 / M3 属部署侧行为变更，上线前必须先完成「部署前置动作」，否则生产会启动失败或行为与预期不符。**
 
@@ -226,7 +226,7 @@
 > BUG-02/03/06/07 接线，未回退、未重复修改上一轮已落盘改动）。
 
 > **前台改版（任务 #116「用户前台深度定制 / A 路」**，2026-08-01，对应
-> `docs/ARCH_frontend_redesign_2026-08-01.md）。**仅改动 `src/frontend/`，不触碰后端**（后端安全加固见上方 M1–M5）。
+> `docs/ARCH-frontend-redesign-v1.0-2026-08-01.md`）。**仅改动 `src/frontend/`，不触碰后端**（后端安全加固见上方 M1–M5）。
 > 🚨 **铁律：本次重做完整保留了 commit `fcac757` 上线的 7 项工作台行为**（见上方 BUG-02 / 06 / 07 与回归 A / B / C），
 > 未回退、未重复修改；逐条自查见下方「保留行为」与 QA 回归项。**
 
@@ -809,8 +809,8 @@ UI / 数据优化三项：**#1** 头像下拉顺序调整、**#2** 前台侧边�
 ## 链接
 
 - 仓库：https://github.com/tongbin102/issueflow
-- 架构设计：`./architecture.md`
-- 产品需求：`./prd.md`
+- 架构设计：`./ARCHITECTURE.md`
+- 产品需求：`./PRD.md`
 - 设计笔记：`./design-notes.md`
 - 架构决策：`./adr/`
 - 问题记录：`./issues/issue-log.md`

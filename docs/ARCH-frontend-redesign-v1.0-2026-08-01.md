@@ -1,7 +1,7 @@
 # issueFlow 用户前台 UI/UX 重构 — 前端架构设计与任务分解
 
 > 文档类型：前端架构设计（简洁可落地版） ｜ 架构师：高见远 ｜ 日期：2026-08-01
-> 输入：`docs/PRD_frontend_redesign_2026-08-01.md`（产品经理：许清楚）
+> 输入：`docs/PRD-frontend-redesign-v1.0-2026-08-01.md`（产品经理：许清楚）
 > 影响范围：用户前台（`/user` 路由，`UserLayout.vue`；提交者 / 开发 / 测试 / 管理员可见）
 > 前端根：`src/frontend/src`
 

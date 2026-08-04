@@ -1,7 +1,7 @@
 # issueFlow 设计思路摘要
 
 > 本文档为 issueFlow 设计要点的高层摘要，便于快速建立全局认知。
-> 详细接口、数据模型与任务分解见 [`architecture.md`](./architecture.md)；产品目标与权限矩阵见 [`prd.md`](./prd.md)。
+> 详细接口、数据模型与任务分解见 [`ARCHITECTURE.md`](./ARCHITECTURE.md)；产品目标与权限矩阵见 [`PRD.md`](./PRD.md)。
 > 架构决策记录见 [`adr/`](./adr/)；变更历史见 [`CHANGELOG.md`](./CHANGELOG.md)。
 
 ## 1. 分层架构（后端）

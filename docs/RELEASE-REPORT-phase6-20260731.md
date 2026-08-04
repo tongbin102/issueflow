@@ -42,7 +42,7 @@
 - 根因：`issue_type.uk_issue_type_code` 为复合唯一索引 `(code, deleted)`；MyBatis-Plus 逻辑删除把 `deleteById` 翻译成 `UPDATE SET deleted=1`，索引元组由 `(code,0)` 变 `(code,1)`，与既有软删墓碑 `(code,1)` 撞键
 - 修复：改为**生成列方案**——新增 `code_active = IF(deleted=0, code, NULL) VIRTUAL` + `UNIQUE KEY uk_issue_type_code (code_active)`。唯一索引忽略 NULL，故「同一 code 可有多条墓碑 + 至多一条存活行」，语义与 Java `assertCodeUnique()`（仅校验 deleted=0）逐字对齐
 - ⚠️ 否决方案：`(code, deleted)` 复合（原设计，即本次故障源，ARCH 文档曾错误推荐，已划掉）；单列 `(code)` 会把 500 从 delete 迁到「软删后同名 code 新建」，且需改 Java 才兜得住
-- 涉及文件：`scripts/V20260803_issueflow_phase6.sql`（改建表段）、`scripts/V20260803b_fix_issuetype_unique.sql`（新增，增量修复已部署库，幂等）、`docs/ARCH_phase6.md`（改索引设计 + 划掉错误方案）
+- 涉及文件：`scripts/V20260803_issueflow_phase6.sql`（改建表段）、`scripts/V20260803b_fix_issuetype_unique.sql`（新增，增量修复已部署库，幂等）、`docs/archive/2026-08-04/ARCH_phase6.md`（改索引设计 + 划掉错误方案）
 
 ---
 

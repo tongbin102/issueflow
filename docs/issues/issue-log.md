@@ -12,7 +12,7 @@
 
 ## 二、已知限制
 
-1. **后端未在本机编译验证**：因生成环境无 JDK 17，后端代码仅产出、未做 `mvn package` 本地编译；架构与代码已严格对齐，建议用户在 JDK 17 环境 `docker compose up` 后实测。前端已 `npm run build` 通过。
+1. **后端已本机编译验证**：2026-08-05 已在 `D:\Softs\java\jdk-17` + Maven 3.9.9 环境 `mvn -o clean package -DskipTests` 通过（BUILD SUCCESS，产出 `target/issueflow-backend.jar` 约 76MB；11 个测试源同编，仅 1 处 unchecked 警告）。早期"无 JDK17"记录已过时（见项目 MEMORY.md）。前端 `npm run build` 亦通过。
 2. **单 JWT 无 refreshToken**：token 有效期 2h，过期需重新登录；登出/强制失效依赖 Redis 黑名单。MVP 不做无感刷新。
 3. **附件安全**：仅按 `content_type` + 大小（≤20MB）校验，**未做病毒扫描、无扩展名白名单**；存储于后端卷 `/data/attachments/{yyyyMM}/{uuid}.ext`。
 4. **菜单配置简化**：菜单配置以支持开关（`showStats`/`showFlow`）+ 自由 JSON 的简化形态提供，未做拖拽/角色可见性的完整可视化菜单编排（PRD P2）。

@@ -118,6 +118,7 @@ docker compose logs -f backend     # 确认无 "JWT 密钥" 相关启动异常
   （新值会覆盖持久化文件，后续部署自动沿用新值）。
 - 备份 `/opt/issueflow/.jwt_secret` 即可在重装机器后保持存量 token 不失效；
   该文件**严禁**随代码或日志外传。
+- ⚠️ **`docker-compose.23.yml` 是本站脚本 `cat >` 动态生成的产物，手动修改会在下次 `deploy-23.sh` 部署时被覆盖，请勿手改**（需调整 compose 请改脚本的生成逻辑）。23 号线上部署与 JWT 密钥真相另见 [`docs/DEPLOYMENT.md`](./docs/DEPLOYMENT.md)。
 
 #### 🚨 3.4.3 部署前置：生产 SQL 初始化与日志行为变更（M2 / M3）
 
